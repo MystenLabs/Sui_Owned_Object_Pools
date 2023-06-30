@@ -9,34 +9,5 @@ export class Coin {
       public balance: string,
       public lockedUntilEpoch?: number | null
     ) {}
-  
-    // Accessors for Coin class properties
-    get Version(): string {
-      return this.version;
-    }
-  
-    get Digest(): string {
-      return this.digest;
-    }
-  
-    get CoinType(): string {
-      return this.coinType;
-    }
-  
-    get PreviousTransaction(): string {
-      return this.previousTransaction;
-    }
-  
-    get CoinObjectId(): string {
-      return this.coinObjectId;
-    }
-  
-    get Balance(): string {
-      return this.balance;
-    }
-  
-    get LockedUntilEpoch(): number | null | undefined {
-      return this.lockedUntilEpoch;
-    }
   }
   

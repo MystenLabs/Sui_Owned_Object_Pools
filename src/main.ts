@@ -4,10 +4,10 @@ async function main() {
     const cms = new CoinManagement();
   
     try {
-      const gasBudget = 0.0000001; // 100 MIST in decimal format
+      const gasBudget = 0.00000015; // 150 MIST in decimal format
   
       // Call splitCoins first (optionally)
-        await cms.splitCoins(100, 5);
+        await cms.splitCoins(100, 10);
    
   
       // await cms.getCoinsInRange(0, 0.00000015);
@@ -18,15 +18,15 @@ async function main() {
       } else {
         console.log("Taken coins:");
 
-        for (const coinId of takenCoins) {
+         for (const coinId of takenCoins) {
           const coin = cms.getCoinById(coinId);
           if (coin) {
             console.log("-------Coin Used-------");
-            console.log("Coin:", coin.CoinObjectId);
-            console.log("Balance:", coin.Balance);
-            console.log("Version:", coin.Version);
-            console.log("Digest:", coin.Digest);
-            console.log("Locked Until Epoch:", coin.LockedUntilEpoch);
+            console.log("Coin:", coin.coinObjectId);
+            console.log("Balance:", coin.balance);
+            console.log("Version:", coin.version);
+            console.log("Digest:", coin.digest);
+            console.log("Locked Until Epoch:", coin.lockedUntilEpoch);
           }
         }
 
