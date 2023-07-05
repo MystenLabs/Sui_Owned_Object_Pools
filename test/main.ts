@@ -1,4 +1,4 @@
-import { CoinManagement } from "../CoinManagement";
+import { CoinManagement } from "../src/CoinManagement";
 
 async function main() {
     const cms = new CoinManagement();
