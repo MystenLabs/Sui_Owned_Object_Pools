@@ -4,17 +4,35 @@
     "eslint:recommended",
     "plugin:import/typescript",
     "plugin:@typescript-eslint/eslint-recommended",
-    "plugin:@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended"
   ],
   "parser": "@typescript-eslint/parser",
-  "plugins": ["import", "simple-import-sort", "node", "@typescript-eslint"],
+  "plugins": [
+    "import",
+    "simple-import-sort",
+    "@typescript-eslint",
+    "prettier"
+  ],
   "rules": {
     "import/no-cycle": "error",
-    "node/no-extraneous-import": "error",
     "simple-import-sort/imports": "error",
     "simple-import-sort/exports": "error",
     "@typescript-eslint/no-explicit-any": "error",
     "prefer-const": "error",
-    "@typescript-eslint/no-namespace": "off"
+    "@typescript-eslint/no-namespace": "off",
+    "prettier/prettier": [
+      "error", {
+        "singleQuote": true, 
+        "trailingComma": "all"
+      }
+    ],
+    "quotes": [
+      "error", 
+      "single", { 
+        "avoidEscape": true 
+      }
+    ],
+    "lines-around-comment": ["error", { "beforeBlockComment": true }]
   }
 }

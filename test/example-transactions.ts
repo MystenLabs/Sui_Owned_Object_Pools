@@ -3,10 +3,10 @@ import {
   RawSigner,
   testnetConnection,
   TransactionBlock,
-} from "@mysten/sui.js";
-import * as dotenv from "dotenv";
+} from '@mysten/sui.js';
+import * as dotenv from 'dotenv';
 
-import { getKeyPair } from "./helpers";
+import { getKeyPair } from './helpers';
 dotenv.config();
 
 // initialize a provider for testnet
@@ -20,14 +20,14 @@ const userKeyPair = getKeyPair(USER_PRIVATE_KEY);
 // addresses
 const userAddress = userKeyPair.getPublicKey().toSuiAddress();
 
-console.log("user_address= ", userAddress);
+console.log('user_address= ', userAddress);
 const user_account = new RawSigner(userKeyPair, provider);
-console.log("user_account= ", user_account);
+console.log('user_account= ', user_account);
 
 async function splitCoins(
   gasBudget: number,
   txnsEstimate: number,
-  balance: number
+  balance: number,
 ) {
   // Procure a list of some Sui transfers to make:
   const transfers: Transfer[] = getTransfers();
@@ -37,7 +37,7 @@ async function splitCoins(
   // First, split the gas coin into multiple coins:
   const coins = txb.splitCoins(
     txb.gas,
-    transfers.map((transfer) => txb.pure(transfer.amount))
+    transfers.map((transfer) => txb.pure(transfer.amount)),
   );
   // Next, create a transfer transaction for each coin:
   transfers.forEach((transfer, index) => {
@@ -53,7 +53,7 @@ async function splitCoins(
       showEvents: true,
       showInput: true,
     },
-    requestType: "WaitForLocalExecution",
+    requestType: 'WaitForLocalExecution',
   });
 }
 
@@ -67,7 +67,7 @@ function getTransfers(): Transfer[] {
 
   for (let i = 0; i < 10; i++) {
     const transfer: Transfer = {
-      to: "0x63d978f8eea20a587f227c8add048d6b8c0126d36178c11ae585d2d8d346237a",
+      to: '0x63d978f8eea20a587f227c8add048d6b8c0126d36178c11ae585d2d8d346237a',
       amount: 100,
     };
     transfers.push(transfer);
