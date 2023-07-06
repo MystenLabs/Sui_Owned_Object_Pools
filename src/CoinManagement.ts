@@ -1,4 +1,5 @@
 import {
+  Connection,
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
@@ -21,16 +22,47 @@ interface Transfer {
 type CoinData = Coin[];
 
 export class CoinManagement {
-  private provider: JsonRpcProvider;
-  private userKeyPair: Ed25519Keypair;
-  private userAccount: RawSigner;
+  private provider!: JsonRpcProvider;
+  private userKeyPair!: Ed25519Keypair;
+  private userAccount!: RawSigner;
+  private userAddress!: string;
   private fetchedCoins: Coin[] = [];
 
-  constructor() {
-    this.provider = new JsonRpcProvider(testnetConnection);
-    const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
-    this.userKeyPair = this.getKeyPair(USER_PRIVATE_KEY);
+  private constructor(privateKey: string, rpcConnection?: Connection) {
+    this.initialize(privateKey, rpcConnection);
+  }
+
+  private initialize(privateKey: string, rpcConnection?: Connection) {
+    this.provider = new JsonRpcProvider(rpcConnection || testnetConnection);
+    this.userKeyPair = this.getKeyPair(privateKey);
     this.userAccount = new RawSigner(this.userKeyPair, this.provider);
+    this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
+  }
+
+  public static createDefault(rpcConnection?: Connection): CoinManagement {
+    return new CoinManagement(process.env.USER_PRIVATE_KEY!, rpcConnection);
+  }
+
+  public static createWithCustomOptions(
+    chunksOfGas: number,
+    txnsEstimate: number,
+    rpcConnection?: Connection,
+  ): CoinManagement {
+    const coinManagement = new CoinManagement(
+      process.env.USER_PRIVATE_KEY!,
+      rpcConnection,
+    );
+
+    coinManagement.splitCoins(chunksOfGas, txnsEstimate);
+
+    return coinManagement;
+  }
+
+  public static createWithCustomKey(
+    privateKey: string,
+    rpcConnection?: Connection,
+  ): CoinManagement {
+    return new CoinManagement(privateKey, rpcConnection);
   }
 
   private getKeyPair(privateKey: string): Ed25519Keypair {
@@ -42,8 +74,8 @@ export class CoinManagement {
   /**
    * Splits coins based on the given chunks of Gas and transactions estimate.
    * Sends the gas coins to the user's address.
-   * @param chunksOfGas The chuncks of Gas to be used for the Txns.
-   * @param txnsEstimate The estimated number of txns.
+   * @param chunksOfGas The chuncks of Gas to be used for the transactions.
+   * @param txnsEstimate The estimated number of transactions.
    */
   public async splitCoins(
     chunksOfGas: number,
@@ -97,7 +129,7 @@ export class CoinManagement {
     for (let i = 0; i < totalNumOfCoins; i++) {
       // Create a transfer object with the user's SUI address as the recipient and the gas budget as the amount
       const transfer: Transfer = {
-        to: this.userKeyPair.getPublicKey().toSuiAddress(),
+        to: this.userAddress,
         amount: gasBudget,
       };
 
@@ -121,8 +153,7 @@ export class CoinManagement {
     const minTargetBalance = minCoinValue * Number(MIST_PER_SUI);
 
     try {
-      const userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
-      console.log('Fetching coins for:', userAddress);
+      console.log('Fetching coins for:', this.userAddress);
 
       // Fetch all user coins
       const gasCoins = await this.fetchCoins();
@@ -150,10 +181,9 @@ export class CoinManagement {
    */
   private async fetchCoins(nextCursor = ''): Promise<CoinData> {
     const allCoins: CoinData = [];
-    const userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
 
     const getCoinsInput = {
-      owner: userAddress!,
+      owner: this.userAddress,
     };
 
     if (nextCursor) Object.assign(getCoinsInput, { cursor: nextCursor });
@@ -186,7 +216,8 @@ export class CoinManagement {
       allCoins.push(coinObject);
     }
 
-    this.fetchedCoins = allCoins.concat(nextPageData); // Concatenate current page coins with next page coins
+    // Concatenate current page coins with next page coins
+    this.fetchedCoins = allCoins.concat(nextPageData);
     return this.fetchedCoins;
   }
 
