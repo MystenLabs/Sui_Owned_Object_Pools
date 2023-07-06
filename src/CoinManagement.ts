@@ -149,8 +149,9 @@ export class CoinManagement {
     minCoinValue: number,
     maxCoinValue: number,
   ): Promise<CoinData> {
-    const maxTargetBalance = maxCoinValue * Number(MIST_PER_SUI);
-    const minTargetBalance = minCoinValue * Number(MIST_PER_SUI);
+
+    const maxTargetBalance = 1 * Number(MIST_PER_SUI);
+    const minTargetBalance = -1 * Number(MIST_PER_SUI);
 
     try {
       console.log('Fetching coins for:', this.userAddress);
@@ -235,8 +236,8 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      const gasBudgetMIST = gasBudget * 1e9; // Convert the gas budget to MIST
-
+      const gasBudgetMIST = gasBudget; // Convert the gas budget to MIST
+      console.log('Gas budget in take Coins:', gasBudgetMIST);
       // Fetch gas coins within the specified coin value range
       const gasCoins = await this.getCoinsInRange(minCoinValue, maxCoinValue);
 
