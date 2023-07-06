@@ -5,13 +5,12 @@ import {
   JsonRpcProvider,
   MIST_PER_SUI,
   RawSigner,
+  Secp256k1Keypair,
   testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
-import * as dotenv from 'dotenv';
 
 import { Coin } from './Coin';
-dotenv.config();
 
 // Define the Transfer interface
 interface Transfer {
@@ -23,74 +22,93 @@ type CoinData = Coin[];
 
 export class CoinManagement {
   private provider!: JsonRpcProvider;
-  private userKeyPair!: Ed25519Keypair;
+  private userKeyPair!: Ed25519Keypair | Secp256k1Keypair;
   private userAccount!: RawSigner;
   private userAddress!: string;
   private fetchedCoins: Coin[] = [];
 
-  private constructor(privateKey: string, rpcConnection?: Connection) {
-    this.initialize(privateKey, rpcConnection);
+  constructor(
+    key: string,
+    rpcConnection?: Connection,
+    keyFormat: 'base64' | 'hex' | 'mnemonic' = 'base64',
+    keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
+  ) {
+    this.initialize(key, rpcConnection, keyFormat, keyType);
   }
 
-  private initialize(privateKey: string, rpcConnection?: Connection) {
-    if (!privateKey) {
+  private initialize(
+    key: string,
+    rpcConnection?: Connection,
+    keyFormat?: 'base64' | 'hex' | 'mnemonic',
+    keyType?: 'Ed25519' | 'Secp256k1',
+  ) {
+    if (!key) {
       throw new Error('Private key is required for initialization.');
     }
 
     this.provider = new JsonRpcProvider(rpcConnection || testnetConnection);
-    this.userKeyPair = this.getKeyPair(privateKey);
+    this.userKeyPair = this.getKeyPair(
+      key,
+      keyFormat || 'base64',
+      keyType || 'Ed25519',
+    );
     this.userAccount = new RawSigner(this.userKeyPair, this.provider);
     this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
   }
 
-  public static createDefault(rpcConnection?: Connection): CoinManagement {
-    // Get the user's private key from the .env file
-    const privateKey = process.env.USER_PRIVATE_KEY;
-    if (!privateKey) {
-      throw new Error(
-        'Private key not found. Make sure the .env file is properly configured and USER_PRIVATE_KEY is defined.',
-      );
-    }
-
-    return new CoinManagement(privateKey, rpcConnection);
+  public static createDefault(
+    key: string,
+    rpcConnection?: Connection,
+    keyFormat?: 'base64' | 'hex' | 'mnemonic',
+    keyType?: 'Ed25519' | 'Secp256k1',
+  ): CoinManagement {
+    return new CoinManagement(key, rpcConnection, keyFormat, keyType);
   }
 
   public static createWithCustomOptions(
+    key: string,
     chunksOfGas: number,
     txnsEstimate: number,
     rpcConnection?: Connection,
   ): CoinManagement {
-    // Get the user's private key from the .env file
-    const privateKey = process.env.USER_PRIVATE_KEY;
-
-    if (!privateKey) {
-      throw new Error(
-        'USER_PRIVATE_KEY environment variable is not defined. Make sure the .env file is properly configured.',
-      );
-    }
-
-    const coinManagement = new CoinManagement(privateKey, rpcConnection);
+    const coinManagement = new CoinManagement(key, rpcConnection);
     coinManagement.splitCoins(chunksOfGas, txnsEstimate);
 
     return coinManagement;
   }
 
-  public static createWithCustomKey(
-    privateKey: string,
-    rpcConnection?: Connection,
-  ): CoinManagement {
-    if (!privateKey || privateKey.trim() === '') {
-      throw new Error('Invalid private key provided.');
-    }
-
-    return new CoinManagement(privateKey, rpcConnection);
-  }
-
-  private getKeyPair(privateKey: string): Ed25519Keypair {
+  private getKeyPair(
+    key: string,
+    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyType: 'Ed25519' | 'Secp256k1',
+  ): Ed25519Keypair | Secp256k1Keypair {
     try {
-      const privateKeyArray = Array.from(fromB64(privateKey));
-      privateKeyArray.shift();
-      return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+      let privateKeyBytes: Uint8Array;
+
+      switch (keyFormat) {
+        case 'base64':
+          privateKeyBytes = Uint8Array.from(Array.from(fromB64(key)));
+          privateKeyBytes = privateKeyBytes.slice(1); // Remove the first byte
+          break;
+        case 'hex':
+          privateKeyBytes = Uint8Array.from(
+            Array.from(Buffer.from(key.slice(2), 'hex')),
+          );
+          break;
+        case 'mnemonic':
+          if (keyType === 'Ed25519') {
+            return Ed25519Keypair.deriveKeypair(key);
+          } else if (keyType === 'Secp256k1') {
+            return Secp256k1Keypair.deriveKeypair(key);
+          } else {
+            throw new Error('Invalid key type.');
+          }
+        default:
+          throw new Error('Invalid key format.');
+      }
+      return keyType === 'Ed25519'
+        ? Ed25519Keypair.fromSecretKey(privateKeyBytes)
+        : Secp256k1Keypair.fromSecretKey(privateKeyBytes);
     } catch (error) {
       console.error('Error generating key pair:', error);
       throw new Error('Invalid private key');

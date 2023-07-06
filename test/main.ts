@@ -1,9 +1,26 @@
+import { testnetConnection } from '@mysten/sui.js';
+import * as dotenv from 'dotenv';
+
 import { CoinManagement } from '../src/CoinManagement';
+dotenv.config();
 
 async function main() {
   try {
+    const privateKey = process.env.USER_PRIVATE_KEY;
+
+    if (privateKey === undefined) {
+      throw new Error(
+        'Main: Private key not found. Make sure USER_PRIVATE_KEY is defined in the environment.',
+      );
+    }
+
     // Ways to create a CoinManagement instances
-    const cms = CoinManagement.createDefault(); // default rpcConnection is testnet
+    const cms = CoinManagement.createDefault(
+      privateKey,
+      testnetConnection,
+      'base64',
+      'Ed25519',
+    );
 
     // const mainnetCms = CoinManagement.createDefault(mainnetConnection);
     // const customCms = CoinManagement.createWithCustomOptions(
