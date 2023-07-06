@@ -5,7 +5,6 @@ import {
   TransactionBlock,
 } from "@mysten/sui.js";
 import * as dotenv from "dotenv";
-import * as db from './lib/db';
 
 import { getKeyPair } from "./helpers";
 dotenv.config();
@@ -43,14 +42,6 @@ async function splitCoins(
   // Next, create a transfer transaction for each coin:
   transfers.forEach((transfer, index) => {
     txb.transferObjects([coins[index]], txb.pure(transfer.to));
-  });
-
-  db.connect().then(() => {
-    console.log("connected to redis");
-    console.log(coins);
-    // coins.forEach((coin) => {
-    //   db.store(coin);  
-    // })
   });
 
   return user_account.signAndExecuteTransactionBlock({

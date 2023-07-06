@@ -9,6 +9,7 @@ import {
 } from "@mysten/sui.js";
 import { Coin } from "./Coin";
 import * as dotenv from "dotenv";
+import * as db from './lib/db';
 dotenv.config();
 
 // Define the Transfer interface
@@ -18,6 +19,9 @@ interface Transfer {
 }
 
 type CoinData = Coin[];
+
+//Connect to db and store coins
+db.connect();
 
 export class CoinManagement {
   private provider: JsonRpcProvider;
@@ -221,6 +225,8 @@ export class CoinManagement {
         !coinReferences.includes(coinObjectId)
       );
   
+      db.storeCoins(remainingCoins);
+
       console.log("Total gas coins remaining:", remainingCoins.length);
   
       return coinReferences; // Return the coin object IDs for the selected coins

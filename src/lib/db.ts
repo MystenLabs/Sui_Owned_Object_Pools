@@ -45,16 +45,20 @@ export function disconnect() {
 /**
  * Store coins to db.
  */
-export function store(coins: Coin[]) {
+export function storeCoins(coins: Coin[]) {
   coins.forEach(coin => {
-    defaultClient.hSet(`coin:${coin.coinObjectId}`, {
-      version: coin.version,
-      digest: coin.digest,
-      coinType: coin.coinType,
-      previousTransaction: coin.previousTransaction,
-      balance: coin.balance,
-      lockedUntilEpoch: coin.lockedUntilEpoch ? coin.lockedUntilEpoch : ''
-    });
+    defaultClient.hSet(`coin:${coin.coinObjectId}`, coin as any);
+  });
+}
+
+/**
+ * Delete coin from db.
+ */
+export async function deleteCoin(id: string) {
+  let keys = await defaultClient.hKeys(`coin:${id}`);
+  
+  keys.forEach(key => {
+    defaultClient.hDel(`coin:${id}`, key);
   });
 }
 
@@ -66,4 +70,14 @@ export async function getById(id: string) {
   console.log(JSON.stringify(coin, null, 2));
 
   return coin;
+}
+
+/**
+ * Retrieve length of coins from db.
+ */
+export async function getLength() {
+  defaultClient.dbSize().then((res) => {
+    console.log("redis db size:", res);
+    return res;
+  });
 }
