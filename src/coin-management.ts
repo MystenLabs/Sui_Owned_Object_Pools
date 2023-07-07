@@ -9,7 +9,7 @@ import {
   TransactionBlock,
 } from '@mysten/sui.js';
 
-import { Coin } from './Coin';
+import { Coin } from './coin';
 import * as db from './lib/db';
 
 // Define the Transfer interface

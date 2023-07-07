@@ -8,7 +8,7 @@
 
 import { createClient, RedisClientType } from "redis";
 import * as cfg from "./config";
-import { Coin } from "../Coin";
+import { Coin } from "../coin";
 
 const defaultClient = client();
 
