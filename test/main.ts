@@ -1,15 +1,34 @@
+import { testnetConnection } from '@mysten/sui.js';
+import * as dotenv from 'dotenv';
+
 import { CoinManagement } from '../src/CoinManagement';
+dotenv.config();
 
 async function main() {
   try {
-    // Ways to create a CoinManagement instances
-    const cms = CoinManagement.createDefault(); // default rpcConnection is testnet
+    const privateKey = process.env.USER_PRIVATE_KEY;
 
-    // const mainnetCms = CoinManagement.createDefault(mainnetConnection);
-    // const customCms = CoinManagement.createWithCustomOptions(
+    if (privateKey === undefined) {
+      throw new Error(
+        'Main: Private key not found. Make sure USER_PRIVATE_KEY is defined in the environment.',
+      );
+    }
+
+    // Ways to create a CoinManagement instances
+    const cms = CoinManagement.create(
+      privateKey,
+      testnetConnection,
+      'base64',
+      'Ed25519',
+    );
+
+    // const customCms = CoinManagement.createAndSplitCoins(
     //   100, // chunksOfGas
     //   10, // txnsEstimate
-    //   mainnetConnection,
+    //   privateKey,
+    //   testnetConnection,
+    //   'base64',
+    //   'Ed25519',
     // );
 
     const gasBudget = 0.00000015; // 150 MIST in decimal format

@@ -5,14 +5,12 @@ import {
   JsonRpcProvider,
   MIST_PER_SUI,
   RawSigner,
-  testnetConnection,
+  Secp256k1Keypair,
   TransactionBlock,
 } from '@mysten/sui.js';
-import * as dotenv from 'dotenv';
 
 import { Coin } from './Coin';
 import * as db from './lib/db';
-dotenv.config();
 
 // Define the Transfer interface
 interface Transfer {
@@ -24,77 +22,152 @@ type CoinData = Coin[];
 
 export class CoinManagement {
   private provider!: JsonRpcProvider;
-  private userKeyPair!: Ed25519Keypair;
+  private userKeyPair!: Ed25519Keypair | Secp256k1Keypair;
   private userAccount!: RawSigner;
   private userAddress!: string;
   private fetchedCoins: Coin[] = [];
 
-  private constructor(privateKey: string, rpcConnection?: Connection) {
-    this.initialize(privateKey, rpcConnection);
+  private constructor(
+    key: string,
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'passphrase' = 'base64',
+    keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
+  ) {
+    this.initialize(key, rpcConnection, keyFormat, keyType);
 
     //Connect to db and store coins
     db.connect();
   }
 
-  private initialize(privateKey: string, rpcConnection?: Connection) {
-    if (!privateKey) {
+  /**
+   * Initializes the CoinManagement instance with the provided options.
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @throws Error if the private key is not provided.
+   */
+  private initialize(
+    key: string,
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'passphrase',
+    keyType: 'Ed25519' | 'Secp256k1',
+  ) {
+    if (!key) {
       throw new Error('Private key is required for initialization.');
     }
 
-    this.provider = new JsonRpcProvider(rpcConnection || testnetConnection);
-    this.userKeyPair = this.getKeyPair(privateKey);
-    this.userAccount = new RawSigner(this.userKeyPair, this.provider);
-    this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
-  }
+    if (!rpcConnection) {
+      throw new Error('RPC connection is required for initialization.');
+    }
 
-  public static createDefault(rpcConnection?: Connection): CoinManagement {
-    // Get the user's private key from the .env file
-    const privateKey = process.env.USER_PRIVATE_KEY;
-    if (!privateKey) {
+    if (!['base64', 'hex', 'passphrase'].includes(keyFormat)) {
       throw new Error(
-        'Private key not found. Make sure the .env file is properly configured and USER_PRIVATE_KEY is defined.',
+        'Invalid key format. Supported formats are "base64", "hex", or "passphrase".',
       );
     }
 
-    return new CoinManagement(privateKey, rpcConnection);
+    if (!['Ed25519', 'Secp256k1'].includes(keyType)) {
+      throw new Error(
+        'Invalid key type. Supported types are "Ed25519" or "Secp256k1".',
+      );
+    }
+
+    try {
+      this.provider = new JsonRpcProvider(rpcConnection);
+      this.userKeyPair = this.getKeyPair(key, keyFormat, keyType);
+      this.userAccount = new RawSigner(this.userKeyPair, this.provider);
+      this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
+    } catch (error) {
+      console.error('Error initializing CoinManagement:', error);
+      throw new Error('Failed to initialize CoinManagement.');
+    }
   }
 
-  public static createWithCustomOptions(
+  /**
+   * Creates a new instance of CoinManagement with the provided options.
+   *
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns A new instance of CoinManagement.
+   */
+  public static create(
+    key: string,
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'passphrase',
+    keyType: 'Ed25519' | 'Secp256k1',
+  ): CoinManagement {
+    return new CoinManagement(key, rpcConnection, keyFormat, keyType);
+  }
+
+  /**
+   * Creates a new instance of CoinManagement with the provided options and
+   * automatically splits the coins based on the given gas chunks and transaction estimate.
+   *
+   * @param chunksOfGas - The number of gas chunks to be used for the transactions.
+   * @param txnsEstimate - The estimated cost of the transactions.
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns A new instance of CoinManagement with the coins split based on the gas chunks and transaction estimate.
+   */
+  public static createAndSplitCoins(
     chunksOfGas: number,
     txnsEstimate: number,
-    rpcConnection?: Connection,
+    key: string,
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'passphrase' = 'base64',
+    keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ): CoinManagement {
-    // Get the user's private key from the .env file
-    const privateKey = process.env.USER_PRIVATE_KEY;
-
-    if (!privateKey) {
-      throw new Error(
-        'USER_PRIVATE_KEY environment variable is not defined. Make sure the .env file is properly configured.',
-      );
-    }
-
-    const coinManagement = new CoinManagement(privateKey, rpcConnection);
-    coinManagement.splitCoins(chunksOfGas, txnsEstimate);
-
-    return coinManagement;
+    const instance = new CoinManagement(key, rpcConnection, keyFormat, keyType);
+    instance.splitCoins(chunksOfGas, txnsEstimate);
+    return instance;
   }
 
-  public static createWithCustomKey(
-    privateKey: string,
-    rpcConnection?: Connection,
-  ): CoinManagement {
-    if (!privateKey || privateKey.trim() === '') {
-      throw new Error('Invalid private key provided.');
-    }
-
-    return new CoinManagement(privateKey, rpcConnection);
-  }
-
-  private getKeyPair(privateKey: string): Ed25519Keypair {
+  /**
+   * Retrieves the key pair (Ed25519 or Secp256k1) based on the provided key, key format, and key type.
+   *
+   * @param key - The private key or passphrase for generating the key pair.
+   * @param keyFormat - The format of the key ('base64' | 'hex' | 'passphrase').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns (Ed25519Keypair | Secp256k1Keypair) key pair.
+   * @throws Error if the key format is invalid, the key type is invalid, or there is an error generating the key pair.
+   */
+  private getKeyPair(
+    key: string,
+    keyFormat: 'base64' | 'hex' | 'passphrase',
+    keyType: 'Ed25519' | 'Secp256k1',
+  ): Ed25519Keypair | Secp256k1Keypair {
     try {
-      const privateKeyArray = Array.from(fromB64(privateKey));
-      privateKeyArray.shift();
-      return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+      let privateKeyBytes: Uint8Array;
+
+      switch (keyFormat) {
+        case 'base64':
+          privateKeyBytes = Uint8Array.from(Array.from(fromB64(key)));
+          privateKeyBytes = privateKeyBytes.slice(1); // Remove the first byte
+          break;
+        case 'hex':
+          privateKeyBytes = Uint8Array.from(
+            Array.from(Buffer.from(key.slice(2), 'hex')),
+          );
+          break;
+        case 'passphrase':
+          if (keyType === 'Ed25519') {
+            return Ed25519Keypair.deriveKeypair(key);
+          } else if (keyType === 'Secp256k1') {
+            return Secp256k1Keypair.deriveKeypair(key);
+          } else {
+            throw new Error('Invalid key type.');
+          }
+        default:
+          throw new Error('Invalid key format.');
+      }
+      return keyType === 'Ed25519'
+        ? Ed25519Keypair.fromSecretKey(privateKeyBytes)
+        : Secp256k1Keypair.fromSecretKey(privateKeyBytes);
     } catch (error) {
       console.error('Error generating key pair:', error);
       throw new Error('Invalid private key');
@@ -104,6 +177,7 @@ export class CoinManagement {
   /**
    * Splits coins based on the given chunks of Gas and transactions estimate.
    * Sends the gas coins to the user's address.
+   *
    * @param chunksOfGas The chuncks of Gas to be used for the transactions.
    * @param txnsEstimate The estimated number of transactions.
    */
@@ -149,6 +223,7 @@ export class CoinManagement {
 
   /**
    * Builds an array of coin transfers based on the given gas budget and total number of coins.
+   *
    * @param gasBudget The gas budget for each coin.
    * @param totalNumOfCoins The total number of coins.
    * @returns The array of coin transfers.
@@ -180,6 +255,7 @@ export class CoinManagement {
 
   /**
    * Fetches the coins within the specified coin value range.
+   *
    * @param minCoinValue The minimum coin value.
    * @param maxCoinValue The maximum coin value.
    * @returns The array of coins within the specified range.
@@ -216,6 +292,7 @@ export class CoinManagement {
 
   /**
    * Fetches all coins associated with the user's account.
+   *
    * @param nextCursor The cursor for fetching the next page of coins.
    * @returns The array of fetched coins.
    */
@@ -269,12 +346,12 @@ export class CoinManagement {
 
   /**
    * Takes coins from the available gas coins based on the given gas budget and coin value range.
+   *
    * @param gasBudget The gas budget.
    * @param minCoinValue The minimum coin value.
    * @param maxCoinValue The maximum coin value.
    * @returns The array of coin references.
    */
-
   public async takeCoins(
     gasBudget: number,
     minCoinValue: number,
@@ -329,9 +406,11 @@ export class CoinManagement {
   }
 
   /**
-   * Retrieves a coin by its ID.
-   * @param coinId The ID of the coin.
-   * @returns The coin object if found, undefined otherwise.
+   * Retrieves a coin object by its ID.
+   *
+   * @param coinId - The ID of the coin to retrieve.
+   * @returns The coin object if found, or undefined if the coin with the specified ID is not found.
+   * @throws Error if the coin with the specified ID is not found.
    */
   public getCoinById(coinId: string): Coin | undefined {
     const coin = this.fetchedCoins.find((coin) => coin.coinObjectId === coinId);
