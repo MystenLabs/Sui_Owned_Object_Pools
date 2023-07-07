@@ -10,6 +10,7 @@ import {
 } from '@mysten/sui.js';
 
 import { Coin } from './Coin';
+import * as db from './lib/db';
 
 // Define the Transfer interface
 interface Transfer {
@@ -33,6 +34,9 @@ export class CoinManagement {
     keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ) {
     this.initialize(key, rpcConnection, keyFormat, keyType);
+
+    //Connect to db and store coins
+    db.connect();
   }
 
   /**
@@ -389,6 +393,7 @@ export class CoinManagement {
         ({ coinObjectId }: { coinObjectId: string }) =>
           !coinReferences.includes(coinObjectId),
       );
+      db.storeCoins(remainingCoins);
 
       console.log('Total gas coins remaining:', remainingCoins.length);
 
