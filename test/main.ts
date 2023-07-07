@@ -15,18 +15,20 @@ async function main() {
     }
 
     // Ways to create a CoinManagement instances
-    const cms = CoinManagement.createDefault(
+    const cms = CoinManagement.create(
       privateKey,
       testnetConnection,
       'base64',
       'Ed25519',
     );
 
-    // const mainnetCms = CoinManagement.createDefault(mainnetConnection);
-    // const customCms = CoinManagement.createWithCustomOptions(
+    // const customCms = CoinManagement.createAndSplitCoins(
     //   100, // chunksOfGas
     //   10, // txnsEstimate
-    //   mainnetConnection,
+    //   privateKey,
+    //   testnetConnection,
+    //   'base64',
+    //   'Ed25519',
     // );
 
     const gasBudget = 0.00000015; // 150 MIST in decimal format

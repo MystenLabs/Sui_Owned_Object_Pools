@@ -6,7 +6,6 @@ import {
   MIST_PER_SUI,
   RawSigner,
   Secp256k1Keypair,
-  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 
@@ -27,56 +26,112 @@ export class CoinManagement {
   private userAddress!: string;
   private fetchedCoins: Coin[] = [];
 
-  constructor(
+  private constructor(
     key: string,
-    rpcConnection?: Connection,
+    rpcConnection: Connection,
     keyFormat: 'base64' | 'hex' | 'mnemonic' = 'base64',
     keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ) {
     this.initialize(key, rpcConnection, keyFormat, keyType);
   }
 
+  /**
+   * Initializes the CoinManagement instance with the provided options.
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @throws Error if the private key is not provided.
+   */
   private initialize(
     key: string,
-    rpcConnection?: Connection,
-    keyFormat?: 'base64' | 'hex' | 'mnemonic',
-    keyType?: 'Ed25519' | 'Secp256k1',
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyType: 'Ed25519' | 'Secp256k1',
   ) {
     if (!key) {
       throw new Error('Private key is required for initialization.');
     }
 
-    this.provider = new JsonRpcProvider(rpcConnection || testnetConnection);
-    this.userKeyPair = this.getKeyPair(
-      key,
-      keyFormat || 'base64',
-      keyType || 'Ed25519',
-    );
-    this.userAccount = new RawSigner(this.userKeyPair, this.provider);
-    this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
+    if (!rpcConnection) {
+      throw new Error('RPC connection is required for initialization.');
+    }
+
+    if (!['base64', 'hex', 'mnemonic'].includes(keyFormat)) {
+      throw new Error(
+        'Invalid key format. Supported formats are "base64", "hex", or "mnemonic".',
+      );
+    }
+
+    if (!['Ed25519', 'Secp256k1'].includes(keyType)) {
+      throw new Error(
+        'Invalid key type. Supported types are "Ed25519" or "Secp256k1".',
+      );
+    }
+
+    try {
+      this.provider = new JsonRpcProvider(rpcConnection);
+      this.userKeyPair = this.getKeyPair(key, keyFormat, keyType);
+      this.userAccount = new RawSigner(this.userKeyPair, this.provider);
+      this.userAddress = this.userKeyPair.getPublicKey().toSuiAddress();
+    } catch (error) {
+      console.error('Error initializing CoinManagement:', error);
+      throw new Error('Failed to initialize CoinManagement.');
+    }
   }
 
-  public static createDefault(
+  /**
+   * Creates a new instance of CoinManagement with the provided options.
+   *
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns A new instance of CoinManagement.
+   */
+  public static create(
     key: string,
-    rpcConnection?: Connection,
-    keyFormat?: 'base64' | 'hex' | 'mnemonic',
-    keyType?: 'Ed25519' | 'Secp256k1',
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyType: 'Ed25519' | 'Secp256k1',
   ): CoinManagement {
     return new CoinManagement(key, rpcConnection, keyFormat, keyType);
   }
 
-  public static createWithCustomOptions(
-    key: string,
+  /**
+   * Creates a new instance of CoinManagement with the provided options and
+   * automatically splits the coins based on the given gas chunks and transaction estimate.
+   *
+   * @param chunksOfGas - The number of gas chunks to be used for the transactions.
+   * @param txnsEstimate - The estimated cost of the transactions.
+   * @param key - The private key for initialization.
+   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns A new instance of CoinManagement with the coins split based on the gas chunks and transaction estimate.
+   */
+  public static createAndSplitCoins(
     chunksOfGas: number,
     txnsEstimate: number,
-    rpcConnection?: Connection,
+    key: string,
+    rpcConnection: Connection,
+    keyFormat: 'base64' | 'hex' | 'mnemonic' = 'base64',
+    keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ): CoinManagement {
-    const coinManagement = new CoinManagement(key, rpcConnection);
-    coinManagement.splitCoins(chunksOfGas, txnsEstimate);
-
-    return coinManagement;
+    const instance = new CoinManagement(key, rpcConnection, keyFormat, keyType);
+    instance.splitCoins(chunksOfGas, txnsEstimate);
+    return instance;
   }
 
+  /**
+   * Retrieves the key pair (Ed25519 or Secp256k1) based on the provided key, key format, and key type.
+   *
+   * @param key - The private key or mnemonic for generating the key pair.
+   * @param keyFormat - The format of the key ('base64' | 'hex' | 'mnemonic').
+   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
+   * @returns (Ed25519Keypair | Secp256k1Keypair) key pair.
+   * @throws Error if the key format is invalid, the key type is invalid, or there is an error generating the key pair.
+   */
   private getKeyPair(
     key: string,
     keyFormat: 'base64' | 'hex' | 'mnemonic',
@@ -118,6 +173,7 @@ export class CoinManagement {
   /**
    * Splits coins based on the given chunks of Gas and transactions estimate.
    * Sends the gas coins to the user's address.
+   *
    * @param chunksOfGas The chuncks of Gas to be used for the transactions.
    * @param txnsEstimate The estimated number of transactions.
    */
@@ -163,6 +219,7 @@ export class CoinManagement {
 
   /**
    * Builds an array of coin transfers based on the given gas budget and total number of coins.
+   *
    * @param gasBudget The gas budget for each coin.
    * @param totalNumOfCoins The total number of coins.
    * @returns The array of coin transfers.
@@ -194,6 +251,7 @@ export class CoinManagement {
 
   /**
    * Fetches the coins within the specified coin value range.
+   *
    * @param minCoinValue The minimum coin value.
    * @param maxCoinValue The maximum coin value.
    * @returns The array of coins within the specified range.
@@ -230,6 +288,7 @@ export class CoinManagement {
 
   /**
    * Fetches all coins associated with the user's account.
+   *
    * @param nextCursor The cursor for fetching the next page of coins.
    * @returns The array of fetched coins.
    */
@@ -283,12 +342,12 @@ export class CoinManagement {
 
   /**
    * Takes coins from the available gas coins based on the given gas budget and coin value range.
+   *
    * @param gasBudget The gas budget.
    * @param minCoinValue The minimum coin value.
    * @param maxCoinValue The maximum coin value.
    * @returns The array of coin references.
    */
-
   public async takeCoins(
     gasBudget: number,
     minCoinValue: number,
@@ -342,9 +401,11 @@ export class CoinManagement {
   }
 
   /**
-   * Retrieves a coin by its ID.
-   * @param coinId The ID of the coin.
-   * @returns The coin object if found, undefined otherwise.
+   * Retrieves a coin object by its ID.
+   *
+   * @param coinId - The ID of the coin to retrieve.
+   * @returns The coin object if found, or undefined if the coin with the specified ID is not found.
+   * @throws Error if the coin with the specified ID is not found.
    */
   public getCoinById(coinId: string): Coin | undefined {
     const coin = this.fetchedCoins.find((coin) => coin.coinObjectId === coinId);
