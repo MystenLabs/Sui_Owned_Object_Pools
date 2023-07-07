@@ -1,4 +1,8 @@
-import { Connection, testnetConnection } from '@mysten/sui.js';
+import {
+  Connection,
+  testnetConnection,
+  TransactionBlock,
+} from '@mysten/sui.js';
 
 import { CoinManagement } from '../../src/coin-management';
 import * as db from '../../src/lib/db';
@@ -14,7 +18,7 @@ jest.mock('../../src/lib/db', () => ({
   connect: jest.fn(), // Mock the connect method
 }));
 
-describe('CoinManagement initialization', () => {
+describe('CoinManagement initialization with create', () => {
   beforeEach(() => {
     // Reset the mock before each test
     jest.clearAllMocks();
@@ -115,3 +119,108 @@ describe('CoinManagement initialization', () => {
     );
   });
 });
+
+describe('CoinManagement initialization with createAndSplitCoins', () => {
+  it('should create a new instance of CoinManagement', () => {
+    const chunksOfGas = 2;
+    const txnsEstimate = 10;
+
+    const cms = CoinManagement.createAndSplitCoins(
+      chunksOfGas,
+      txnsEstimate,
+      TEST_KEYS[0],
+      testnetConnection,
+      'base64',
+      'Ed25519',
+    );
+
+    expect(cms).toBeInstanceOf(CoinManagement);
+  });
+
+  it('should split the coins based on the provided gas chunks and transaction estimate', () => {
+    const chunksOfGas = 2;
+    const txnsEstimate = 10;
+
+    const splitCoinsSpy = jest.spyOn(CoinManagement.prototype, 'splitCoins');
+
+    CoinManagement.createAndSplitCoins(
+      chunksOfGas,
+      txnsEstimate,
+      TEST_KEYS[0],
+      testnetConnection,
+      'base64',
+      'Ed25519',
+    );
+
+    expect(splitCoinsSpy).toHaveBeenCalledWith(chunksOfGas, txnsEstimate);
+  });
+});
+
+describe('CoinManagement splitCoins', () => {
+  beforeEach(() => {
+    // Reset the mock before each test
+    jest.clearAllMocks();
+  });
+
+  it("should execute the transaction block correctly and transfer gas coins to the user's address", async () => {
+    // Mock the necessary dependencies
+    const mockedSignAndExecuteTransactionBlock = jest.fn();
+
+    const cms = CoinManagement.create(
+      TEST_KEYS[0],
+      testnetConnection,
+      'base64',
+      'Ed25519',
+    );
+
+    // Set the mock function
+    cms.setMockSignAndExecuteTransactionBlock(
+      mockedSignAndExecuteTransactionBlock,
+    );
+
+    await cms.splitCoins(100, 10);
+
+    // Assert that signAndExecuteTransactionBlock was called
+    expect(mockedSignAndExecuteTransactionBlock).toHaveBeenCalled();
+  }, 100000);
+});
+
+// describe('CoinManagement takeCoins', () => {
+//   beforeEach(() => {
+//     // Reset the mock before each test
+//     jest.clearAllMocks();
+//   });
+
+//   it('should take coins correctly based on the gas budget and coin value range', async () => {
+//     // Mock the necessary dependencies
+//     const mockedSignAndExecuteTransactionBlock = jest.fn();
+
+//     const cms = CoinManagement.create(
+//       TEST_KEYS[0],
+//       testnetConnection,
+//       'base64',
+//       'Ed25519',
+//     );
+
+//     // Set the mock function
+//     cms.setMockSignAndExecuteTransactionBlock(
+//       mockedSignAndExecuteTransactionBlock,
+//     );
+
+//     // Call the takeCoins method with the gas budget
+//     const gasBudget = 0.00000015;
+//     const takenCoins = await cms.takeCoins(gasBudget, 0, 1);
+
+//     // Assert that the signAndExecuteTransactionBlock method was called
+//     expect(mockedSignAndExecuteTransactionBlock).toHaveBeenCalled();
+//   }, 100000);
+// });
+
+// describe('CoinManagement getCoinsInRange', () => {
+// });
+
+// describe('CoinManagement fetchCoins', () => {
+// });
+
+// describe('CoinManagement getCoinById', () => {
+// });

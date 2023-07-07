@@ -421,4 +421,14 @@ export class CoinManagement {
 
     return coin;
   }
+
+  /**
+   * Sets the mock for the user account's signAndExecuteTransactionBlock method.
+   * This is used for testing purposes.
+   *
+   * @param mock
+   */
+  public setMockSignAndExecuteTransactionBlock(mock: jest.Mock): void {
+    this.userAccount.signAndExecuteTransactionBlock = mock;
+  }
 }
