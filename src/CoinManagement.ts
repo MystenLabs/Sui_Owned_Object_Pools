@@ -11,6 +11,7 @@ import {
 import * as dotenv from 'dotenv';
 
 import { Coin } from './Coin';
+import * as db from './lib/db';
 dotenv.config();
 
 // Define the Transfer interface
@@ -30,6 +31,9 @@ export class CoinManagement {
 
   private constructor(privateKey: string, rpcConnection?: Connection) {
     this.initialize(privateKey, rpcConnection);
+
+    //Connect to db and store coins
+    db.connect();
   }
 
   private initialize(privateKey: string, rpcConnection?: Connection) {
@@ -312,6 +316,7 @@ export class CoinManagement {
         ({ coinObjectId }: { coinObjectId: string }) =>
           !coinReferences.includes(coinObjectId),
       );
+      db.storeCoins(remainingCoins);
 
       console.log('Total gas coins remaining:', remainingCoins.length);
 
