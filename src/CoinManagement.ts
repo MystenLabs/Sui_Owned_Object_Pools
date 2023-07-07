@@ -29,7 +29,7 @@ export class CoinManagement {
   private constructor(
     key: string,
     rpcConnection: Connection,
-    keyFormat: 'base64' | 'hex' | 'mnemonic' = 'base64',
+    keyFormat: 'base64' | 'hex' | 'passphrase' = 'base64',
     keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ) {
     this.initialize(key, rpcConnection, keyFormat, keyType);
@@ -39,14 +39,14 @@ export class CoinManagement {
    * Initializes the CoinManagement instance with the provided options.
    * @param key - The private key for initialization.
    * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
-   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
    * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
    * @throws Error if the private key is not provided.
    */
   private initialize(
     key: string,
     rpcConnection: Connection,
-    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyFormat: 'base64' | 'hex' | 'passphrase',
     keyType: 'Ed25519' | 'Secp256k1',
   ) {
     if (!key) {
@@ -57,9 +57,9 @@ export class CoinManagement {
       throw new Error('RPC connection is required for initialization.');
     }
 
-    if (!['base64', 'hex', 'mnemonic'].includes(keyFormat)) {
+    if (!['base64', 'hex', 'passphrase'].includes(keyFormat)) {
       throw new Error(
-        'Invalid key format. Supported formats are "base64", "hex", or "mnemonic".',
+        'Invalid key format. Supported formats are "base64", "hex", or "passphrase".',
       );
     }
 
@@ -85,14 +85,14 @@ export class CoinManagement {
    *
    * @param key - The private key for initialization.
    * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
-   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
    * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
    * @returns A new instance of CoinManagement.
    */
   public static create(
     key: string,
     rpcConnection: Connection,
-    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyFormat: 'base64' | 'hex' | 'passphrase',
     keyType: 'Ed25519' | 'Secp256k1',
   ): CoinManagement {
     return new CoinManagement(key, rpcConnection, keyFormat, keyType);
@@ -106,7 +106,7 @@ export class CoinManagement {
    * @param txnsEstimate - The estimated cost of the transactions.
    * @param key - The private key for initialization.
    * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
-   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'mnemonic').
+   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
    * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
    * @returns A new instance of CoinManagement with the coins split based on the gas chunks and transaction estimate.
    */
@@ -115,7 +115,7 @@ export class CoinManagement {
     txnsEstimate: number,
     key: string,
     rpcConnection: Connection,
-    keyFormat: 'base64' | 'hex' | 'mnemonic' = 'base64',
+    keyFormat: 'base64' | 'hex' | 'passphrase' = 'base64',
     keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ): CoinManagement {
     const instance = new CoinManagement(key, rpcConnection, keyFormat, keyType);
@@ -126,15 +126,15 @@ export class CoinManagement {
   /**
    * Retrieves the key pair (Ed25519 or Secp256k1) based on the provided key, key format, and key type.
    *
-   * @param key - The private key or mnemonic for generating the key pair.
-   * @param keyFormat - The format of the key ('base64' | 'hex' | 'mnemonic').
+   * @param key - The private key or passphrase for generating the key pair.
+   * @param keyFormat - The format of the key ('base64' | 'hex' | 'passphrase').
    * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
    * @returns (Ed25519Keypair | Secp256k1Keypair) key pair.
    * @throws Error if the key format is invalid, the key type is invalid, or there is an error generating the key pair.
    */
   private getKeyPair(
     key: string,
-    keyFormat: 'base64' | 'hex' | 'mnemonic',
+    keyFormat: 'base64' | 'hex' | 'passphrase',
     keyType: 'Ed25519' | 'Secp256k1',
   ): Ed25519Keypair | Secp256k1Keypair {
     try {
@@ -150,7 +150,7 @@ export class CoinManagement {
             Array.from(Buffer.from(key.slice(2), 'hex')),
           );
           break;
-        case 'mnemonic':
+        case 'passphrase':
           if (keyType === 'Ed25519') {
             return Ed25519Keypair.deriveKeypair(key);
           } else if (keyType === 'Secp256k1') {
