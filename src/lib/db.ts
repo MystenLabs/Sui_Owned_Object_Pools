@@ -65,7 +65,7 @@ export async function deleteCoin(id: string) {
 /**
  * Retrieve coins by id from db.
  */
-export async function getById(id: string) {
+export async function getCoinById(id: string) {
   let coin = await defaultClient.hGetAll(`coin:${id}`);
   console.log(JSON.stringify(coin, null, 2));
 
@@ -77,7 +77,6 @@ export async function getById(id: string) {
  */
 export async function getLength() {
   defaultClient.dbSize().then((res) => {
-    console.log("redis db size:", res);
     return res;
   });
 }

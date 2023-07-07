@@ -22,9 +22,6 @@ interface Transfer {
 
 type CoinData = Coin[];
 
-//Connect to db and store coins
-db.connect();
-
 export class CoinManagement {
   private provider!: JsonRpcProvider;
   private userKeyPair!: Ed25519Keypair;
@@ -34,6 +31,9 @@ export class CoinManagement {
 
   private constructor(privateKey: string, rpcConnection?: Connection) {
     this.initialize(privateKey, rpcConnection);
+
+    //Connect to db and store coins
+    db.connect();
   }
 
   private initialize(privateKey: string, rpcConnection?: Connection) {
