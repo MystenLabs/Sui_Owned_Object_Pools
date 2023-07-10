@@ -157,7 +157,7 @@ export class CoinManagement {
       console.log('Fetching coins for:', this.userAddress);
 
       // Fetch all user coins
-      const gasCoins = await this.fetchCoins();
+      const gasCoins = await this.fetchAllCoins();
 
       // Filter the fetched coins based on the target balance range
       const filteredGasCoins = gasCoins.filter(
@@ -180,7 +180,7 @@ export class CoinManagement {
    * @param nextCursor The cursor for fetching the next page of coins.
    * @returns The array of fetched coins.
    */
-  private async fetchCoins(nextCursor = ''): Promise<CoinData> {
+  private async fetchAllCoins(nextCursor = ''): Promise<CoinData> {
     const allCoins: CoinData = [];
 
     const getCoinsInput = {
@@ -199,7 +199,7 @@ export class CoinManagement {
           nextCursor ? 'page with cursor ' + nextCursor : 'first page'
         }`,
       );
-      nextPageData = await this.fetchCoins(res.nextCursor); // Recursively fetch next page of coins
+      nextPageData = await this.fetchAllCoins(res.nextCursor); // Recursively fetch next page of coins
     }
 
     // Convert each retrieved coin data into Coin objects and add them to the array
@@ -235,7 +235,7 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      const gasBudgetMIST = gasBudget; // Convert the gas budget to MIST
+      const gasBudgetMIST = gasBudget; // Convert the gas budget to MIST i  
       console.log('Gas budget in take Coins:', gasBudgetMIST);
       // Fetch gas coins within the specified coin value range
       const gasCoins = await this.getCoinsInRange(minCoinValue, maxCoinValue);
