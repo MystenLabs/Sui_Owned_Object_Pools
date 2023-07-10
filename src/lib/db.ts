@@ -5,10 +5,9 @@
  * @module lib/db
  */
 
-
-import { createClient, RedisClientType } from "redis";
-import * as cfg from "./config";
-import { Coin } from "../Coin";
+import { createClient, RedisClientType } from 'redis';
+import * as cfg from './config';
+import { Coin } from '../Coin';
 
 const defaultClient = client();
 
@@ -32,21 +31,25 @@ BigInt.prototype.toJSON = function () {
  * Connect the client to the db.
  */
 export function connect() {
-  return defaultClient.connect().then(() => console.log("Redis client connected"));
+  return defaultClient
+    .connect()
+    .then(() => console.log('Redis client connected'));
 }
 
 /**
  * Disconnect the client.
  */
 export function disconnect() {
-  return defaultClient.disconnect().then(() => console.log("Redis client disconnected"));
+  return defaultClient
+    .disconnect()
+    .then(() => console.log('Redis client disconnected'));
 }
 
 /**
  * Store coins to db.
  */
 export function storeCoins(coins: Coin[]) {
-  coins.forEach(coin => {
+  coins.forEach((coin) => {
     defaultClient.hSet(`coin:${coin.coinObjectId}`, coin as any);
   });
 }
@@ -56,8 +59,8 @@ export function storeCoins(coins: Coin[]) {
  */
 export async function deleteCoin(id: string) {
   let keys = await defaultClient.hKeys(`coin:${id}`);
-  
-  keys.forEach(key => {
+
+  keys.forEach((key) => {
     defaultClient.hDel(`coin:${id}`, key);
   });
 }
@@ -70,6 +73,35 @@ export async function getCoinById(id: string) {
   console.log(JSON.stringify(coin, null, 2));
 
   return coin;
+}
+
+/**
+ * Get total coin balance from db.
+ */
+export async function getTotalBalance() {
+  defaultClient.connect().then(async () => {
+    let totalBalance: number = 0;
+    let coins = await defaultClient.scan(0);
+
+    let getBalance = new Promise<void>((resolve) => {
+      coins.keys.forEach(async (coin, index, array) => {
+        let coinObj = await defaultClient.hGetAll(`${coin}`);
+
+        totalBalance += Number(coinObj.balance);
+        if (index === array.length - 1) resolve();
+      });
+    });
+
+    getBalance
+      .then(() => {
+        console.log('Total Balance: ', totalBalance);
+
+        return totalBalance;
+      })
+      .catch((err) => {
+        console.error('Could not get total balance because of error: ', err);
+      });
+  });
 }
 
 /**

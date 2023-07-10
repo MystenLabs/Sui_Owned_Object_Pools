@@ -8,12 +8,7 @@
     "plugin:prettier/recommended"
   ],
   "parser": "@typescript-eslint/parser",
-  "plugins": [
-    "import",
-    "simple-import-sort",
-    "@typescript-eslint",
-    "prettier"
-  ],
+  "plugins": ["import", "simple-import-sort", "@typescript-eslint", "prettier"],
   "rules": {
     "import/no-cycle": "error",
     "simple-import-sort/imports": "error",
@@ -22,15 +17,17 @@
     "prefer-const": "error",
     "@typescript-eslint/no-namespace": "off",
     "prettier/prettier": [
-      "error", {
-        "singleQuote": true, 
+      "error",
+      {
+        "singleQuote": true,
         "trailingComma": "all"
       }
     ],
     "quotes": [
-      "error", 
-      "single", { 
-        "avoidEscape": true 
+      "error",
+      "single",
+      {
+        "avoidEscape": true
       }
     ],
     "lines-around-comment": ["error", { "beforeBlockComment": true }]
