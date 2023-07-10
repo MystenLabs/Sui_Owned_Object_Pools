@@ -84,9 +84,9 @@ export async function getTotalBalance() {
 
   let getBalance = new Promise<void>((resolve) => {
     coins.keys.forEach(async (coin, index, array) => {
-      let coinObj = await defaultClient.hGetAll(`${coin}`);
+      let coinBalance = await defaultClient.hGet(`${coin}`, 'balance');
 
-      totalBalance += Number(coinObj.balance);
+      totalBalance += Number(coinBalance);
       if (index === array.length - 1) resolve();
     });
   });
