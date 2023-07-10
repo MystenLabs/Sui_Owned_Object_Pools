@@ -79,29 +79,27 @@ export async function getCoinById(id: string) {
  * Get total coin balance from db.
  */
 export async function getTotalBalance() {
-  defaultClient.connect().then(async () => {
-    let totalBalance: number = 0;
-    let coins = await defaultClient.scan(0);
+  let totalBalance: number = 0;
+  let coins = await defaultClient.scan(0);
 
-    let getBalance = new Promise<void>((resolve) => {
-      coins.keys.forEach(async (coin, index, array) => {
-        let coinObj = await defaultClient.hGetAll(`${coin}`);
+  let getBalance = new Promise<void>((resolve) => {
+    coins.keys.forEach(async (coin, index, array) => {
+      let coinObj = await defaultClient.hGetAll(`${coin}`);
 
-        totalBalance += Number(coinObj.balance);
-        if (index === array.length - 1) resolve();
-      });
+      totalBalance += Number(coinObj.balance);
+      if (index === array.length - 1) resolve();
     });
-
-    getBalance
-      .then(() => {
-        console.log('Total Balance: ', totalBalance);
-
-        return totalBalance;
-      })
-      .catch((err) => {
-        console.error('Could not get total balance because of error: ', err);
-      });
   });
+
+  getBalance
+    .then(() => {
+      console.log('Total Balance: ', totalBalance);
+
+      return totalBalance;
+    })
+    .catch((err) => {
+      console.error('Could not get total balance because of error: ', err);
+    });
 }
 
 /**
