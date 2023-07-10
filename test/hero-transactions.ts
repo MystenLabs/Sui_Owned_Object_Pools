@@ -126,6 +126,7 @@ const mintHero = async (): Promise<void> => {
     console.log('gas cost:', gasBudget);
     mintGasUsed.push(gasCost || 0);
 
+    // Get the sufficient available gas coins needed for the gasBudget
     const gasCoins = await cms.takeCoins(gasBudget !== null ? gasBudget : 0, 0, 0.003470152);
 
     if (gasCoins.length === 0) {
@@ -148,6 +149,7 @@ const mintHero = async (): Promise<void> => {
           console.log('Version:', coin.version);
           console.log('Digest:', coin.digest);
 
+          // Building the gas payment object
           mygasCoins.push({
             digest: coin.digest,
             objectId: coin.coinObjectId,

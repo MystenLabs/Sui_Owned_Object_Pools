@@ -112,7 +112,23 @@ export class CoinManagement {
       },
       requestType: 'WaitForLocalExecution',
     });
+
+  /* Call addCoinsToRedis() for each coins element in the coins array
+     
+    coins.forEach((coin) => {
+      this.addCoinsToRedis(coin);
+    });
+  
+  */  
   }
+
+  /* To be implemented - addCoinsToRedis
+  
+  private addCoinsToRedis(coin: Coin): void {
+    // Add the coin to Redis
+  }
+
+  */
 
   /**
    * Builds an array of coin transfers based on the given gas budget and total number of coins.
@@ -156,7 +172,7 @@ export class CoinManagement {
     try {
       console.log('Fetching coins for:', this.userAddress);
 
-      // Fetch all user coins
+      // Fetch all user coins. ****** To be implemented: fetch coins from Redis
       const gasCoins = await this.fetchAllCoins();
 
       // Filter the fetched coins based on the target balance range
