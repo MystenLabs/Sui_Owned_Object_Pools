@@ -98,3 +98,21 @@ export async function getLength() {
     return res;
   });
 }
+
+/**
+ * Retrieve a snapshot of all the coins used as gas.
+ */
+export async function getSnapshot(): Promise<Coin[]> {
+  const keys = await defaultClient.keys('coin:*');
+  const coins: Coin[] = [];
+
+  for (const key of keys) {
+    const coinObject = await defaultClient.hGet(key, 'coin');
+    if (coinObject) {
+      const coin = JSON.parse(coinObject) as Coin;
+      coins.push(coin);
+    }
+  }
+
+  return coins;
+}
