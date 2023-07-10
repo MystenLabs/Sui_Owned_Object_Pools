@@ -117,10 +117,9 @@ const mintHero = async (): Promise<void> => {
     
       const parsedComputationCost = parseInt(computationCost, 10);
       const parsedStorageCost = parseInt(storageCost, 10);
-      const parsedStorageRebate = parseInt(storageRebate, 10);
     
-      if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost) && !isNaN(parsedStorageRebate)) {
-        gasBudget = (parsedComputationCost + parsedStorageCost - parsedStorageRebate)*-1;
+      if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
+        gasBudget = (parsedComputationCost + parsedStorageCost);
       }
     }
     
@@ -148,7 +147,6 @@ const mintHero = async (): Promise<void> => {
           console.log('Balance:', coin.balance);
           console.log('Version:', coin.version);
           console.log('Digest:', coin.digest);
-          console.log('Locked Until Epoch:', coin.lockedUntilEpoch);
 
           mygasCoins.push({
             digest: coin.digest,
