@@ -32,7 +32,6 @@ async function main() {
           console.log('Balance:', coin.balance);
           console.log('Version:', coin.version);
           console.log('Digest:', coin.digest);
-          console.log('Locked Until Epoch:', coin.lockedUntilEpoch);
         }
       }
     }

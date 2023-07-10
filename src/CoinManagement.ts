@@ -211,7 +211,6 @@ export class CoinManagement {
         coin.previousTransaction,
         coin.coinObjectId,
         coin.balance,
-        coin.lockedUntilEpoch,
       );
       console.log('coin = ', coinObject);
       allCoins.push(coinObject);
