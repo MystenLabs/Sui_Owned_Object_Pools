@@ -172,7 +172,7 @@ export class CoinManagement {
     try {
       console.log('Fetching coins for:', this.userAddress);
 
-      // Fetch all user coins. ****** To be implemented: fetch coins from Redis
+      // Fetch all user coins. ****** To be replaced: fetchAllCoins to fetch coins from Redis fetchFromRedis() ******
       const gasCoins = await this.fetchAllCoins();
 
       // Filter the fetched coins based on the target balance range
