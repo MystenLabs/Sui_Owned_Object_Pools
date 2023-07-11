@@ -5,10 +5,9 @@
  * @module lib/db
  */
 
-
-import { createClient, RedisClientType } from "redis";
-import * as cfg from "./config";
-import { Coin } from "../Coin";
+import { createClient, RedisClientType } from 'redis';
+import * as cfg from './config';
+import { Coin } from '../Coin';
 
 const defaultClient = client();
 
@@ -32,21 +31,25 @@ BigInt.prototype.toJSON = function () {
  * Connect the client to the db.
  */
 export function connect() {
-  return defaultClient.connect().then(() => console.log("Redis client connected"));
+  return defaultClient
+    .connect()
+    .then(() => console.log('Redis client connected'));
 }
 
 /**
  * Disconnect the client.
  */
 export function disconnect() {
-  return defaultClient.disconnect().then(() => console.log("Redis client disconnected"));
+  return defaultClient
+    .disconnect()
+    .then(() => console.log('Redis client disconnected'));
 }
 
 /**
  * Store coins to db.
  */
 export function storeCoins(coins: Coin[]) {
-  coins.forEach(coin => {
+  coins.forEach((coin) => {
     defaultClient.hSet(`coin:${coin.coinObjectId}`, coin as any);
   });
 }
@@ -55,9 +58,9 @@ export function storeCoins(coins: Coin[]) {
  * Delete coin from db.
  */
 export async function deleteCoin(id: string) {
-  let keys = await defaultClient.hKeys(`coin:${id}`);
-  
-  keys.forEach(key => {
+  const keys = await defaultClient.hKeys(`coin:${id}`);
+
+  keys.forEach((key) => {
     defaultClient.hDel(`coin:${id}`, key);
   });
 }
@@ -66,10 +69,25 @@ export async function deleteCoin(id: string) {
  * Retrieve coins by id from db.
  */
 export async function getCoinById(id: string) {
-  let coin = await defaultClient.hGetAll(`coin:${id}`);
-  console.log(JSON.stringify(coin, null, 2));
+  const coin = await defaultClient.hGetAll(`coin:${id}`);
 
   return coin;
+}
+
+/**
+ * Get total coin balance from db.
+ */
+export async function getTotalBalance() {
+  let totalBalance: number = 0;
+  const { cursor, keys } = await defaultClient.scan(0);
+
+  for (let key of keys) {
+    let coinBalance = await defaultClient.hGet(`${key}`, 'balance');
+
+    totalBalance += Number(coinBalance);
+  }
+
+  return totalBalance;
 }
 
 /**
