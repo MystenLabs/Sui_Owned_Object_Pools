@@ -58,7 +58,7 @@ export function storeCoins(coins: Coin[]) {
  * Delete coin from db.
  */
 export async function deleteCoin(id: string) {
-  let keys = await defaultClient.hKeys(`coin:${id}`);
+  const keys = await defaultClient.hKeys(`coin:${id}`);
 
   keys.forEach((key) => {
     defaultClient.hDel(`coin:${id}`, key);
@@ -69,7 +69,7 @@ export async function deleteCoin(id: string) {
  * Retrieve coins by id from db.
  */
 export async function getCoinById(id: string) {
-  let coin = await defaultClient.hGetAll(`coin:${id}`);
+  const coin = await defaultClient.hGetAll(`coin:${id}`);
   console.log(JSON.stringify(coin, null, 2));
 
   return coin;
@@ -80,9 +80,9 @@ export async function getCoinById(id: string) {
  */
 export async function getTotalBalance() {
   let totalBalance: number = 0;
-  let coins = await defaultClient.scan(0);
+  const { cursor, keys } = await defaultClient.scan(0);
 
-  for (let key of coins.keys) {
+  for (let key of keys) {
     let coinBalance = await defaultClient.hGet(`${key}`, 'balance');
 
     totalBalance += Number(coinBalance);
