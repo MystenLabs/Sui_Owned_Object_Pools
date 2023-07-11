@@ -9,7 +9,7 @@ import {
   TransactionBlock,
 } from '@mysten/sui.js';
 
-import { Coin } from './Coin';
+import { Coin } from './coin';
 import * as db from './lib/db';
 
 // Define the Transfer interface
@@ -420,5 +420,15 @@ export class CoinManagement {
     }
 
     return coin;
+  }
+
+  /**
+   * Sets the mock for the user account's signAndExecuteTransactionBlock method.
+   * This is used for testing purposes.
+   *
+   * @param mock
+   */
+  public setMockSignAndExecuteTransactionBlock(mock: jest.Mock): void {
+    this.userAccount.signAndExecuteTransactionBlock = mock;
   }
 }
