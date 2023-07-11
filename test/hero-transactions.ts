@@ -12,20 +12,43 @@ import * as fs from 'fs';
 
 import { CoinManagement } from '../src/CoinManagement';
 
-  // Ways to create a CoinManagement instances
-  // const cms = CoinManagement.createDefault(); // default rpcConnection is testnet
 
-  const cms = CoinManagement.createDefault(testnetConnection);
-  // const cms = CoinManagement.createWithCustomOptions(
+  interface GasCost {
+    computationCost: string;
+    storageCost: string;
+    storageRebate: string;
+    nonRefundableStorageFee: string;
+  }
+
+  const cms = CoinManagement.create(process.env.USER_PRIVATE_KEY!,testnetConnection,'base64','Ed25519');
+  // const cms = CoinManagement.createAndSplitCoins(
   //   1735076, // chunksOfGas
   //   10, // txnsEstimate
   //   testnetConnection,
+  //   'base64',
+  //   'Ed25519'
   //  );
 
 
 dotenv.config();
 
 console.log('Connecting to ', process.env.SUI_NETWORK);
+
+const getSigner = (): RawSigner => {
+  const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
+  const keypair = getKeyPair(USER_PRIVATE_KEY);
+
+  const provider = getProvider();
+
+  const signer = new RawSigner(keypair, provider);
+  return signer;
+};
+
+const getKeyPair = (privateKey: string): Ed25519Keypair => {
+  const privateKeyArray: number[] = Array.from(fromB64(privateKey));
+  privateKeyArray.shift();
+  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+};
 
 const getProvider = (): JsonRpcProvider => {
   const suiNetwork = process.env.SUI_NETWORK!;
@@ -40,22 +63,6 @@ const getProvider = (): JsonRpcProvider => {
   const provider = new JsonRpcProvider(connOptions);
 
   return provider;
-};
-
-const getKeyPair = (privateKey: string): Ed25519Keypair => {
-  const privateKeyArray: number[] = Array.from(fromB64(privateKey));
-  privateKeyArray.shift();
-  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
-};
-
-const getSigner = (): RawSigner => {
-  const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
-  const keypair = getKeyPair(USER_PRIVATE_KEY);
-
-  const provider = getProvider();
-
-  const signer = new RawSigner(keypair, provider);
-  return signer;
 };
 
 const getGasCostFromSuccessfulTx = (txRes: any): number | null => {
@@ -102,13 +109,6 @@ const mintHero = async (): Promise<void> => {
       mintedHeroes.push(objectId);
     }
     
-    interface GasCost {
-      computationCost: string;
-      storageCost: string;
-      storageRebate: string;
-      nonRefundableStorageFee: string;
-    }
-    
     const gasCost = getGasCostFromSuccessfulTx(txRes);
     let gasBudget: number | null = null;
     
@@ -120,8 +120,9 @@ const mintHero = async (): Promise<void> => {
     
       if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
         gasBudget = (parsedComputationCost + parsedStorageCost);
+      } else {
+        throw new Error('GasBudget was not calculated properly');
       }
-    }
     
     console.log('gas cost:', gasBudget);
     mintGasUsed.push(gasCost || 0);
