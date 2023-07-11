@@ -1,7 +1,7 @@
 import { testnetConnection } from '@mysten/sui.js';
 import * as dotenv from 'dotenv';
 
-import { CoinManagement } from '../src/CoinManagement';
+import { CoinManagement } from '../src/coin-management';
 dotenv.config();
 
 async function main() {

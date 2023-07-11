@@ -5,23 +5,35 @@
  * @module lib/db
  */
 
+import { createClient, RedisClientOptions } from 'redis';
 
-import { createClient, RedisClientType } from "redis";
-import * as cfg from "./config";
-import { Coin } from "../Coin";
+import { Coin } from '../coin';
+import * as cfg from './config';
+
+declare global {
+  interface BigInt {
+    toJSON(): string;
+  }
+}
 
 const defaultClient = client();
 
 /**
  * Get a Client instance.
  */
-export function client(): RedisClientType {
-  // @ts-ignore
-  const client: RedisClientType = createClient({ socket: cfg.redisConfig });
+export function client() {
+  const options: RedisClientOptions = {
+    socket: {
+      host: cfg.redisConfig.host,
+      port: Number(cfg.redisConfig.port),
+    },
+    // Add any other necessary options here
+  };
+
+  const client = createClient(options);
   return client;
 }
 
-// @ts-ignore
 // Have to insert this line to avoid: "Do not know how to serialize a BigInt"
 // More details in this issue: https://github.com/prisma/studio/issues/614
 BigInt.prototype.toJSON = function () {
@@ -31,23 +43,29 @@ BigInt.prototype.toJSON = function () {
 /**
  * Connect the client to the db.
  */
-export function connect() {
-  return defaultClient.connect().then(() => console.log("Redis client connected"));
+export async function connect() {
+  await defaultClient.connect();
+  return console.log('Redis client connected');
 }
 
 /**
  * Disconnect the client.
  */
-export function disconnect() {
-  return defaultClient.disconnect().then(() => console.log("Redis client disconnected"));
+export async function disconnect() {
+  await defaultClient.disconnect();
+  return console.log('Redis client disconnected');
 }
 
 /**
  * Store coins to db.
  */
 export function storeCoins(coins: Coin[]) {
-  coins.forEach(coin => {
-    defaultClient.hSet(`coin:${coin.coinObjectId}`, coin as any);
+  coins.forEach((coin) => {
+    defaultClient.hSet(
+      `coin:${coin.coinObjectId}`,
+      'coin',
+      JSON.stringify(coin),
+    );
   });
 }
 
@@ -55,9 +73,9 @@ export function storeCoins(coins: Coin[]) {
  * Delete coin from db.
  */
 export async function deleteCoin(id: string) {
-  let keys = await defaultClient.hKeys(`coin:${id}`);
-  
-  keys.forEach(key => {
+  const keys = await defaultClient.hKeys(`coin:${id}`);
+
+  keys.forEach((key) => {
     defaultClient.hDel(`coin:${id}`, key);
   });
 }
@@ -66,10 +84,26 @@ export async function deleteCoin(id: string) {
  * Retrieve coins by id from db.
  */
 export async function getCoinById(id: string) {
-  let coin = await defaultClient.hGetAll(`coin:${id}`);
+  const coin = await defaultClient.hGetAll(`coin:${id}`);
   console.log(JSON.stringify(coin, null, 2));
 
   return coin;
+}
+
+/**
+ * Get total coin balance from db.
+ */
+export async function getTotalBalance() {
+  let totalBalance: number = 0;
+  const { cursor, keys } = await defaultClient.scan(0);
+
+  for (let key of keys) {
+    let coinBalance = await defaultClient.hGet(`${key}`, 'balance');
+
+    totalBalance += Number(coinBalance);
+  }
+
+  return totalBalance;
 }
 
 /**
@@ -79,4 +113,22 @@ export async function getLength() {
   defaultClient.dbSize().then((res) => {
     return res;
   });
+}
+
+/**
+ * Retrieve a snapshot of all the coins used as gas.
+ */
+export async function getSnapshot(): Promise<Coin[]> {
+  const keys = await defaultClient.keys('coin:*');
+  const coins: Coin[] = [];
+
+  for (const key of keys) {
+    const coinObject = await defaultClient.hGet(key, 'coin');
+    if (coinObject) {
+      const coin = JSON.parse(coinObject) as Coin;
+      coins.push(coin);
+    }
+  }
+
+  return coins;
 }

@@ -9,7 +9,7 @@ import {
   TransactionBlock,
 } from '@mysten/sui.js';
 
-import { Coin } from './Coin';
+import { Coin } from './coin';
 import * as db from './lib/db';
 
 // Define the Transfer interface
@@ -221,14 +221,6 @@ export class CoinManagement {
     }
   }
 
-  /* To be implemented - addCoinsToRedis
-  
-  private addCoinsToRedis(coin: Coin): void {
-    // Add the coin to Redis
-  }
-
-  */
-
   /**
    * Builds an array of coin transfers based on the given gas budget and total number of coins.
    *
@@ -272,15 +264,14 @@ export class CoinManagement {
     minCoinValue: number,
     maxCoinValue: number,
   ): Promise<CoinData> {
-
-    const maxTargetBalance = 1 * Number(MIST_PER_SUI);
-    const minTargetBalance = -1 * Number(MIST_PER_SUI);
+    const maxTargetBalance = maxCoinValue * Number(MIST_PER_SUI);
+    const minTargetBalance = minCoinValue * Number(MIST_PER_SUI);
 
     try {
       console.log('Fetching coins for:', this.userAddress);
 
-      // Fetch all user coins. ****** To be replaced: fetchAllCoins to fetch coins from Redis fetchFromRedis() ******
-      const gasCoins = await this.fetchAllCoins();
+      // Fetch all user coins
+      const gasCoins = await this.fetchCoins();
 
       // Filter the fetched coins based on the target balance range
       const filteredGasCoins = gasCoins.filter(
@@ -305,8 +296,9 @@ export class CoinManagement {
    * @param nextCursor The cursor for fetching the next page of coins.
    * @returns The array of fetched coins.
    */
-  private async fetchAllCoins(nextCursor = ''): Promise<CoinData> {
-    const allCoins: CoinData = [];
+  private async fetchCoins(nextCursor = ''): Promise<CoinData> {
+    try {
+      const allCoins: CoinData = [];
 
       const getCoinsInput = {
         owner: this.userAddress,
@@ -317,33 +309,39 @@ export class CoinManagement {
       // Fetch coins from the provider using the specified user address and cursor
       const res = await this.provider.getCoins(getCoinsInput);
 
-    let nextPageData: CoinData = [];
-    if (res.hasNextPage && typeof res?.nextCursor === 'string') {
-      console.log(
-        `Looking for coins in ${
-          nextCursor ? 'page with cursor ' + nextCursor : 'first page'
-        }`,
-      );
-      nextPageData = await this.fetchAllCoins(res.nextCursor); // Recursively fetch next page of coins
-    }
+      let nextPageData: CoinData = [];
+      if (res.hasNextPage && typeof res?.nextCursor === 'string') {
+        console.log(
+          `Looking for coins in ${
+            nextCursor ? 'page with cursor ' + nextCursor : 'first page'
+          }`,
+        );
+        // Recursively fetch next page of coins
+        nextPageData = await this.fetchCoins(res.nextCursor);
+      }
 
-    // Convert each retrieved coin data into Coin objects and add them to the array
-    for (const coin of res.data) {
-      const coinObject = new Coin(
-        coin.version,
-        coin.digest,
-        coin.coinType,
-        coin.previousTransaction,
-        coin.coinObjectId,
-        coin.balance,
-      );
-      console.log('coin = ', coinObject);
-      allCoins.push(coinObject);
-    }
+      // Convert each retrieved coin data into Coin objects and add them to the array
+      for (const coin of res.data) {
+        const coinObject = new Coin(
+          coin.version,
+          coin.digest,
+          coin.coinType,
+          coin.previousTransaction,
+          coin.coinObjectId,
+          coin.balance,
+          coin.lockedUntilEpoch,
+        );
+        console.log('coin = ', coinObject);
+        allCoins.push(coinObject);
+      }
 
-    // Concatenate current page coins with next page coins
-    this.fetchedCoins = allCoins.concat(nextPageData);
-    return this.fetchedCoins;
+      // Concatenate current page coins with next page coins
+      this.fetchedCoins = allCoins.concat(nextPageData);
+      return this.fetchedCoins;
+    } catch (error) {
+      console.error('Error fetching coins:', error);
+      throw error;
+    }
   }
 
   /**
@@ -360,8 +358,8 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      const gasBudgetMIST = gasBudget; // Convert the gas budget to MIST i  
-      console.log('Gas budget in take Coins:', gasBudgetMIST);
+      const gasBudgetMIST = gasBudget * 1e9; // Convert the gas budget to MIST
+
       // Fetch gas coins within the specified coin value range
       const gasCoins = await this.getCoinsInRange(minCoinValue, maxCoinValue);
 
@@ -422,5 +420,15 @@ export class CoinManagement {
     }
 
     return coin;
+  }
+
+  /**
+   * Sets the mock for the user account's signAndExecuteTransactionBlock method.
+   * This is used for testing purposes.
+   *
+   * @param mock
+   */
+  public setMockSignAndExecuteTransactionBlock(mock: jest.Mock): void {
+    this.userAccount.signAndExecuteTransactionBlock = mock;
   }
 }
