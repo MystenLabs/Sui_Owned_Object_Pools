@@ -70,7 +70,6 @@ export async function deleteCoin(id: string) {
  */
 export async function getCoinById(id: string) {
   const coin = await defaultClient.hGetAll(`coin:${id}`);
-  console.log(JSON.stringify(coin, null, 2));
 
   return coin;
 }
@@ -87,8 +86,6 @@ export async function getTotalBalance() {
 
     totalBalance += Number(coinBalance);
   }
-
-  console.log('Total Balance: ', totalBalance);
 
   return totalBalance;
 }
