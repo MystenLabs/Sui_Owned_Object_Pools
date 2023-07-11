@@ -91,6 +91,22 @@ export async function getCoinById(id: string) {
 }
 
 /**
+ * Get total coin balance from db.
+ */
+export async function getTotalBalance() {
+  let totalBalance: number = 0;
+  const { cursor, keys } = await defaultClient.scan(0);
+
+  for (let key of keys) {
+    let coinBalance = await defaultClient.hGet(`${key}`, 'balance');
+
+    totalBalance += Number(coinBalance);
+  }
+
+  return totalBalance;
+}
+
+/**
  * Retrieve length of coins from db.
  */
 export async function getLength() {
