@@ -7,7 +7,7 @@
 
 import { createClient, RedisClientOptions } from 'redis';
 
-import { Coin } from '../coin';
+import { Coin } from '../Coin';
 import * as cfg from './config';
 
 declare global {
@@ -94,11 +94,11 @@ export async function getCoinById(id: string) {
  * Get total coin balance from db.
  */
 export async function getTotalBalance() {
-  let totalBalance: number = 0;
+  let totalBalance = 0;
   const { cursor, keys } = await defaultClient.scan(0);
 
-  for (let key of keys) {
-    let coinBalance = await defaultClient.hGet(`${key}`, 'balance');
+  for (const key of keys) {
+    const coinBalance = await defaultClient.hGet(`${key}`, 'balance');
 
     totalBalance += Number(coinBalance);
   }

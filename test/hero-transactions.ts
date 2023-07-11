@@ -3,36 +3,32 @@ import {
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
-  testnetConnection,
   RawSigner,
+  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 
-import { CoinManagement } from '../src/CoinManagement';
+import { CoinManagement } from '../src/coin-management';
 
+interface GasCost {
+  computationCost: string;
+  storageCost: string;
+  storageRebate: string;
+  nonRefundableStorageFee: string;
+}
 
-  interface GasCost {
-    computationCost: string;
-    storageCost: string;
-    storageRebate: string;
-    nonRefundableStorageFee: string;
-  }
-
-  const cms = CoinManagement.create(process.env.USER_PRIVATE_KEY!,testnetConnection,'base64','Ed25519');
-  // const cms = CoinManagement.createAndSplitCoins(
-  //   1735076, // chunksOfGas
-  //   10, // txnsEstimate
-  //   testnetConnection,
-  //   'base64',
-  //   'Ed25519'
-  //  );
-
+const cms = CoinManagement.create(
+  process.env.USER_PRIVATE_KEY!,
+  testnetConnection,
+  'base64',
+  'Ed25519',
+);
 
 dotenv.config();
 
-console.log('Connecting to ', process.env.SUI_NETWORK);
+console.log('Connecting to', process.env.SUI_NETWORK);
 
 const getSigner = (): RawSigner => {
   const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
@@ -108,27 +104,32 @@ const mintHero = async (): Promise<void> => {
     if (objectId !== undefined) {
       mintedHeroes.push(objectId);
     }
-    
+
     const gasCost = getGasCostFromSuccessfulTx(txRes);
     let gasBudget: number | null = null;
-    
+
     if (typeof gasCost === 'object' && gasCost !== null) {
-      const { computationCost, storageCost, storageRebate } = gasCost as GasCost;
-    
+      const { computationCost, storageCost } = gasCost as GasCost;
+
       const parsedComputationCost = parseInt(computationCost, 10);
       const parsedStorageCost = parseInt(storageCost, 10);
-    
+
       if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
-        gasBudget = (parsedComputationCost + parsedStorageCost);
+        gasBudget = parsedComputationCost + parsedStorageCost;
       } else {
         throw new Error('GasBudget was not calculated properly');
       }
-    
+    }
+
     console.log('gas cost:', gasBudget);
-    mintGasUsed.push(gasCost || 0);
+    mintGasUsed.push(gasBudget || 0);
 
     // Get the sufficient available gas coins needed for the gasBudget
-    const gasCoins = await cms.takeCoins(gasBudget !== null ? gasBudget : 0, 0, 0.003470152);
+    const gasCoins = await cms.takeCoins(
+      gasBudget !== null ? gasBudget : 0,
+      0,
+      0.003470152,
+    );
 
     if (gasCoins.length === 0) {
       console.log('Unable to take gas coins. Insufficient balance available.');
@@ -171,13 +172,11 @@ const mintHero = async (): Promise<void> => {
       } catch (e) {
         console.error('Could not sign and execute transaction block', e);
       }
-
     }
   } catch (e) {
     console.error('Could not mint hero', e);
   }
 };
-
 
 const updateHero = async (hero: string, stars: number): Promise<void> => {
   const tx = new TransactionBlock();

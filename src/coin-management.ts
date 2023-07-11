@@ -9,7 +9,7 @@ import {
   TransactionBlock,
 } from '@mysten/sui.js';
 
-import { Coin } from './coin';
+import { Coin } from './Coin';
 import * as db from './lib/db';
 
 // Define the Transfer interface
@@ -329,7 +329,6 @@ export class CoinManagement {
           coin.previousTransaction,
           coin.coinObjectId,
           coin.balance,
-          coin.lockedUntilEpoch,
         );
         console.log('coin = ', coinObject);
         allCoins.push(coinObject);
