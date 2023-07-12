@@ -6,10 +6,11 @@ import {
   MIST_PER_SUI,
   RawSigner,
   Secp256k1Keypair,
+  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 
-import { Coin } from './Coin';
+import { Coin } from './coin';
 import * as db from './lib/db';
 
 // Define the Transfer interface
@@ -106,8 +107,8 @@ export class CoinManagement {
    * Creates a new instance of CoinManagement with the provided options and
    * automatically splits the coins based on the given gas chunks and transaction estimate.
    *
-   * @param chunksOfGas - The number of gas chunks to be used for the transactions.
-   * @param txnsEstimate - The estimated cost of the transactions.
+   * @param balance - The number of gas chunks to be used for the transactions.
+   * @param totalNumOfCoins - The estimated cost of the transactions.
    * @param key - The private key for initialization.
    * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
    * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
@@ -115,15 +116,15 @@ export class CoinManagement {
    * @returns A new instance of CoinManagement with the coins split based on the gas chunks and transaction estimate.
    */
   public static createAndSplitCoins(
-    chunksOfGas: number,
-    txnsEstimate: number,
+    balance: number,
+    totalNumOfCoins: number,
     key: string,
     rpcConnection: Connection,
     keyFormat: 'base64' | 'hex' | 'passphrase' = 'base64',
     keyType: 'Ed25519' | 'Secp256k1' = 'Ed25519',
   ): CoinManagement {
     const instance = new CoinManagement(key, rpcConnection, keyFormat, keyType);
-    instance.splitCoins(chunksOfGas, txnsEstimate);
+    instance.splitCoins(balance, totalNumOfCoins);
     return instance;
   }
 
@@ -178,18 +179,19 @@ export class CoinManagement {
    * Splits coins based on the given chunks of Gas and transactions estimate.
    * Sends the gas coins to the user's address.
    *
-   * @param chunksOfGas The chuncks of Gas to be used for the transactions.
-   * @param txnsEstimate The estimated number of transactions.
+   * @param balance How much balance a coin should have in order to be used for the transactions.
+   * @param totalNumOfCoins Number of coins which is estimated by number of transactions.
    */
   public async splitCoins(
-    chunksOfGas: number,
-    txnsEstimate: number,
+    balance: number,
+    totalNumOfCoins: number,
   ): Promise<void> {
     try {
       const transfers: Transfer[] = this.buildCoinTransfers(
-        chunksOfGas,
-        txnsEstimate,
+        balance,
+        totalNumOfCoins,
       );
+
       const txb = new TransactionBlock();
 
       // Split the coins using the gas and amounts from the transfers
@@ -198,7 +200,7 @@ export class CoinManagement {
         transfers.map((transfer) => txb.pure(transfer.amount)),
       );
 
-      // Transfer the coins to the specified recipients
+      // Next, create a transfer transaction for each coin
       transfers.forEach((transfer, index) => {
         txb.transferObjects([coins[index]], txb.pure(transfer.to));
       });
@@ -264,9 +266,6 @@ export class CoinManagement {
     minCoinValue: number,
     maxCoinValue: number,
   ): Promise<CoinData> {
-    const maxTargetBalance = maxCoinValue * Number(MIST_PER_SUI);
-    const minTargetBalance = minCoinValue * Number(MIST_PER_SUI);
-
     try {
       console.log('Fetching coins for:', this.userAddress);
 
@@ -275,9 +274,11 @@ export class CoinManagement {
 
       // Filter the fetched coins based on the target balance range
       const filteredGasCoins = gasCoins.filter(
-        ({ balance }: { balance: string }) =>
-          minTargetBalance <= Number(balance) &&
-          Number(balance) <= maxTargetBalance,
+        ({ balance }: { balance: string }) => {
+          return (
+            minCoinValue <= Number(balance) && Number(balance) <= maxCoinValue
+          );
+        },
       );
 
       console.log('Total gas coins found:', filteredGasCoins.length);
@@ -330,7 +331,7 @@ export class CoinManagement {
           coin.coinObjectId,
           coin.balance,
         );
-        console.log('coin = ', coinObject);
+
         allCoins.push(coinObject);
       }
 
@@ -357,8 +358,6 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      const gasBudgetMIST = gasBudget * 1e9; // Convert the gas budget to MIST
-
       // Fetch gas coins within the specified coin value range
       const gasCoins = await this.getCoinsInRange(minCoinValue, maxCoinValue);
 
@@ -368,7 +367,7 @@ export class CoinManagement {
       // Iterate over the gas coins
       for (const coin of gasCoins) {
         const balance = Number(coin.balance);
-        if (totalBalance < gasBudgetMIST) {
+        if (totalBalance < gasBudget) {
           selectedCoins.push(coin);
           totalBalance += balance;
         } else {
@@ -378,7 +377,7 @@ export class CoinManagement {
       }
 
       // Checks if the selected coins total balance is lower that the gas budget
-      if (totalBalance < gasBudgetMIST) {
+      if (totalBalance < gasBudget) {
         throw new Error('Insufficient gas coins available');
       }
 

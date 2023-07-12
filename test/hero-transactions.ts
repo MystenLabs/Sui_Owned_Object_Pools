@@ -19,6 +19,15 @@ interface GasCost {
   nonRefundableStorageFee: string;
 }
 
+// const cms = CoinManagement.createAndSplitCoins(
+//   6042400,
+//   10,
+//   process.env.USER_PRIVATE_KEY!,
+//   testnetConnection,
+//   'base64',
+//   'Ed25519',
+// );
+
 const cms = CoinManagement.create(
   process.env.USER_PRIVATE_KEY!,
   testnetConnection,
@@ -128,7 +137,7 @@ const mintHero = async (): Promise<void> => {
     const gasCoins = await cms.takeCoins(
       gasBudget !== null ? gasBudget : 0,
       0,
-      0.003470152,
+      6042400,
     );
 
     if (gasCoins.length === 0) {
@@ -169,6 +178,7 @@ const mintHero = async (): Promise<void> => {
             showEffects: true,
           },
         });
+        console.log('txRes', txRes);
       } catch (e) {
         console.error('Could not sign and execute transaction block', e);
       }
