@@ -7,6 +7,5 @@ export class Coin {
     public previousTransaction: string,
     public coinObjectId: string,
     public balance: string,
-    public lockedUntilEpoch?: number | null,
   ) {}
 }

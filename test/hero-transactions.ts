@@ -3,16 +3,57 @@ import {
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
-  localnetConnection,
   RawSigner,
+  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 
+import { CoinManagement } from '../src/coin-management';
+
+interface GasCost {
+  computationCost: string;
+  storageCost: string;
+  storageRebate: string;
+  nonRefundableStorageFee: string;
+}
+
+// const cms = CoinManagement.createAndSplitCoins(
+//   6042400,
+//   10,
+//   process.env.USER_PRIVATE_KEY!,
+//   testnetConnection,
+//   'base64',
+//   'Ed25519',
+// );
+
+const cms = CoinManagement.create(
+  process.env.USER_PRIVATE_KEY!,
+  testnetConnection,
+  'base64',
+  'Ed25519',
+);
+
 dotenv.config();
 
-console.log('Connecting to ', process.env.SUI_NETWORK);
+console.log('Connecting to', process.env.SUI_NETWORK);
+
+const getSigner = (): RawSigner => {
+  const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
+  const keypair = getKeyPair(USER_PRIVATE_KEY);
+
+  const provider = getProvider();
+
+  const signer = new RawSigner(keypair, provider);
+  return signer;
+};
+
+const getKeyPair = (privateKey: string): Ed25519Keypair => {
+  const privateKeyArray: number[] = Array.from(fromB64(privateKey));
+  privateKeyArray.shift();
+  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+};
 
 const getProvider = (): JsonRpcProvider => {
   const suiNetwork = process.env.SUI_NETWORK!;
@@ -27,22 +68,6 @@ const getProvider = (): JsonRpcProvider => {
   const provider = new JsonRpcProvider(connOptions);
 
   return provider;
-};
-
-const getKeyPair = (privateKey: string): Ed25519Keypair => {
-  const privateKeyArray: number[] = Array.from(fromB64(privateKey));
-  privateKeyArray.shift();
-  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
-};
-
-const getSigner = (): RawSigner => {
-  const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
-  const keypair = getKeyPair(USER_PRIVATE_KEY);
-
-  const provider = getProvider();
-
-  const signer = new RawSigner(keypair, provider);
-  return signer;
 };
 
 const getGasCostFromSuccessfulTx = (txRes: any): number | null => {
@@ -79,12 +104,8 @@ const mintHero = async (): Promise<void> => {
   const signer = getSigner();
 
   try {
-    const txRes = await signer.signAndExecuteTransactionBlock({
+    const txRes = await signer.dryRunTransactionBlock({
       transactionBlock: tx,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-      },
     });
 
     console.log('Mint hero', txRes.effects?.created?.[0]?.reference?.objectId);
@@ -94,7 +115,74 @@ const mintHero = async (): Promise<void> => {
     }
 
     const gasCost = getGasCostFromSuccessfulTx(txRes);
-    mintGasUsed.push(gasCost || 0);
+    let gasBudget: number | null = null;
+
+    if (typeof gasCost === 'object' && gasCost !== null) {
+      const { computationCost, storageCost } = gasCost as GasCost;
+
+      const parsedComputationCost = parseInt(computationCost, 10);
+      const parsedStorageCost = parseInt(storageCost, 10);
+
+      if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
+        gasBudget = parsedComputationCost + parsedStorageCost;
+      } else {
+        throw new Error('GasBudget was not calculated properly');
+      }
+    }
+
+    console.log('gas cost:', gasBudget);
+    mintGasUsed.push(gasBudget || 0);
+
+    // Get the sufficient available gas coins needed for the gasBudget
+    const gasCoins = await cms.takeCoins(
+      gasBudget !== null ? gasBudget : 0,
+      0,
+      6042400,
+    );
+
+    if (gasCoins.length === 0) {
+      console.log('Unable to take gas coins. Insufficient balance available.');
+    } else {
+      console.log('Taken coins:');
+
+      const mygasCoins: {
+        digest: string;
+        objectId: string;
+        version: string | number;
+      }[] = [];
+
+      for (const coinId of gasCoins) {
+        const coin = cms.getCoinById(coinId);
+        if (coin) {
+          console.log('-------Coin Used-------');
+          console.log('Coin:', coin.coinObjectId);
+          console.log('Balance:', coin.balance);
+          console.log('Version:', coin.version);
+          console.log('Digest:', coin.digest);
+
+          // Building the gas payment object
+          mygasCoins.push({
+            digest: coin.digest,
+            objectId: coin.coinObjectId,
+            version: coin.version,
+          });
+        }
+      }
+      tx.setGasPayment(mygasCoins);
+
+      try {
+        const txRes = await signer.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+          requestType: 'WaitForLocalExecution',
+          options: {
+            showEffects: true,
+          },
+        });
+        console.log('txRes', txRes);
+      } catch (e) {
+        console.error('Could not sign and execute transaction block', e);
+      }
+    }
   } catch (e) {
     console.error('Could not mint hero', e);
   }
@@ -118,7 +206,6 @@ const updateHero = async (hero: string, stars: number): Promise<void> => {
         showEffects: true,
       },
     });
-
     console.log('Update hero', hero, stars);
     const gasCost = getGasCostFromSuccessfulTx(txRes);
     updateGasUsed.push(gasCost || 0);
