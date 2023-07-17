@@ -472,6 +472,17 @@ export class CoinManagement {
   }
 
   /**
+   * Refills the database with coins from the provider by
+   * splitting the caller's balance into coins.
+   *
+   * @param gasBudget The gas budget for each coin.
+   * @param totalNumOfCoins The total number of coins.
+   */
+  public async refillQueue(balance: number, totalNumOfCoins: number) {
+    await this.splitCoins(balance, totalNumOfCoins);
+  }
+
+  /**
    * Sets the mock for the user account's signAndExecuteTransactionBlock method.
    * This is used for testing purposes.
    *
