@@ -455,4 +455,13 @@ export class CoinManagement {
   public setMockSignAndExecuteTransactionBlock(mock: jest.Mock): void {
     this.userAccount.signAndExecuteTransactionBlock = mock;
   }
+
+  /**
+   * Disconnects from the database.
+   * 
+   * @returns void
+   */
+  public disconnectFromDB(): void {
+    db.disconnect();
+  }
 }
