@@ -456,6 +456,11 @@ export class CoinManagement {
     this.userAccount.signAndExecuteTransactionBlock = mock;
   }
 
+  private async checkHealth(): Promise<boolean> {
+    const length = await db.getLength();
+    return length > 0;
+  }
+
   /**
    * Disconnects from the database.
    * 
