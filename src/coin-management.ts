@@ -3,10 +3,8 @@ import {
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
-  MIST_PER_SUI,
   RawSigner,
   Secp256k1Keypair,
-  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 

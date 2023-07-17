@@ -61,11 +61,7 @@ export async function disconnect() {
  */
 export function storeCoins(coins: Coin[]) {
   coins.forEach((coin) => {
-    defaultClient.hSet(
-      `coin:${coin.coinObjectId}`,
-      'coin',
-      JSON.stringify(coin),
-    );
+    defaultClient.hSet(`coin:${coin.coinObjectId}`, coin as any);
   });
 }
 
