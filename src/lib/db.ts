@@ -7,7 +7,7 @@
 
 import { createClient, RedisClientOptions } from 'redis';
 
-import { Coin } from '../Coin';
+import { Coin } from '../coin';
 import * as cfg from './config';
 
 declare global {

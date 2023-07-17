@@ -3,10 +3,8 @@ import {
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
-  MIST_PER_SUI,
   RawSigner,
   Secp256k1Keypair,
-  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 
@@ -360,10 +358,10 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      // Fetch gas coins from the database
-      let gasCoins: CoinData = await db.getAllCoins();
+      // Fetch gas coins from the database.
+      let selectedCoins: CoinData = await db.getAllCoins();
 
-      // Check if the DB total balance is enough for the gas budget
+      // Check if the DB total balance is enough for the gas budget.
       let totalBalance = await db.getTotalBalance();
 
       // Check if the balance from the DB is enough for the gas budget.
@@ -383,7 +381,7 @@ export class CoinManagement {
             coinsFromProvider.splice(i, 1);
 
             // Add the coin to the selected coins.
-            gasCoins.push(coin);
+            selectedCoins.push(coin);
 
             // Update the total balance with current coin's balance.
             totalBalance += Number(coin.balance);
@@ -411,7 +409,7 @@ export class CoinManagement {
         // Keep track of the balance we want to reach.
         let currentBalance = 0;
 
-        for (const coin of gasCoins) {
+        for (const coin of selectedCoins) {
           const coinBalance = Number(coin.balance);
           if (currentBalance + coinBalance < gasBudget) {
             // Increase the current balance with the coin's balance.
@@ -427,15 +425,16 @@ export class CoinManagement {
             break;
           }
         }
-        // Overwrite the gasCoins array with the coins to keep.
-        gasCoins = coinsToKeep;
+        // Overwrite the selectedCoins array with the coins to keep.
+        selectedCoins = coinsToKeep;
       }
-      // Get the coin object IDs from the selected coins
-      const coinReferences = gasCoins.map(
+
+      // Get the coin object IDs from the selected coins.
+      const coinReferences = selectedCoins.map(
         ({ coinObjectId }: { coinObjectId: string }) => coinObjectId,
       );
 
-      // Return the coin object IDs for the selected coins
+      // Return the coin object IDs for the selected coins.
       return coinReferences;
     } catch (error) {
       console.error('Error taking gas coins:', error);
