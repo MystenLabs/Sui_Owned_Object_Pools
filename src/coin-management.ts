@@ -17,6 +17,12 @@ interface Transfer {
   amount: number;
 }
 
+type GasPaymentCoin = {
+  digest: string;
+  objectId: string;
+  version: string | number;
+};
+
 type CoinData = Coin[];
 
 export class CoinManagement {
@@ -356,7 +362,7 @@ export class CoinManagement {
     gasBudget: number,
     minCoinValue: number,
     maxCoinValue: number,
-  ): Promise<string[]> {
+  ): Promise<Array<GasPaymentCoin>> {
     try {
       // Fetch gas coins from the database.
       let selectedCoins: CoinData = await db.getAllCoins();
@@ -429,13 +435,19 @@ export class CoinManagement {
         selectedCoins = coinsToKeep;
       }
 
-      // Get the coin object IDs from the selected coins.
-      const coinReferences = selectedCoins.map(
-        ({ coinObjectId }: { coinObjectId: string }) => coinObjectId,
-      );
+      // Build gas payment object.
+      const gasPaymentCoins: Array<GasPaymentCoin> = [];
 
-      // Return the coin object IDs for the selected coins.
-      return coinReferences;
+      for (const coin of selectedCoins) {
+        gasPaymentCoins.push({
+          digest: coin.digest,
+          objectId: coin.coinObjectId,
+          version: coin.version,
+        });
+      }
+
+      // Return the coins to be used for gas payment.
+      return gasPaymentCoins;
     } catch (error) {
       console.error('Error taking gas coins:', error);
       throw error;
