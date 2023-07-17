@@ -109,8 +109,7 @@ export async function getTotalBalance() {
  * Retrieve length of coins from db.
  */
 export async function getLength() {
-  const length = await defaultClient.dbSize();
-  return length;
+  return await defaultClient.dbSize();
 }
 
 /**
