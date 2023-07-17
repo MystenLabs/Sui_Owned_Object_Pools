@@ -457,4 +457,9 @@ export class CoinManagement {
   public setMockSignAndExecuteTransactionBlock(mock: jest.Mock): void {
     this.userAccount.signAndExecuteTransactionBlock = mock;
   }
+
+  private async checkHealth(): Promise<Boolean> {
+    const length = await db.getLength();
+    return length > 0;
+  }
 }

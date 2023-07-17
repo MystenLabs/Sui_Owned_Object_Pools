@@ -109,9 +109,8 @@ export async function getTotalBalance() {
  * Retrieve length of coins from db.
  */
 export async function getLength() {
-  defaultClient.dbSize().then((res) => {
-    return res;
-  });
+  const length = await defaultClient.dbSize();
+  return length;
 }
 
 /**
@@ -147,15 +146,15 @@ export async function getAllCoins(): Promise<Coin[]> {
             coin.digest,
             coin.coinType,
             coin.previousTransaction,
-            key.replace('coin:',''),
+            key.replace('coin:', ''),
             coin.balance,
           );
-          
+
           coins.push(coinObj);
         }
       });
     }
   });
-  
+
   return coins;
 }
