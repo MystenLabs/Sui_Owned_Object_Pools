@@ -3,10 +3,8 @@ import {
   Ed25519Keypair,
   fromB64,
   JsonRpcProvider,
-  MIST_PER_SUI,
   RawSigner,
   Secp256k1Keypair,
-  testnetConnection,
   TransactionBlock,
 } from '@mysten/sui.js';
 
@@ -461,5 +459,14 @@ export class CoinManagement {
   private async checkHealth(): Promise<boolean> {
     const length = await db.getLength();
     return length > 0;
+  }
+
+  /**
+   * Disconnects from the database.
+   * 
+   * @returns void
+   */
+  public disconnectFromDB(): void {
+    db.disconnect();
   }
 }
