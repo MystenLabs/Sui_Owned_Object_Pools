@@ -144,20 +144,20 @@ export async function getAllCoins(): Promise<Coin[]> {
     for (const key of keys) {
       await defaultClient.hGetAll(key).then((coin) => {
         if (coin) {
-          let coinObj = new Coin(
+          const coinObj = new Coin(
             coin.version,
             coin.digest,
             coin.coinType,
             coin.previousTransaction,
-            key.replace('coin:',''),
+            key.replace('coin:', ''),
             coin.balance,
           );
-          
+
           coins.push(coinObj);
         }
       });
     }
   });
-  
+
   return coins;
 }
