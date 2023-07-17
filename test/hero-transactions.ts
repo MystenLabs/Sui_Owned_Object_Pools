@@ -152,22 +152,29 @@ const mintHero = async (): Promise<void> => {
       }[] = [];
 
       for (const coinId of gasCoins) {
-        const coin = cms.getCoinById(coinId);
-        if (coin) {
-          console.log('-------Coin Used-------');
-          console.log('Coin:', coin.coinObjectId);
-          console.log('Balance:', coin.balance);
-          console.log('Version:', coin.version);
-          console.log('Digest:', coin.digest);
+        await cms
+          .getCoinById(coinId)
+          .then((coin) => {
+            if (coin) {
+              console.log('-------Coin Used-------');
+              console.log('Coin:', coin.coinObjectId);
+              console.log('Balance:', coin.balance);
+              console.log('Version:', coin.version);
+              console.log('Digest:', coin.digest);
 
-          // Building the gas payment object
-          mygasCoins.push({
-            digest: coin.digest,
-            objectId: coin.coinObjectId,
-            version: coin.version,
+              // Building the gas payment object
+              mygasCoins.push({
+                digest: coin.digest,
+                objectId: coin.coinObjectId,
+                version: coin.version,
+              });
+            }
+          })
+          .catch((e) => {
+            console.error('Could not get coin by id', e);
           });
-        }
       }
+
       tx.setGasPayment(mygasCoins);
 
       try {

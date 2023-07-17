@@ -34,7 +34,7 @@ export class CoinManagement {
   ) {
     this.initialize(key, rpcConnection, keyFormat, keyType);
 
-    //Connect to db and store coins
+    //Connect to db
     db.connect();
   }
 
@@ -356,42 +356,58 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<string[]> {
     try {
-      // Fetch gas coins within the specified coin value range
-      const gasCoins = await this.getCoinsInRange(minCoinValue, maxCoinValue);
+      let selectedCoins: CoinData = [];
 
-      let totalBalance = 0;
-      const selectedCoins: CoinData = [];
+      // Fetch gas coins from the database
+      await db.getAllCoins().then(async (coins) => {
+        let totalBalance = 0;
 
-      // Iterate over the gas coins
-      for (const coin of gasCoins) {
-        const balance = Number(coin.balance);
-        if (totalBalance < gasBudget) {
-          selectedCoins.push(coin);
-          totalBalance += balance;
+        if (coins.length) {
+          selectedCoins = coins;
+          totalBalance = await db.getTotalBalance();
+
+          // Checks if coins total balance is lower that the gas budget
+          if (totalBalance < gasBudget) {
+            throw new Error('Insufficient gas coins available');
+          }
         } else {
-          // Stop adding coins if the gas budget is reached
-          break;
-        }
-      }
+          const gasCoins = await this.getCoinsInRange(
+            minCoinValue,
+            maxCoinValue,
+          );
 
-      // Checks if the selected coins total balance is lower that the gas budget
-      if (totalBalance < gasBudget) {
-        throw new Error('Insufficient gas coins available');
-      }
+          // Iterate over the gas coins
+          for (const coin of gasCoins) {
+            const balance = Number(coin.balance);
+            if (totalBalance < gasBudget) {
+              selectedCoins.push(coin);
+              totalBalance += balance;
+            } else {
+              // Stop adding coins if the gas budget is reached
+              break;
+            }
+          }
+
+          // Checks if the selected coins total balance is lower that the gas budget
+          if (totalBalance < gasBudget) {
+            throw new Error('Insufficient gas coins available');
+          }
+
+          // Filter out the remaining coins that were not selected and store them in the db
+          const remainingCoins = gasCoins.filter(
+            ({ coinObjectId }: { coinObjectId: string }) =>
+              !coinReferences.includes(coinObjectId),
+          );
+          db.storeCoins(remainingCoins);
+
+          console.log('Total gas coins remaining:', remainingCoins.length);
+        }
+      });
 
       // Get the coin object IDs from the selected coins
       const coinReferences = selectedCoins.map(
         ({ coinObjectId }: { coinObjectId: string }) => coinObjectId,
       );
-
-      // Filter out the remaining coins that were not selected
-      const remainingCoins = gasCoins.filter(
-        ({ coinObjectId }: { coinObjectId: string }) =>
-          !coinReferences.includes(coinObjectId),
-      );
-      db.storeCoins(remainingCoins);
-
-      console.log('Total gas coins remaining:', remainingCoins.length);
 
       // Return the coin object IDs for the selected coins
       return coinReferences;
@@ -408,14 +424,26 @@ export class CoinManagement {
    * @returns The coin object if found, or undefined if the coin with the specified ID is not found.
    * @throws Error if the coin with the specified ID is not found.
    */
-  public getCoinById(coinId: string): Coin | undefined {
-    const coin = this.fetchedCoins.find((coin) => coin.coinObjectId === coinId);
+  public async getCoinById(coinId: string): Promise<Coin | undefined> {
+    try {
+      const coin = await db.getCoinById(coinId);
 
-    if (!coin) {
-      throw new Error(`Coin with ID ${coinId} not found`);
+      if (Object.keys(coin).length === 0) {
+        throw new Error(`Coin with ID ${coinId} not found`);
+      }
+
+      return new Coin(
+        coin.version,
+        coin.digest,
+        coin.coinType,
+        coin.previousTransaction,
+        coin.coinObjectId,
+        coin.balance,
+      );
+    } catch (error) {
+      console.error('Error getting coin by ID:', error);
+      throw error;
     }
-
-    return coin;
   }
 
   /**

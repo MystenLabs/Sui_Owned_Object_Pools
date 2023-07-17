@@ -81,7 +81,6 @@ export async function deleteCoin(id: string) {
  */
 export async function getCoinById(id: string) {
   const coin = await defaultClient.hGetAll(`coin:${id}`);
-  console.log(JSON.stringify(coin, null, 2));
 
   return coin;
 }
@@ -126,5 +125,33 @@ export async function getSnapshot(): Promise<Coin[]> {
     }
   }
 
+  return coins;
+}
+
+/**
+ * Get all coins from db.
+ * @returns {Promise<Coin[]>} - A promise that resolves to an array of coins.
+ **/
+export async function getAllCoins(): Promise<Coin[]> {
+  const coins: Coin[] = [];
+  await defaultClient.keys('coin:*').then(async (keys) => {
+    for (const key of keys) {
+      await defaultClient.hGetAll(key).then((coin) => {
+        if (coin) {
+          let coinObj = new Coin(
+            coin.version,
+            coin.digest,
+            coin.coinType,
+            coin.previousTransaction,
+            key.replace('coin:',''),
+            coin.balance,
+          );
+          
+          coins.push(coinObj);
+        }
+      });
+    }
+  });
+  
   return coins;
 }
