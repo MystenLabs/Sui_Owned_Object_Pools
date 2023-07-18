@@ -416,18 +416,17 @@ export class CoinManagement {
         let currentBalance = 0;
 
         for (const coin of selectedCoins) {
-          const coinBalance = Number(coin.balance);
-          if (currentBalance + coinBalance < gasBudget) {
-            // Increase the current balance with the coin's balance.
-            currentBalance += coinBalance;
+          // Increase the current balance with the coin's balance.
+          currentBalance += Number(coin.balance);
 
-            // Add the coin to the array with coins to keep.
-            coinsToKeep.push(coin);
+          // Add the coin to the array with coins to keep.
+          coinsToKeep.push(coin);
 
-            // Remove the coin from the database.
-            await db.deleteCoin(coin.coinObjectId);
-          } else {
-            // Stop getting coins when we reach the gas budget.
+          // Remove the coin from the database.
+          await db.deleteCoin(coin.coinObjectId);
+
+          // Stop getting coins when we reach the gas budget.
+          if (currentBalance > gasBudget) {
             break;
           }
         }
