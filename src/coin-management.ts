@@ -17,6 +17,12 @@ interface Transfer {
   amount: number;
 }
 
+type GasPaymentCoin = {
+  digest: string;
+  objectId: string;
+  version: string | number;
+};
+
 type CoinData = Coin[];
 
 export class CoinManagement {
@@ -343,74 +349,105 @@ export class CoinManagement {
   }
 
   /**
-   * Takes coins from the available gas coins based on the given gas budget and coin value range.
+   * Takes coins from the available gas coins in the database based on the given gas
+   * budget and coin value range. If the database doesn't have enough gas coins, it
+   * will fetch more coins from the provider for the caller.
    *
-   * @param gasBudget The gas budget.
-   * @param minCoinValue The minimum coin value.
-   * @param maxCoinValue The maximum coin value.
-   * @returns The array of coin references.
+   * @param gasBudget The gas budget needed.
+   * @param minCoinValue The min coin value (for fetching coins from provider).
+   * @param maxCoinValue The max coin value (for fetching coins from provider).
+   * @returns An array of coin IDs the caller can use for gas.
    */
   public async takeCoins(
     gasBudget: number,
     minCoinValue: number,
     maxCoinValue: number,
-  ): Promise<string[]> {
+  ): Promise<Array<GasPaymentCoin>> {
     try {
-      let selectedCoins: CoinData = [];
+      // Fetch gas coins from the database.
+      let selectedCoins: CoinData = await db.getAllCoins();
 
-      // Fetch gas coins from the database
-      await db.getAllCoins().then(async (coins) => {
-        let totalBalance = 0;
+      // Check if the DB total balance is enough for the gas budget.
+      let totalBalance = await db.getTotalBalance();
 
-        if (coins.length) {
-          selectedCoins = coins;
-          totalBalance = await db.getTotalBalance();
+      // Check if the balance from the DB is enough for the gas budget.
+      if (totalBalance < gasBudget) {
+        // Fetch coins from the provider.
+        const coinsFromProvider = await this.getCoinsInRange(
+          minCoinValue,
+          maxCoinValue,
+        );
 
-          // Checks if coins total balance is lower that the gas budget
+        for (let i = 0; i < coinsFromProvider.length; i++) {
+          // Get a copy of the current coin.
+          const coin = coinsFromProvider[i];
+
           if (totalBalance < gasBudget) {
-            throw new Error('Insufficient gas coins available');
+            // Remove the coin from coinsFromProvider array.
+            coinsFromProvider.splice(i, 1);
+
+            // Add the coin to the selected coins.
+            selectedCoins.push(coin);
+
+            // Update the total balance with current coin's balance.
+            totalBalance += Number(coin.balance);
+
+            // Reduce the index by 1 to account for the removed coin.
+            i--;
+          } else {
+            // Stop adding coins if the gas budget is reached and
+            // store the remaining coins in the db for future use.
+            db.storeCoins(coinsFromProvider);
+            break;
           }
-        } else {
-          const gasCoins = await this.getCoinsInRange(
-            minCoinValue,
-            maxCoinValue,
-          );
-
-          // Iterate over the gas coins
-          for (const coin of gasCoins) {
-            const balance = Number(coin.balance);
-            if (totalBalance < gasBudget) {
-              selectedCoins.push(coin);
-              totalBalance += balance;
-            } else {
-              // Stop adding coins if the gas budget is reached
-              break;
-            }
-          }
-
-          // Checks if the selected coins total balance is lower that the gas budget
-          if (totalBalance < gasBudget) {
-            throw new Error('Insufficient gas coins available');
-          }
-
-          // Filter out the remaining coins that were not selected and store them in the db
-          const remainingCoins = gasCoins.filter(
-            ({ coinObjectId }: { coinObjectId: string }) =>
-              !coinReferences.includes(coinObjectId),
-          );
-          db.storeCoins(remainingCoins);
-
-          console.log('Total gas coins remaining:', remainingCoins.length);
         }
-      });
 
-      // Get the coin object IDs from the selected coins
-      const coinReferences = selectedCoins.map(
-        ({ coinObjectId }: { coinObjectId: string }) => coinObjectId,
-      );
+        // After adding coins from the provider, check if the total balance is
+        // still lower than the gas budget. If so, throw an error.
+        if (totalBalance < gasBudget) {
+          throw new Error('Insufficient gas coins available');
+        }
+      } else {
+        // Keep only the coins that we need based on given gasBudget
+        // and remove them from the database.
+        const coinsToKeep: CoinData = [];
 
-      // Return the coin object IDs for the selected coins
-      return coinReferences;
+        // Keep track of the balance we want to reach.
+        let currentBalance = 0;
+
+        for (const coin of selectedCoins) {
+          const coinBalance = Number(coin.balance);
+          if (currentBalance + coinBalance < gasBudget) {
+            // Increase the current balance with the coin's balance.
+            currentBalance += coinBalance;
+
+            // Add the coin to the array with coins to keep.
+            coinsToKeep.push(coin);
+
+            // Remove the coin from the database.
+            await db.deleteCoin(coin.coinObjectId);
+          } else {
+            // Stop getting coins when we reach the gas budget.
+            break;
+          }
+        }
+        // Overwrite the selectedCoins array with the coins to keep.
+        selectedCoins = coinsToKeep;
+      }
+
+      // Build gas payment object.
+      const gasPaymentCoins: Array<GasPaymentCoin> = [];
+
+      for (const coin of selectedCoins) {
+        gasPaymentCoins.push({
+          digest: coin.digest,
+          objectId: coin.coinObjectId,
+          version: coin.version,
+        });
+      }
+
+      // Return the coins to be used for gas payment.
+      return gasPaymentCoins;
     } catch (error) {
       console.error('Error taking gas coins:', error);
       throw error;
@@ -444,6 +481,17 @@ export class CoinManagement {
       console.error('Error getting coin by ID:', error);
       throw error;
     }
+  }
+
+  /**
+   * Refills the database with coins from the provider by
+   * splitting the caller's balance into coins.
+   *
+   * @param gasBudget The gas budget for each coin.
+   * @param totalNumOfCoins The total number of coins.
+   */
+  public async refillQueue(balance: number, totalNumOfCoins: number) {
+    await this.splitCoins(balance, totalNumOfCoins);
   }
 
   /**

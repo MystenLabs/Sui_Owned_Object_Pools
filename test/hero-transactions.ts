@@ -135,7 +135,7 @@ const mintHero = async (): Promise<void> => {
 
     // Get the sufficient available gas coins needed for the gasBudget
     const gasCoins = await cms.takeCoins(
-      gasBudget !== null ? gasBudget : 0,
+      gasBudget !== null ? gasBudget : 10000,
       0,
       6042400,
     );
@@ -143,39 +143,7 @@ const mintHero = async (): Promise<void> => {
     if (gasCoins.length === 0) {
       console.log('Unable to take gas coins. Insufficient balance available.');
     } else {
-      console.log('Taken coins:');
-
-      const mygasCoins: {
-        digest: string;
-        objectId: string;
-        version: string | number;
-      }[] = [];
-
-      for (const coinId of gasCoins) {
-        await cms
-          .getCoinById(coinId)
-          .then((coin) => {
-            if (coin) {
-              console.log('-------Coin Used-------');
-              console.log('Coin:', coin.coinObjectId);
-              console.log('Balance:', coin.balance);
-              console.log('Version:', coin.version);
-              console.log('Digest:', coin.digest);
-
-              // Building the gas payment object
-              mygasCoins.push({
-                digest: coin.digest,
-                objectId: coin.coinObjectId,
-                version: coin.version,
-              });
-            }
-          })
-          .catch((e) => {
-            console.error('Could not get coin by id', e);
-          });
-      }
-
-      tx.setGasPayment(mygasCoins);
+      tx.setGasPayment(gasCoins);
 
       try {
         const txRes = await signer.signAndExecuteTransactionBlock({

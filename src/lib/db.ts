@@ -7,7 +7,7 @@
 
 import { createClient, RedisClientOptions } from 'redis';
 
-import { Coin } from '../Coin';
+import { Coin } from '../coin';
 import * as cfg from './config';
 
 declare global {
@@ -142,7 +142,7 @@ export async function getAllCoins(): Promise<Coin[]> {
     for (const key of keys) {
       await defaultClient.hGetAll(key).then((coin) => {
         if (coin) {
-          let coinObj = new Coin(
+          const coinObj = new Coin(
             coin.version,
             coin.digest,
             coin.coinType,
