@@ -19,113 +19,11 @@ jest.mock('../../src/lib/db', () => ({
 }));
 
 describe('CoinManagement initialization with create', () => {
-  beforeEach(() => {
-    // Reset the mock before each test
-    jest.clearAllMocks();
-  });
-
-  // Tests private key in base64 format.
-  it('should create a new CoinManagement instance with a base64 private key', () => {
-    const cms = CoinManagement.create(
-      TEST_KEYS[0],
-      testnetConnection,
-      'base64',
-      'Ed25519',
-    );
-
-    expect(cms).toBeInstanceOf(CoinManagement);
-    expect(db.connect).toHaveBeenCalledTimes(1);
-  });
-
-  // Tests private key in hex format.
-  it('should create a new CoinManagement instance with a hex private key', () => {
-    const cms = CoinManagement.create(
-      TEST_KEYS[1],
-      testnetConnection,
-      'hex',
-      'Ed25519',
-    );
-
-    expect(cms).toBeInstanceOf(CoinManagement);
-    expect(db.connect).toHaveBeenCalledTimes(1);
-  });
-
-  // Tests private key from passphrase format.
-  it('should create a new CoinManagement instance with a passphrase', () => {
-    const cms = CoinManagement.create(
-      TEST_KEYS[2],
-      testnetConnection,
-      'passphrase',
-      'Ed25519',
-    );
-
-    expect(cms).toBeInstanceOf(CoinManagement);
-    expect(db.connect).toHaveBeenCalledTimes(1);
-  });
-
-  // Tests the case where a key is not provided.
-  it('should throw an error if a key is not provided', () => {
-    expect(() => {
-      CoinManagement.create('', testnetConnection, 'base64', 'Ed25519');
-    }).toThrowError('Private key is required for initialization.');
-  });
-
-  // Tests the case where an RPC connection is not provided.
-  it('should throw an error if RPC connection is not provided', () => {
-    expect(() => {
-      CoinManagement.create(
-        TEST_KEYS[0],
-        null as unknown as Connection,
-        'base64',
-        'Ed25519',
-      );
-    }).toThrowError('RPC connection is required for initialization.');
-  });
-
-  // Tests the case where an invalid key format is provided.
-  it('should throw an error for invalid key format', () => {
-    const invalidKeyFormat: 'base64' | 'hex' | 'passphrase' = 'invalid' as
-      | 'base64'
-      | 'hex'
-      | 'passphrase';
-
-    expect(() => {
-      CoinManagement.create(
-        TEST_KEYS[0],
-        testnetConnection,
-        invalidKeyFormat,
-        'Ed25519',
-      );
-    }).toThrowError(
-      'Invalid key format. Supported formats are "base64", "hex", or "passphrase".',
-    );
-  });
-
-  // Tests the case where an invalid key type is provided.
-  it('should throw an error for invalid key type', () => {
-    const invalidKeyType: 'Ed25519' | 'Secp256k1' = 'invalid' as
-      | 'Ed25519'
-      | 'Secp256k1';
-
-    expect(() => {
-      CoinManagement.create(
-        TEST_KEYS[0],
-        testnetConnection,
-        'base64',
-        invalidKeyType,
-      );
-    }).toThrowError(
-      'Invalid key type. Supported types are "Ed25519" or "Secp256k1".',
-    );
-  });
-});
-
-describe('CoinManagement initialization with createAndSplitCoins', () => {
   it('should create a new instance of CoinManagement', () => {
     const chunksOfGas = 2;
     const txnsEstimate = 10;
 
-    const cms = CoinManagement.createAndSplitCoins(
+    const cms = CoinManagement.create(
       chunksOfGas,
       txnsEstimate,
       TEST_KEYS[0],
@@ -143,7 +41,7 @@ describe('CoinManagement initialization with createAndSplitCoins', () => {
 
     const splitCoinsSpy = jest.spyOn(CoinManagement.prototype, 'splitCoins');
 
-    CoinManagement.createAndSplitCoins(
+    CoinManagement.create(
       chunksOfGas,
       txnsEstimate,
       TEST_KEYS[0],

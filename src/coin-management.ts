@@ -90,24 +90,6 @@ export class CoinManagement {
   }
 
   /**
-   * Creates a new instance of CoinManagement with the provided options.
-   *
-   * @param key - The private key for initialization.
-   * @param rpcConnection - The RPC connection (testnetConnection | mainnetConnection | devnetConnection).
-   * @param keyFormat - The format of the private key ('base64' | 'hex' | 'passphrase').
-   * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
-   * @returns A new instance of CoinManagement.
-   */
-  public static create(
-    key: string,
-    rpcConnection: Connection,
-    keyFormat: 'base64' | 'hex' | 'passphrase',
-    keyType: 'Ed25519' | 'Secp256k1',
-  ): CoinManagement {
-    return new CoinManagement(key, rpcConnection, keyFormat, keyType);
-  }
-
-  /**
    * Creates a new instance of CoinManagement with the provided options and
    * automatically splits the coins based on the given gas chunks and transaction estimate.
    *
@@ -119,7 +101,7 @@ export class CoinManagement {
    * @param keyType - The type of the private key ('Ed25519' | 'Secp256k1').
    * @returns A new instance of CoinManagement with the coins split based on the gas chunks and transaction estimate.
    */
-  public static createAndSplitCoins(
+  public static create(
     balance: number,
     totalNumOfCoins: number,
     key: string,

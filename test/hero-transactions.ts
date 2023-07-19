@@ -19,16 +19,9 @@ interface GasCost {
   nonRefundableStorageFee: string;
 }
 
-// const cms = CoinManagement.createAndSplitCoins(
-//   6042400,
-//   10,
-//   process.env.USER_PRIVATE_KEY!,
-//   testnetConnection,
-//   'base64',
-//   'Ed25519',
-// );
-
 const cms = CoinManagement.create(
+  6042400,
+  10,
   process.env.USER_PRIVATE_KEY!,
   testnetConnection,
   'base64',
