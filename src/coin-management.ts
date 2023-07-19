@@ -364,6 +364,14 @@ export class CoinManagement {
     maxCoinValue: number,
   ): Promise<Array<GasPaymentCoin>> {
     try {
+      const dbHealth = await this.checkHealth();
+
+      // Check database health.
+      // If the database is empty, refill the queue.
+      if (!dbHealth) {
+        this.refillQueue(gasBudget, 10);
+      }
+
       // Fetch gas coins from the database.
       let selectedCoins: CoinData = await db.getAllCoins();
 
