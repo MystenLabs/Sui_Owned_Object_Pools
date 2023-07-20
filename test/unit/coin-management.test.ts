@@ -19,6 +19,9 @@ jest.mock('../../src/lib/db', () => ({
 }));
 
 describe('CoinManagement initialization with create', () => {
+  const chunksOfGas = 2;
+  const txnsEstimate = 10;
+
   beforeEach(() => {
     // Reset the mock before each test
     jest.clearAllMocks();
@@ -27,6 +30,8 @@ describe('CoinManagement initialization with create', () => {
   // Tests private key in base64 format.
   it('should create a new CoinManagement instance with a base64 private key', () => {
     const cms = CoinManagement.create(
+      chunksOfGas,
+      txnsEstimate,
       TEST_KEYS[0],
       testnetConnection,
       'base64',
@@ -40,6 +45,8 @@ describe('CoinManagement initialization with create', () => {
   // Tests private key in hex format.
   it('should create a new CoinManagement instance with a hex private key', () => {
     const cms = CoinManagement.create(
+      chunksOfGas,
+      txnsEstimate,
       TEST_KEYS[1],
       testnetConnection,
       'hex',
@@ -53,6 +60,8 @@ describe('CoinManagement initialization with create', () => {
   // Tests private key from passphrase format.
   it('should create a new CoinManagement instance with a passphrase', () => {
     const cms = CoinManagement.create(
+      chunksOfGas,
+      txnsEstimate,
       TEST_KEYS[2],
       testnetConnection,
       'passphrase',
@@ -66,7 +75,14 @@ describe('CoinManagement initialization with create', () => {
   // Tests the case where a key is not provided.
   it('should throw an error if a key is not provided', () => {
     expect(() => {
-      CoinManagement.create('', testnetConnection, 'base64', 'Ed25519');
+      CoinManagement.create(
+        chunksOfGas,
+        txnsEstimate,
+        '',
+        testnetConnection,
+        'base64',
+        'Ed25519',
+      );
     }).toThrowError('Private key is required for initialization.');
   });
 
@@ -74,6 +90,8 @@ describe('CoinManagement initialization with create', () => {
   it('should throw an error if RPC connection is not provided', () => {
     expect(() => {
       CoinManagement.create(
+        chunksOfGas,
+        txnsEstimate,
         TEST_KEYS[0],
         null as unknown as Connection,
         'base64',
@@ -91,6 +109,8 @@ describe('CoinManagement initialization with create', () => {
 
     expect(() => {
       CoinManagement.create(
+        chunksOfGas,
+        txnsEstimate,
         TEST_KEYS[0],
         testnetConnection,
         invalidKeyFormat,
@@ -109,6 +129,8 @@ describe('CoinManagement initialization with create', () => {
 
     expect(() => {
       CoinManagement.create(
+        chunksOfGas,
+        txnsEstimate,
         TEST_KEYS[0],
         testnetConnection,
         'base64',
@@ -120,12 +142,12 @@ describe('CoinManagement initialization with create', () => {
   });
 });
 
-describe('CoinManagement initialization with createAndSplitCoins', () => {
+describe('CoinManagement initialization with create', () => {
   it('should create a new instance of CoinManagement', () => {
     const chunksOfGas = 2;
     const txnsEstimate = 10;
 
-    const cms = CoinManagement.createAndSplitCoins(
+    const cms = CoinManagement.create(
       chunksOfGas,
       txnsEstimate,
       TEST_KEYS[0],
@@ -143,7 +165,7 @@ describe('CoinManagement initialization with createAndSplitCoins', () => {
 
     const splitCoinsSpy = jest.spyOn(CoinManagement.prototype, 'splitCoins');
 
-    CoinManagement.createAndSplitCoins(
+    CoinManagement.create(
       chunksOfGas,
       txnsEstimate,
       TEST_KEYS[0],
