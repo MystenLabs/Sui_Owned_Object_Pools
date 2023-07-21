@@ -349,6 +349,69 @@ export class CoinManagement {
   }
 
   /**
+   * Retrieves and stores coins in the specified range.
+   * The coins are retrieved from the provider and stored in the db.
+   * The coins are also stored in the selectedCoins array.
+   * @param gasBudget The gas budget needed.
+   * @param minCoinValue The min coin value (for fetching coins from provider).
+   * @param maxCoinValue The max coin value (for fetching coins from provider).
+   * 
+   * @returns An array of coin IDs the caller can use for gas.
+   * @throws Error if there are no sufficient gas coins available.
+   * @throws Error if the coins cannot be stored.
+   **/
+  private async retrieveAndStoreCoins(
+    gasBudget: number,
+    minCoinValue: number,
+    maxCoinValue: number,
+  ): Promise<CoinData> {
+    let totalBalance: number = 0;
+    let selectedCoins: CoinData = [];
+    try {
+      // Fetch coins from the provider.
+      const coinsFromProvider = await this.getCoinsInRange(
+        minCoinValue,
+        maxCoinValue,
+      );
+
+      for (let i = 0; i < coinsFromProvider.length; i++) {
+        // Get a copy of the current coin.
+        const coin = coinsFromProvider[i];
+
+        if (totalBalance < gasBudget) {
+          // Remove the coin from coinsFromProvider array.
+          coinsFromProvider.splice(i, 1);
+
+          // Add the coin to the selected coins.
+          selectedCoins.push(coin);
+
+          // Update the total balance with current coin's balance.
+          totalBalance += Number(coin.balance);
+
+          // Reduce the index by 1 to account for the removed coin.
+          i--;
+        } else {
+          // Stop adding coins if the gas budget is reached and
+          // store the remaining coins in the db for future use.
+          db.storeCoins(coinsFromProvider);
+          break;
+        }
+      }
+
+      // After adding coins from the provider, check if the total balance is
+      // still lower than the gas budget. If so, throw an error.
+      if (totalBalance < gasBudget) {
+        throw new Error('Insufficient gas coins available');
+      }
+
+      return selectedCoins;
+    } catch (error) {
+      console.error('Error storing coins:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Takes coins from the available gas coins in the database based on the given gas
    * budget and coin value range. If the database doesn't have enough gas coins, it
    * will fetch more coins from the provider for the caller.
@@ -372,41 +435,11 @@ export class CoinManagement {
 
       // Check if the balance from the DB is enough for the gas budget.
       if (totalBalance < gasBudget) {
-        // Fetch coins from the provider.
-        const coinsFromProvider = await this.getCoinsInRange(
+        selectedCoins = await this.retrieveAndStoreCoins(
+          gasBudget,
           minCoinValue,
           maxCoinValue,
         );
-
-        for (let i = 0; i < coinsFromProvider.length; i++) {
-          // Get a copy of the current coin.
-          const coin = coinsFromProvider[i];
-
-          if (totalBalance < gasBudget) {
-            // Remove the coin from coinsFromProvider array.
-            coinsFromProvider.splice(i, 1);
-
-            // Add the coin to the selected coins.
-            selectedCoins.push(coin);
-
-            // Update the total balance with current coin's balance.
-            totalBalance += Number(coin.balance);
-
-            // Reduce the index by 1 to account for the removed coin.
-            i--;
-          } else {
-            // Stop adding coins if the gas budget is reached and
-            // store the remaining coins in the db for future use.
-            db.storeCoins(coinsFromProvider);
-            break;
-          }
-        }
-
-        // After adding coins from the provider, check if the total balance is
-        // still lower than the gas budget. If so, throw an error.
-        if (totalBalance < gasBudget) {
-          throw new Error('Insufficient gas coins available');
-        }
       } else {
         // Keep only the coins that we need based on given gasBudget
         // and remove them from the database.
@@ -510,7 +543,7 @@ export class CoinManagement {
 
   /**
    * Disconnects from the database.
-   * 
+   *
    * @returns void
    */
   public disconnectFromDB(): void {
