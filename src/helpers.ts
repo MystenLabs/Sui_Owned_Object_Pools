@@ -1,11 +1,13 @@
-import { Ed25519Keypair, fromB64, Secp256k1Keypair } from '@mysten/sui.js';
-
-/// Method to make keypair from private key that is in string format
-export function getKeyPair(privateKey: string): Ed25519Keypair {
-  const privateKeyArray = Array.from(fromB64(privateKey));
-  privateKeyArray.shift();
-  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
-}
+import {
+  Ed25519Keypair,
+  fromB64,
+  JsonRpcProvider,
+  RawSigner,
+  Secp256k1Keypair,
+  TransactionBlock,
+  TransactionDigest,
+  TransactionEffects,
+} from '@mysten/sui.js';
 
 /**
  * Retrieves the key pair (Ed25519 or Secp256k1) based on the provided key, key format, and key type.
@@ -52,4 +54,99 @@ export function getAnyKeyPair(
     console.error('Error generating key pair:', error);
     throw new Error('Invalid private key');
   }
+}
+
+/**
+ * Find the coin with the biggest balance.
+ */
+export async function getCoinWithMaxBalance(
+  provider: JsonRpcProvider,
+  address: string,
+): Promise<{
+  version: string;
+  digest: string;
+  coinType: string;
+  previousTransaction: string;
+  coinObjectId: string;
+  balance: string;
+}> {
+  const coins = await provider.getCoins({
+    owner: address,
+    coinType: '0x2::sui::SUI',
+  });
+
+  const coinWithMaxBalance = coins.data.reduce((maxCoin, currentCoin) => {
+    const maxBalance = Number(maxCoin.balance);
+    const currentBalance = Number(currentCoin.balance);
+
+    return currentBalance > maxBalance ? currentCoin : maxCoin;
+  });
+
+  return coinWithMaxBalance;
+}
+
+type GasPaymentCoin = {
+  digest: string;
+  objectId: string;
+  version: string | number;
+};
+
+type Coin = {
+  version: string;
+  digest: string;
+  coinType: string;
+  previousTransaction: string;
+  coinObjectId: string;
+  balance: string;
+};
+
+interface GasCost {
+  computationCost: string;
+  storageCost: string;
+  storageRebate: string;
+  nonRefundableStorageFee: string;
+}
+
+export function buildGasPayment(coins: Array<Coin>): Array<GasPaymentCoin> {
+  // Build gas payment object.
+  const gasPaymentCoins: Array<GasPaymentCoin> = [];
+
+  for (const coin of coins) {
+    gasPaymentCoins.push({
+      digest: coin.digest,
+      objectId: coin.coinObjectId,
+      version: coin.version,
+    });
+  }
+
+  // Return the coins to be used for gas payment.
+  return gasPaymentCoins;
+}
+
+export async function getGasCostFromDryRun(
+  txn: TransactionBlock,
+  signer: RawSigner,
+) {
+  const txRes = await signer.dryRunTransactionBlock({
+    transactionBlock: txn,
+  });
+
+  const gasCost =
+    txRes.effects.status.status === 'success' ? txRes.effects.gasUsed : null;
+
+  let gasBudget: number | null = null;
+  if (typeof gasCost === 'object' && gasCost !== null) {
+    const { computationCost, storageCost } = gasCost as GasCost;
+
+    const parsedComputationCost = parseInt(computationCost, 10);
+    const parsedStorageCost = parseInt(storageCost, 10);
+
+    if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
+      gasBudget = parsedComputationCost + parsedStorageCost;
+    } else {
+      throw new Error('GasBudget was not calculated properly');
+    }
+  }
+
+  return gasBudget;
 }

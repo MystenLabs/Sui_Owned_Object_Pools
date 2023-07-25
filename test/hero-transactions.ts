@@ -11,64 +11,22 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 
 import { CoinManagement } from '../src/coin-management';
+import {
+  buildGasPayment,
+  getAnyKeyPair,
+  getCoinWithMaxBalance,
+  getGasCostFromDryRun,
+} from '../src/helpers';
 
-interface GasCost {
-  computationCost: string;
-  storageCost: string;
-  storageRebate: string;
-  nonRefundableStorageFee: string;
-}
-
-const cms = CoinManagement.create(
-  6042400,
-  10,
+const provider = new JsonRpcProvider(testnetConnection);
+const keypair = getAnyKeyPair(
   process.env.USER_PRIVATE_KEY!,
-  testnetConnection,
   'base64',
   'Ed25519',
 );
+const signer = new RawSigner(keypair, provider);
 
 dotenv.config();
-
-console.log('Connecting to', process.env.SUI_NETWORK);
-
-const getSigner = (): RawSigner => {
-  const USER_PRIVATE_KEY = process.env.USER_PRIVATE_KEY!;
-  const keypair = getKeyPair(USER_PRIVATE_KEY);
-
-  const provider = getProvider();
-
-  const signer = new RawSigner(keypair, provider);
-  return signer;
-};
-
-const getKeyPair = (privateKey: string): Ed25519Keypair => {
-  const privateKeyArray: number[] = Array.from(fromB64(privateKey));
-  privateKeyArray.shift();
-  return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
-};
-
-const getProvider = (): JsonRpcProvider => {
-  const suiNetwork = process.env.SUI_NETWORK!;
-
-  if (!suiNetwork) {
-    throw new Error('SUI_NETWORK is not defined in the environment variables');
-  }
-
-  const connOptions = new Connection({
-    fullnode: suiNetwork,
-  });
-  const provider = new JsonRpcProvider(connOptions);
-
-  return provider;
-};
-
-const getGasCostFromSuccessfulTx = (txRes: any): number | null => {
-  if (txRes.effects.status.status === 'success') {
-    return txRes.effects.gasUsed;
-  }
-  return null;
-};
 
 const mintedHeroes: string[] = [];
 const mintGasUsed: number[] = [];
@@ -76,7 +34,7 @@ const burnGasUsed: number[] = [];
 const updateGasUsed: number[] = [];
 const fuseGasUsed: number[] = [];
 
-const mintHero = async (): Promise<void> => {
+const mintHero = async (cms: CoinManagement): Promise<void> => {
   const tx = new TransactionBlock();
 
   const hero = tx.moveCall({
@@ -94,77 +52,15 @@ const mintHero = async (): Promise<void> => {
 
   tx.transferObjects([hero], tx.pure(process.env.NON_CUSTODIAN_ADDRESS!));
 
-  const signer = getSigner();
+  const gasBudget = await getGasCostFromDryRun(tx, signer);
+  console.log('necessary gasBudget', gasBudget);
 
-  try {
-    const txRes = await signer.dryRunTransactionBlock({
-      transactionBlock: tx,
-    });
+  mintGasUsed.push(gasBudget || 0);
 
-    console.log('Mint hero', txRes.effects?.created?.[0]?.reference?.objectId);
-    const objectId = txRes.effects?.created?.[0]?.reference?.objectId;
-    if (objectId !== undefined) {
-      mintedHeroes.push(objectId);
-    }
+  // Get the sufficient available gas coins needed for the gasBudget
+  const gasCoins = await cms.takeCoins(gasBudget !== null ? gasBudget : 0);
 
-    const gasCost = getGasCostFromSuccessfulTx(txRes);
-    let gasBudget: number | null = null;
-
-    if (typeof gasCost === 'object' && gasCost !== null) {
-      const { computationCost, storageCost } = gasCost as GasCost;
-
-      const parsedComputationCost = parseInt(computationCost, 10);
-      const parsedStorageCost = parseInt(storageCost, 10);
-
-      if (!isNaN(parsedComputationCost) && !isNaN(parsedStorageCost)) {
-        gasBudget = parsedComputationCost + parsedStorageCost;
-      } else {
-        throw new Error('GasBudget was not calculated properly');
-      }
-    }
-
-    console.log('gas cost:', gasBudget);
-    mintGasUsed.push(gasBudget || 0);
-
-    // Get the sufficient available gas coins needed for the gasBudget
-    const gasCoins = await cms.takeCoins(
-      gasBudget !== null ? gasBudget : 10000,
-      0,
-      6042400,
-    );
-
-    if (gasCoins.length === 0) {
-      console.log('Unable to take gas coins. Insufficient balance available.');
-    } else {
-      tx.setGasPayment(gasCoins);
-
-      try {
-        const txRes = await signer.signAndExecuteTransactionBlock({
-          transactionBlock: tx,
-          requestType: 'WaitForLocalExecution',
-          options: {
-            showEffects: true,
-          },
-        });
-        console.log('txRes', txRes);
-      } catch (e) {
-        console.error('Could not sign and execute transaction block', e);
-      }
-    }
-  } catch (e) {
-    console.error('Could not mint hero', e);
-  }
-};
-
-const updateHero = async (hero: string, stars: number): Promise<void> => {
-  const tx = new TransactionBlock();
-
-  tx.moveCall({
-    target: `${process.env.PACKAGE_ID}::hero_nft::update_stars`,
-    arguments: [tx.object(hero), tx.pure(stars)],
-  });
-
-  const signer = getSigner();
+  tx.setGasPayment(gasCoins);
 
   try {
     const txRes = await signer.signAndExecuteTransactionBlock({
@@ -174,92 +70,116 @@ const updateHero = async (hero: string, stars: number): Promise<void> => {
         showEffects: true,
       },
     });
-    console.log('Update hero', hero, stars);
-    const gasCost = getGasCostFromSuccessfulTx(txRes);
-    updateGasUsed.push(gasCost || 0);
+    console.log('txRes', txRes);
   } catch (e) {
-    console.error('Could not upgrade hero', e);
+    console.error('Could not sign and execute transaction block', e);
   }
 };
 
-const burnHero = async (hero: string): Promise<void> => {
-  const tx = new TransactionBlock();
+// const updateHero = async (hero: string, stars: number): Promise<void> => {
+//   const tx = new TransactionBlock();
 
-  tx.moveCall({
-    target: `${process.env.PACKAGE_ID}::hero_nft::delete_hero`,
-    arguments: [tx.object(hero)],
-  });
+//   tx.moveCall({
+//     target: `${process.env.PACKAGE_ID}::hero_nft::update_stars`,
+//     arguments: [tx.object(hero), tx.pure(stars)],
+//   });
 
-  const signer = getSigner();
+//   const signer = getSigner();
 
-  try {
-    const txRes = await signer.signAndExecuteTransactionBlock({
-      transactionBlock: tx,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-      },
-    });
+//   try {
+//     const txRes = await signer.signAndExecuteTransactionBlock({
+//       transactionBlock: tx,
+//       requestType: 'WaitForLocalExecution',
+//       options: {
+//         showEffects: true,
+//       },
+//     });
+//     console.log('Update hero', hero, stars);
+//     const gasCost = getGasCostFromSuccessfulTx(txRes);
+//     updateGasUsed.push(gasCost || 0);
+//   } catch (e) {
+//     console.error('Could not upgrade hero', e);
+//   }
+// };
 
-    console.log('Burn hero', hero);
-    const gasCost = getGasCostFromSuccessfulTx(txRes);
-    burnGasUsed.push(gasCost || 0);
-  } catch (e) {
-    console.error('Could not burn hero', e);
-  }
-};
+// const burnHero = async (hero: string): Promise<void> => {
+//   const tx = new TransactionBlock();
 
-const BATCH_SIZE = 5;
+//   tx.moveCall({
+//     target: `${process.env.PACKAGE_ID}::hero_nft::delete_hero`,
+//     arguments: [tx.object(hero)],
+//   });
 
-const batchMint = async (): Promise<void> => {
-  for (let i = 0; i < BATCH_SIZE; i++) {
-    await mintHero();
-  }
-};
+//   const signer = getSigner();
 
-const batchUpgrade = async (): Promise<void> => {
-  for (let i = 0; i < mintedHeroes.length; i++) {
-    await updateHero(mintedHeroes[i], i + 1);
-  }
-};
+//   try {
+//     const txRes = await signer.signAndExecuteTransactionBlock({
+//       transactionBlock: tx,
+//       requestType: 'WaitForLocalExecution',
+//       options: {
+//         showEffects: true,
+//       },
+//     });
 
-const batchBurn = async (): Promise<void> => {
-  for (let i = 0; i < mintedHeroes.length; i++) {
-    await burnHero(mintedHeroes[i]);
-  }
-};
+//     console.log('Burn hero', hero);
+//     const gasCost = getGasCostFromSuccessfulTx(txRes);
+//     burnGasUsed.push(gasCost || 0);
+//   } catch (e) {
+//     console.error('Could not burn hero', e);
+//   }
+// };
 
-const batchTest = async (): Promise<void> => {
-  await batchMint();
-  await batchUpgrade();
-  await batchBurn();
+// const BATCH_SIZE = 5;
 
-  fs.writeFileSync(
-    './gas_results/mint_gas_results.json',
-    JSON.stringify(mintGasUsed),
-  );
-  fs.writeFileSync(
-    './gas_results/update_gas_results.json',
-    JSON.stringify(updateGasUsed),
-  );
-  fs.writeFileSync(
-    './gas_results/burn_gas_results.json',
-    JSON.stringify(burnGasUsed),
-  );
-};
+// const batchMint = async (): Promise<void> => {
+//   for (let i = 0; i < BATCH_SIZE; i++) {
+//     await mintHero();
+//   }
+// };
 
-const testFuse = async (): Promise<void> => {
-  await mintHero();
-  await mintHero();
-  console.log('fuse cost', fuseGasUsed);
+// const batchUpgrade = async (): Promise<void> => {
+//   for (let i = 0; i < mintedHeroes.length; i++) {
+//     await updateHero(mintedHeroes[i], i + 1);
+//   }
+// };
 
-  await mintHero();
-  await mintHero();
-  await updateHero(mintedHeroes[2], 2);
-  await burnHero(mintedHeroes[3]);
-  console.log('upgrade cost', updateGasUsed);
-  console.log('burn cost', burnGasUsed);
-};
+// const batchBurn = async (): Promise<void> => {
+//   for (let i = 0; i < mintedHeroes.length; i++) {
+//     await burnHero(mintedHeroes[i]);
+//   }
+// };
+
+// const batchTest = async (): Promise<void> => {
+//   await batchMint();
+//   await batchUpgrade();
+//   await batchBurn();
+
+//   fs.writeFileSync(
+//     './gas_results/mint_gas_results.json',
+//     JSON.stringify(mintGasUsed),
+//   );
+//   fs.writeFileSync(
+//     './gas_results/update_gas_results.json',
+//     JSON.stringify(updateGasUsed),
+//   );
+//   fs.writeFileSync(
+//     './gas_results/burn_gas_results.json',
+//     JSON.stringify(burnGasUsed),
+//   );
+// };
+
+// const testFuse = async (): Promise<void> => {
+//   await mintHero();
+//   await mintHero();
+//   console.log('fuse cost', fuseGasUsed);
+
+//   await mintHero();
+//   await mintHero();
+//   await updateHero(mintedHeroes[2], 2);
+//   await burnHero(mintedHeroes[3]);
+//   console.log('upgrade cost', updateGasUsed);
+//   console.log('burn cost', burnGasUsed);
+// };
 
 // Script Initialization code.
 if (process.argv[2] === undefined) {
@@ -269,38 +189,48 @@ if (process.argv[2] === undefined) {
 
   switch (command) {
     case 'mintHero':
-      mintHero().then(() => {
-        console.log(mintGasUsed);
+      CoinManagement.create(
+        8000000,
+        10,
+        '0x00558a0eb6d553c4d34bbed80cd04cc0a67b6bdc70e876e4dafbac3aea61d086',
+        process.env.USER_PRIVATE_KEY!,
+        testnetConnection,
+        'base64',
+        'Ed25519',
+      ).then((cms) => {
+        mintHero(cms).then(() => {
+          console.log(mintGasUsed);
+        });
       });
       break;
-    case 'updateHero': // Add your Hero ObjectID before calling
-      updateHero(
-        '0x360b37ea8f7918f175cf1992bcb9926ed23843ad7e800ad7982d75f56fc927bb',
-        2,
-      ).then(() => {
-        console.log(updateGasUsed);
-      });
-      break;
-    case 'burnHero':
-      burnHero(
-        '0x360b37ea8f7918f175cf1992bcb9926ed23843ad7e800ad7982d75f56fc927bb',
-      ).then(() => {
-        console.log(burnGasUsed);
-      });
-      break;
-    case 'testFuse':
-      testFuse().then(() => {
-        console.log(fuseGasUsed);
-      });
-      break;
-    case 'batchMint':
-      batchMint().then(() => {
-        console.log('minted heroes', mintedHeroes, mintGasUsed);
-      });
-      break;
-    case 'batchTest':
-      batchTest();
-      break;
+    // case 'updateHero': // Add your Hero ObjectID before calling
+    //   updateHero(
+    //     '0x360b37ea8f7918f175cf1992bcb9926ed23843ad7e800ad7982d75f56fc927bb',
+    //     2,
+    //   ).then(() => {
+    //     console.log(updateGasUsed);
+    //   });
+    //   break;
+    // case 'burnHero':
+    //   burnHero(
+    //     '0x360b37ea8f7918f175cf1992bcb9926ed23843ad7e800ad7982d75f56fc927bb',
+    //   ).then(() => {
+    //     console.log(burnGasUsed);
+    //   });
+    //   break;
+    // case 'testFuse':
+    //   testFuse().then(() => {
+    //     console.log(fuseGasUsed);
+    //   });
+    //   break;
+    // case 'batchMint':
+    //   batchMint().then(() => {
+    //     console.log('minted heroes', mintedHeroes, mintGasUsed);
+    //   });
+    //   break;
+    // case 'batchTest':
+    //   batchTest();
+    //   break;
     default:
       console.log('Invalid command');
       break;

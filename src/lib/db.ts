@@ -159,3 +159,16 @@ export async function getAllCoins(): Promise<Coin[]> {
 
   return coins;
 }
+
+/**
+ * Delete all keys from all databases in Redis.
+ */
+export async function deleteAllCoins() {
+  try {
+    // Execute the flushall command to delete all data from Redis
+    await defaultClient.flushAll();
+  } catch (error) {
+    console.error('Error deleting all data from Redis:', error);
+    throw error;
+  }
+}
