@@ -348,6 +348,7 @@ export class CoinManagement {
   /**
    * Disconnects from the database.
    *
+   *
    * @returns void
    */
   public disconnectFromDB(): void {
