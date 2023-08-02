@@ -185,10 +185,14 @@ describe('CoinManagement splitCoins', () => {
   });
 
   it("should execute the transaction block correctly and transfer gas coins to the user's address", async () => {
+    const chunksOfGas = 2;
+    const txnsEstimate = 10;
     // Mock the necessary dependencies
     const mockedSignAndExecuteTransactionBlock = jest.fn();
 
     const cms = CoinManagement.create(
+      chunksOfGas,
+      txnsEstimate,
       TEST_KEYS[0],
       testnetConnection,
       'base64',

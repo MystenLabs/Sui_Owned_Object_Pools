@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.ts",
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
-    "lint": "eslint --ext ts --fix --max-warnings 0 'src/*.ts'"
+    "lint": "eslint --ext ts --fix --max-warnings 0 'src/*.ts'",
+    "test": "jest"
   },
   "keywords": [
     "coin",
