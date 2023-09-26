@@ -137,5 +137,48 @@ describe('✂️ Pool splitting', () => {
     expect(num_objects_new_pool + num_objects_after_split)
           .toEqual(num_objects_before_split);
   });
+
+  /// This is not a testing an edge case scenario.
+  /// In this case we use a predicate that could be used in a real scenario.
+  it('splits a pool using a normal-scenario predicate', async () => {
+    // Create a pool 
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    }); 
+    const num_objects_before_split = initial_pool.objects.length;
+    
+    /*
+    Define a normal scenario predicate.
+    Transfer 10 objects to the new pool and keep the rest to the initial pool.
+    */
+    var counter = 0;
+    const predicate = (obj: SuiObjectRef | undefined): boolean | null => {
+      if (counter < 10) {
+        counter++;
+        return true;
+      } else {
+        return false;
+      }
+    } ;
+
+    /* 
+    Split the initial pool, moving some objects to 
+    a newly created pool.
+    */
+    const new_pool: Pool = initial_pool.split(predicate);  
+    const num_objects_new_pool = new_pool.objects.length;
+
+    /* 
+    Number of objects in the initial pool has changed! 
+    Some of them have been moved to new_pool (based on the predicate), 
+    so we calculate the new number of objects in the initial pool. 
+    */
+    const num_objects_after_split = initial_pool.objects.length;
+
+    expect(num_objects_new_pool).toEqual(10);
+    expect(num_objects_after_split).toEqual(num_objects_before_split - 10);
+    expect(num_objects_new_pool + num_objects_after_split).toEqual(num_objects_before_split);
+  });
 });
 
