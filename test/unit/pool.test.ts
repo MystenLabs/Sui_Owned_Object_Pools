@@ -34,7 +34,7 @@ describe('Pool creation with factory', () => {
     jest.setTimeout(10000);
   });
 
-  it('Pool Created Correctly', async () => {
+  it('creates a pool correctly', async () => {
     const pool: Pool = await Pool.full({
       keypair: adminKeypair,
       client: client,
@@ -43,11 +43,12 @@ describe('Pool creation with factory', () => {
     expect(objects.length).toBeGreaterThan(0);
   });
 
-  it('Pool Split Correctly', async () => {
+  it('splits a pool in correct-length pools', async () => {
+    // Create a pool
     const pool: Pool = await Pool.full({
       keypair: adminKeypair,
       client: client,
-    });
+    }); 
     const objects = pool.objects;
     const poolLength = objects.length;
 
