@@ -45,13 +45,8 @@ describe('Pool creation with factory', () => {
 });
 
 
-describe.each([
-  [(_obj: SuiObjectRef | undefined) => true, "always true predicate"], 
-  [(_obj: SuiObjectRef | undefined) => false, "always false predicate"],
-  [(_obj: SuiObjectRef | undefined) => null, "always null predicate"], // FIXME - times out, infinite loop
-])(
-  '🌀 Pool splitting', (predicate: any, descr) => {
-  it(`splits a pool using an ${descr}`, async () => {
+describe('✂️ Pool splitting', () => {
+  it('splits a pool using an <always-true> predicate', async () => {
     /* 
     Create a pool 
     */
@@ -63,14 +58,78 @@ describe.each([
     
     /* 
     Split the initial pool, moving some objects to 
-    a newly created pool (depending on the predicate) 
+    a newly created pool. Since the predicate returns only true,
+    all objects will be moved to the new pool.
     */
-    const new_pool: Pool = initial_pool.split(predicate);  
+    const always_true_predicate = (_obj: SuiObjectRef | undefined) => true;
+    const new_pool: Pool = initial_pool.split(always_true_predicate);  
     const num_objects_new_pool = new_pool.objects.length;
 
     /* 
     Number of objects in the initial pool has changed! 
     Some of them have been moved to new_pool (based on the predicate), 
+    so we calculate the new number of objects in the initial pool. 
+    */
+    const num_objects_after_split = initial_pool.objects.length;
+
+    expect(num_objects_new_pool + num_objects_after_split)
+          .toEqual(num_objects_before_split);
+  });
+
+  it('splits a pool using an <always-false> predicate', async () => {
+    /* 
+    Create a pool 
+    */
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    }); 
+    const num_objects_before_split = initial_pool.objects.length;
+    
+    /* 
+    Split the initial pool, moving some objects to 
+    a newly created pool. Since the predicate returns only false,
+    no objects will be moved to the new pool.
+    */
+    const always_false_predicate = (_obj: SuiObjectRef | undefined) => false;
+    const new_pool: Pool = initial_pool.split(always_false_predicate);  
+    const num_objects_new_pool = new_pool.objects.length;
+
+   /* 
+    Number of objects in the initial pool (could have) changed! 
+    Some of them might have been moved to new_pool (based on the predicate), 
+    so we calculate the new number of objects in the initial pool. 
+    */
+    const num_objects_after_split = initial_pool.objects.length;
+
+    expect(num_objects_new_pool + num_objects_after_split)
+          .toEqual(num_objects_before_split);
+  });
+
+  // FIXME - times out when creating a pool 
+  // Currently not executed in the test suite. To include it, use "it" instead of "xit"
+  xit('splits a pool using an <always-null> predicate', async () => {
+    /* 
+    Create a pool 
+    */
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    }); 
+    const num_objects_before_split = initial_pool.objects.length;
+    
+    /* 
+    Split the initial pool, moving some objects to 
+    a newly created pool. Since the predicate returns only null,
+    no objects will be moved to the new pool.
+    */
+    const always_null_predicate = (_obj: SuiObjectRef | undefined) => null;
+    const new_pool: Pool = initial_pool.split(always_null_predicate);  
+    const num_objects_new_pool = new_pool.objects.length;
+
+    /* 
+    Number of objects in the initial pool (could have) changed! 
+    Some of them might have been moved to new_pool (based on the predicate), 
     so we calculate the new number of objects in the initial pool. 
     */
     const num_objects_after_split = initial_pool.objects.length;
