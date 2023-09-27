@@ -65,6 +65,7 @@ export class Pool {
     const keep: SuiObjectRef[] = [];
     const give: SuiObjectRef[] = [];
 
+    outside:  // label to specify the null break statement
     while (this._objects.length !== 0) {
       switch (pred(this._objects.at(-1))) {
         case true:
@@ -74,7 +75,7 @@ export class Pool {
           keep.push(this._objects.pop()!);
           continue;
         case null:
-          break;
+          break outside;
       }
     }
     this.objects.push(...keep);

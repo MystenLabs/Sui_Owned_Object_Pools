@@ -106,9 +106,7 @@ describe('✂️ Pool splitting', () => {
           .toEqual(num_objects_before_split);
   });
 
-  // FIXME - times out when creating a pool 
-  // Currently not executed in the test suite. To include it, use "it" instead of "xit"
-  xit('splits a pool using an <always-null> predicate', async () => {
+  it('splits a pool using an <always-null> predicate', async () => {
     /* 
     Create a pool 
     */
