@@ -4,17 +4,19 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool } from '../../src';
+import { TransactionBlock } from "@mysten/sui.js/transactions";
+
 
 // Test keys for address 0x8c94aaf11b8e3341d3b7b527daaa7b13e2637419db6bfad53b93d8d267ea8cb8
-const TEST_KEYS = [
+const ADMIN_TEST_KEYS = [
   'AMat/wSZ1kXntDIoMrcoLFB5nt2rY2qYU0ImLW5AsbZ6', // base64
   '0xc6adff0499d645e7b4322832b7282c50799eddab636a985342262d6e40b1b67a', // hex
   'flash leave dilemma swing lab flavor shoot civil rookie list gather soul', // mnemonic
 ];
 
-const ADMIN_SECRET_KEY = TEST_KEYS[0];
+const ADMIN_SECRET_KEY = ADMIN_TEST_KEYS[0];
 const adminPrivateKeyArray = Uint8Array.from(
-  Array.from(fromB64(ADMIN_SECRET_KEY!)),
+  Array.from(fromB64(ADMIN_SECRET_KEY)),
 );
 const adminKeypair = Ed25519Keypair.fromSecretKey(
   adminPrivateKeyArray.slice(1),
@@ -25,9 +27,6 @@ const client = new SuiClient({
 
 
 describe('Pool creation with factory', () => {
-  const chunksOfGas = 2;  // FIXME - unused
-  const txnsEstimate = 10;  // FIXME - unused
-
   beforeEach(() => {
     // Reset the mock before each test
     jest.clearAllMocks();
@@ -180,3 +179,88 @@ describe('✂️ Pool splitting', () => {
   });
 });
 
+
+describe('🌊 Basic flow of sign & execute tx block', () => {
+  const chunksOfGas = 2;  // FIXME - unused
+  const txnsEstimate = 10;  // FIXME - unused
+  const testObjectId = "0x295181920738375f18017665d05d976aa5b8effa3c9ec79c09aa71f39f2619c9"; // TODO read it from dotenv
+
+  beforeEach(() => {
+    // Reset the mock before each test
+    jest.clearAllMocks();
+    jest.setTimeout(10000);
+  });
+
+  it('checks truthy object ownership', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.length).toBeGreaterThan(0);
+
+    // Admin transfers an object that belongs to him back to himself.  
+    const txb = new TransactionBlock();
+    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress))
+    
+    // Check ownership of the objects in the transaction block.
+    expect(pool.check_total_ownership(txb)).toBeTruthy();
+  });
+
+  it('checks falsy object ownership', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.length).toBeGreaterThan(0);
+
+    // Admin transfers a random object that doesn't belong to himself.  
+    const txb = new TransactionBlock();
+    const falsyObjectId = "0x0287a708d359616a50d561d86aeda23c85d3b707fb18574ee35fc0f8c7518219"; // random object id - non existent
+    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+    txb.transferObjects([txb.object(falsyObjectId)], txb.pure(adminAddress))
+
+    // Check ownership of the objects in the transaction block.
+    expect(pool.check_total_ownership(txb)).toBeFalsy();
+  });
+
+  it('signs and executes a tx block', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.length).toBeGreaterThan(0);
+
+    // Admin transfers an object that belongs to him back to himself.  
+    const txb = new TransactionBlock();
+    const testObjectId = "0x295181920738375f18017665d05d976aa5b8effa3c9ec79c09aa71f39f2619c9"; // TODO read it from dotenv
+    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress))
+    
+    const res = await pool.signAndExecuteTransactionBlock({
+      transactionBlock: txb,
+      requestType: "WaitForLocalExecution",
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true
+      },
+    });
+
+    expect(res).toBeDefined();
+    if (res) expect(res.effects!.status.status).toEqual('success');
+  });
+
+});

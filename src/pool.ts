@@ -12,6 +12,12 @@ import {
   SuiObjectRef,
   SuiObjectResponse,
 } from '@mysten/sui.js/src/types/objects';
+import { 
+  SuiTransactionBlockResponseOptions, 
+  ExecuteTransactionRequestType
+} from '@mysten/sui.js/src/types/transactions';
+import { TransactionBlock } from "@mysten/sui.js/transactions";
+
 
 export class Pool {
   private _keypair: Keypair;
@@ -80,6 +86,63 @@ export class Pool {
     }
     this.objects.push(...keep);
     return new Pool(this._keypair, this.client, give);
+  }
+
+  async signAndExecuteTransactionBlock(input: {
+		transactionBlock: TransactionBlock;
+		options?: SuiTransactionBlockResponseOptions;
+		requestType?: ExecuteTransactionRequestType;
+	}) {
+		let { transactionBlock, options, requestType } = input;
+
+		// (1). Check object ownership
+		if (!this.check_total_ownership(transactionBlock)) {
+      throw new Error(
+        "All objects of the transaction block must be owned by the pool's creator."
+        );
+    }
+
+		// (3). Run the transaction
+		const resp = await this.client.signAndExecuteTransactionBlock({
+			transactionBlock,
+			requestType,
+			options: { ...options, showEffects: true },
+			signer: this._keypair,
+		});
+
+    return resp;
+	}
+
+  /*
+  Check that all objects in the transaction block
+  are included in this pool. 
+  Since the pool is created by the signer, if an object 
+  is in the pool then it is owned by the pool's 
+  creator (signer).
+  */
+  public check_total_ownership(txb: TransactionBlock): boolean {
+    const inputs = txb.blockData.inputs;
+    return inputs.every((input) => {
+      // Skip the address input. Addresses are of type 'pure'.
+      // obviously it doesn't make sense to check if an address 
+      // is in the pool since it's not an object.
+      if (input.type! == 'pure') return true  
+      // check that the object is in the pool
+      return this.is_inside_pool(input.value)
+    });
+  }
+
+  /**
+   * Check by objectId if an object is in the object pool.
+   * @param objectId the object id to check
+   * @returns true if the object is in the pool, false otherwise
+   */
+  private is_inside_pool(objectId: string): boolean {
+    const object = this._objects.find(
+      (obj) => obj.objectId === objectId
+      );
+    const is_found = object !== undefined;
+    return is_found;
   }
 
   get objects(): SuiObjectRef[] {
