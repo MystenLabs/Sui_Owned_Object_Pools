@@ -5,7 +5,6 @@ import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool } from '../../src';
 import { TransactionBlock } from "@mysten/sui.js/transactions";
-import exp from 'constants';
 
 
 const path = require('path');
