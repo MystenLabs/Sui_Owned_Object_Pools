@@ -7,9 +7,11 @@ import { Pool } from '../../src';
 import { TransactionBlock } from "@mysten/sui.js/transactions";
 import exp from 'constants';
 
+
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
+const TEST_USER_ADDRESS: string = process.env.TEST_USER_ADDRESS!;
 const ADMIN_SECRET_KEY: string = process.env.ADMIN_SECRET_KEY!;
 const adminPrivateKeyArray = Uint8Array.from(
   Array.from(fromB64(ADMIN_SECRET_KEY)),
@@ -251,7 +253,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
-    txb.transferObjects([coin], txb.pure("0xCAFE")); // Transferring the object to a test address
+    txb.transferObjects([coin], txb.pure(TEST_USER_ADDRESS)); // Transferring the object to a test address
     
     // Check ownership of the objects in the transaction block.
     expect(pool.check_total_ownership(txb)).toBeTruthy();
@@ -271,8 +273,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Admin transfers a random object that doesn't belong to himself.  
     const txb = new TransactionBlock();
     const falsyObjectId = "0x02004"; // random object id - non existent
-    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    txb.transferObjects([txb.object(falsyObjectId)], txb.pure(adminAddress));
+    txb.transferObjects([txb.object(falsyObjectId)], txb.pure(TEST_USER_ADDRESS));
 
     // Check ownership of the objects in the transaction block.
     expect(pool.check_total_ownership(txb)).toBeFalsy();
@@ -291,9 +292,9 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
     // Admin transfers an object that belongs to him back to himself.  
     const txb = new TransactionBlock();
-    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress))
-    
+    const recipientAddress = TEST_USER_ADDRESS
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress))
+
     const res = await pool.signAndExecuteTransactionBlock({
       transactionBlock: txb,
       requestType: "WaitForLocalExecution",
@@ -305,7 +306,13 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     });
 
     expect(res).toBeDefined();
-    if (res) expect(res.effects!.status.status).toEqual('success');
+    expect(res.effects!.status.status).toEqual('success');
+    
+    const recipientObjects = await client.getOwnedObjects({owner: recipientAddress});
+    const transferred_object = recipientObjects.data.find(
+      (obj) => obj.data?.objectId === testObjectId
+      );
+    expect(transferred_object).toBeDefined();
   });
 
 });

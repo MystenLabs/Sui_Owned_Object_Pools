@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiClient } from '@mysten/sui.js/client';
+import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import {
   getObjectReference,
@@ -161,7 +161,7 @@ export class Pool {
 		transactionBlock: TransactionBlock;
 		options?: SuiTransactionBlockResponseOptions;
 		requestType?: ExecuteTransactionRequestType;
-	}) {
+	}): Promise<SuiTransactionBlockResponse> {
 		let { transactionBlock, options, requestType } = input;
 
 		// (1). Check object ownership
@@ -172,14 +172,12 @@ export class Pool {
     }
 
 		// (3). Run the transaction
-		const resp = await this.client.signAndExecuteTransactionBlock({
+		return this.client.signAndExecuteTransactionBlock({
 			transactionBlock,
 			requestType,
 			options: { ...options, showEffects: true },
 			signer: this._keypair,
 		});
-
-    return resp;
 	}
 
   /*
@@ -194,7 +192,7 @@ export class Pool {
     return inputs.every((input) => {
       // Skip the signer's address - doesn't make sense to check for onwership
       const is_address = isValidSuiAddress(input.value) && input.type! == 'pure';
-      if (is_address) return true  
+      if (is_address) return true
       
       // Currently, we only check for object ownership.
       // Coins are skipped - i.e. we pass them as true (owned).
