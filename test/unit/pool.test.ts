@@ -18,6 +18,13 @@ const adminPrivateKeyArray = Uint8Array.from(
 const adminKeypair = Ed25519Keypair.fromSecretKey(
   adminPrivateKeyArray.slice(1),
 );
+const testUserPrivateKeyArray = Uint8Array.from(
+  Array.from(fromB64(process.env.TEST_USER_SECRET!)),
+);
+const testUserKeypair = Ed25519Keypair.fromSecretKey(
+  testUserPrivateKeyArray.slice(1),
+);
+
 const client = new SuiClient({
   url: getFullnodeUrl('testnet'),
 });
@@ -312,6 +319,22 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       (obj) => obj.data?.objectId === testObjectId
       );
     expect(transferred_object).toBeDefined();
-  });
 
+    // Send NFT back to the original owner
+    const txb2 = new TransactionBlock();
+    txb2.transferObjects(
+      [txb2.object(testObjectId)], 
+      txb2.pure(adminKeypair.getPublicKey().toSuiAddress())
+      )
+    client.signAndExecuteTransactionBlock({
+      transactionBlock: txb2,
+      requestType: "WaitForLocalExecution",
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true
+      },
+      signer: testUserKeypair
+    });
+  });
 });
