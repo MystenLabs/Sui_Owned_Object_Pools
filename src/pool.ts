@@ -216,23 +216,22 @@ export class Pool {
     return inputs.every((input) => {
       // Skip the signer's address - doesn't make sense to check for onwership
       const is_address = isValidSuiAddress(input.value) && input.type! == 'pure';
-      if (is_address) return true
-      
-      // NOTE: Currently, we only check for object ownership.
-      // Coins are skipped - i.e. we pass them as true (owned).
-      const is_coin = input.type! == 'pure';
-      if (is_coin) return true  // TODO: check for coin ownership
-      else return this.isInsidePool(input.value)
+      if (is_address) return true 
+      // TODO: Still missing coinObjectID. We need it for lookups in pool.coins.      
+      if (input.type! == 'pure') return true  // FIXME - this row is a hack to skip the coin object
+      return this.isInsidePool(input.value)
     });
   }
 
   /**
-   * Check by objectId if an object is in the object pool.
+   * Check if the id of an object or coin is in the object pool.
+   * If it is in either the object pool or the coin pool, then it is
+   * owned by the pool's creator. 
    * @param objectId the object id to check
    * @returns true if the object is in the pool, false otherwise
    */
-  private isInsidePool(objectId: string): boolean {
-      return this._objects.has(objectId);
+  private isInsidePool(id: string): boolean {
+      return this._objects.has(id) || this._coins.has(id);
   }
 
   get objects(): PoolObjectsMap {
