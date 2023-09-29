@@ -45,8 +45,8 @@ describe('Pool creation with factory', () => {
       client: client,
     });
 
-    expect(pool.objects.length).toBeGreaterThan(0); 
-    expect(pool.coins.length).toBeGreaterThan(0);
+    expect(pool.objects.size).toBeGreaterThan(0); 
+    expect(pool.coins.size).toBeGreaterThan(0);
   });
 });
 
@@ -60,8 +60,8 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     }); 
-    const num_objects_before_split = initial_pool.objects.length;
-    const num_coins_before_split = initial_pool.coins.length;
+    const num_objects_before_split = initial_pool.objects.size;
+    const num_coins_before_split = initial_pool.coins.size;
 
     /* 
     Split the initial pool, moving some objects to 
@@ -70,15 +70,15 @@ describe('✂️ Pool splitting', () => {
     */
     const always_true_predicate = (_obj: SuiObjectRef | CoinStruct | undefined) => true;
     const new_pool: Pool = initial_pool.split(always_true_predicate, always_true_predicate);  
-    const num_objects_new_pool = new_pool.objects.length;
+    const num_objects_new_pool = new_pool.objects.size;
     
     /* 
     Number of objects in the initial pool has changed! 
     Some of them have been moved to new_pool (based on the predicate), 
     so we calculate the new number of objects in the initial pool. 
     */
-    const num_objects_after_split = initial_pool.objects.length;
-    const num_coins_after_split = initial_pool.coins.length;
+    const num_objects_after_split = initial_pool.objects.size;
+    const num_coins_after_split = initial_pool.coins.size;
 
     expect(num_objects_new_pool + num_objects_after_split)
           .toEqual(num_objects_before_split);
@@ -94,8 +94,8 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     }); 
-    const num_objects_before_split = initial_pool.objects.length;
-    const num_coins_before_split = initial_pool.coins.length;
+    const num_objects_before_split = initial_pool.objects.size;
+    const num_coins_before_split = initial_pool.coins.size;
 
     /* 
     Split the initial pool, moving some objects to 
@@ -104,15 +104,15 @@ describe('✂️ Pool splitting', () => {
     */
     const always_false_predicate = (_obj: SuiObjectRef | CoinStruct | undefined) => false;
     const new_pool: Pool = initial_pool.split(always_false_predicate, always_false_predicate);  
-    const num_objects_new_pool = new_pool.objects.length;
-    const num_coins_new_pool = new_pool.coins.length;
+    const num_objects_new_pool = new_pool.objects.size;
+    const num_coins_new_pool = new_pool.coins.size;
    /* 
     Number of objects in the initial pool (could have) changed! 
     Some of them might have been moved to new_pool (based on the predicate), 
     so we calculate the new number of objects in the initial pool. 
     */
-    const num_objects_after_split = initial_pool.objects.length;
-    const num_coins_after_split = initial_pool.coins.length;
+    const num_objects_after_split = initial_pool.objects.size;
+    const num_coins_after_split = initial_pool.coins.size;
     expect(num_objects_new_pool + num_objects_after_split)
           .toEqual(num_objects_before_split);
     expect(num_coins_after_split + num_coins_new_pool)
@@ -127,8 +127,8 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     }); 
-    const num_objects_before_split = initial_pool.objects.length;
-    const num_coins_before_split = initial_pool.coins.length;
+    const num_objects_before_split = initial_pool.objects.size;
+    const num_coins_before_split = initial_pool.coins.size;
 
     /* 
     Split the initial pool, moving some objects to 
@@ -137,16 +137,16 @@ describe('✂️ Pool splitting', () => {
     */
     const always_null_predicate = (_obj: SuiObjectRef | CoinStruct | undefined) => null;
     const new_pool: Pool = initial_pool.split(always_null_predicate, always_null_predicate);  
-    const num_objects_new_pool = new_pool.objects.length;
-    const num_coins_new_pool = new_pool.coins.length;
+    const num_objects_new_pool = new_pool.objects.size;
+    const num_coins_new_pool = new_pool.coins.size;
 
     /* 
     Number of objects in the initial pool (could have) changed! 
     Some of them might have been moved to new_pool (based on the predicate), 
     so we calculate the new number of objects in the initial pool. 
     */
-    const num_objects_after_split = initial_pool.objects.length;
-    const num_coins_after_split = initial_pool.coins.length;
+    const num_objects_after_split = initial_pool.objects.size;
+    const num_coins_after_split = initial_pool.coins.size;
 
     expect(num_objects_new_pool + num_objects_after_split)
           .toEqual(num_objects_before_split);
@@ -166,8 +166,8 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     }); 
-    const num_objects_before_split = initial_pool.objects.length;
-    const num_coins_before_split = initial_pool.coins.length;
+    const num_objects_before_split = initial_pool.objects.size;
+    const num_coins_before_split = initial_pool.coins.size;
 
     /*
     Define a normal scenario predicate.
@@ -205,15 +205,15 @@ describe('✂️ Pool splitting', () => {
     a newly created pool.
     */
     const new_pool: Pool = initial_pool.split(predicate_obj, predicate_coins);  
-    const num_objects_new_pool = new_pool.objects.length;
-    const num_coins_new_pool = new_pool.coins.length;
+    const num_objects_new_pool = new_pool.objects.size;
+    const num_coins_new_pool = new_pool.coins.size;
     /* 
     Number of objects in the initial pool has changed! 
     Some of them have been moved to new_pool (based on the predicate), 
     so we calculate the new number of objects in the initial pool. 
     */
-    const num_objects_after_split = initial_pool.objects.length;
-    const num_coins_after_split = initial_pool.coins.length;
+    const num_objects_after_split = initial_pool.objects.size;
+    const num_coins_after_split = initial_pool.coins.size;
 
     // Validity checks for object array splitting
     expect(num_objects_new_pool).toEqual(num_objects_for_new_pool);
@@ -248,7 +248,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object
-    expect(objects.length).toBeGreaterThan(0);
+    expect(objects.size).toBeGreaterThan(0);
 
     // Admin transfers an object that belongs to him back to himself.  
     const txb = new TransactionBlock();
@@ -262,7 +262,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     txb.transferObjects([coin], txb.pure(TEST_USER_ADDRESS)); // Transferring the object to a test address
     
     // Check ownership of the objects in the transaction block.
-    expect(pool.check_total_ownership(txb)).toBeTruthy();
+    expect(pool.checkTotalOwnership(txb)).toBeTruthy();
   });
 
   it('checks falsy object ownership', async () => {
@@ -274,7 +274,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object
-    expect(objects.length).toBeGreaterThan(0);
+    expect(objects.size).toBeGreaterThan(0);
 
     // Admin transfers a random object that doesn't belong to himself.  
     const txb = new TransactionBlock();
@@ -282,7 +282,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     txb.transferObjects([txb.object(falsyObjectId)], txb.pure(TEST_USER_ADDRESS));
 
     // Check ownership of the objects in the transaction block.
-    expect(pool.check_total_ownership(txb)).toBeFalsy();
+    expect(pool.checkTotalOwnership(txb)).toBeFalsy();
   });
 
   it('signs and executes a tx block', async () => {
@@ -294,7 +294,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object
-    expect(objects.length).toBeGreaterThan(0);
+    expect(objects.size).toBeGreaterThan(0);
 
     // Admin transfers an object that belongs to him back to himself.  
     const txb = new TransactionBlock();

@@ -22,17 +22,20 @@ import { TransactionBlock } from "@mysten/sui.js/transactions";
 import { isValidSuiAddress } from "@mysten/sui.js/utils";
 
 
+type PoolObjectsMap = Map<string, SuiObjectRef>;  // Map<objectId, object>
+type PoolCoinsMap = Map<string, CoinStruct>;  // Map<coinObjectId, coin>
+
 export class Pool {
   private _keypair: Keypair;
   private _client: SuiClient;
-  private _objects: SuiObjectRef[];
-  private _coins: CoinStruct[];
+  private _objects: PoolObjectsMap;
+  private _coins: PoolCoinsMap;
 
   private constructor(
     keypair: Keypair,
     client: SuiClient,
-    objects: SuiObjectRef[],
-    coins: CoinStruct[],
+    objects: PoolObjectsMap,
+    coins: PoolCoinsMap,
   ) {
     this._keypair = keypair;
     this._client = client;
@@ -47,7 +50,7 @@ export class Pool {
     console.log('Creating Pool for account ', owner);
     
     // Get all objects owned by the pool's creator
-    const objects: SuiObjectRef[] = [];
+    const objects: PoolObjectsMap = new Map();
     let resp: PaginatedObjectsResponse | null;
     let cursor = null;
     do {
@@ -55,20 +58,20 @@ export class Pool {
       resp.data.forEach((obj: SuiObjectResponse) => {
         const objectReference = getObjectReference(obj);
         if (objectReference) {
-          objects.push(objectReference);
+          objects.set(objectReference.objectId, objectReference);
         }
       });
       cursor = resp?.nextCursor;
     } while (resp.hasNextPage);
 
     // Get all coins owned by the pool's creator
-    const coins: CoinStruct[] = [];
+    const coins: PoolCoinsMap = new Map();
     let coins_resp: PaginatedCoins | null;
     cursor = null;
     do {
       coins_resp = await client.getAllCoins({ owner, cursor });
       coins_resp.data.forEach((coin: CoinStruct) => {
-        coins.push(coin);
+        coins.set(coin.coinObjectId, coin);
       });
       cursor = coins_resp?.nextCursor;
     } while (coins_resp.hasNextPage);
@@ -81,7 +84,7 @@ export class Pool {
    * the objects are split, and `pred_coins` to determine how the coins are.
    *
    * A `pred_obj/coins` is called on each object in the current pool.objects and 
-   * pool.coins, in turn. 
+   * pool.coins in turn. 
    * If the corresponding predicate: 
    * 1. returns `true`, then the object will be moved to the new Pool, if it
    * 2. returns `false`, then the object will stay in `this` Pool, and if it
@@ -92,68 +95,89 @@ export class Pool {
    * @param pred_coins a predicate function that returns true if a coin
    * should be moved to the new's pool struct "coins", false if it should 
    * stay in the current pool.coins.
+   * @returns the new Pool with the objects and coins that were split off
    */
   split(pred_obj: (obj: SuiObjectRef | undefined) => boolean | null,
         pred_coins: (obj: CoinStruct | undefined) => boolean | null): Pool {
-    const objects_to_give = this.split_objects(pred_obj);
-    const coins_to_give = this.split_coins(pred_coins);
+    const objects_to_give: PoolObjectsMap = this.splitObjects(pred_obj);
+    const coins_to_give: PoolCoinsMap = this.splitCoins(pred_coins);
 
     return new Pool(this._keypair, this._client, objects_to_give, coins_to_give);
   }
 
   /**
-   * Removes from the current pool and accumulates into an array the
-   * objects that will be moved to the new pool from the current pool.
+   * Splits off the pool's objects map into two new maps. One for the current pool
+   * (the ones with the objects to keep), and one for the new pool (the ones to give).
    * @param pred a predicate function that returns true if an object should
    * be moved to the new pool after split
-   * @returns the array of objects that will be moved to the new pool
+   * @returns the map of objects that will be assigned to the new pool
    */
-  split_objects(pred: (obj: SuiObjectRef | undefined) => boolean | null): SuiObjectRef[] {
-    const objects_to_keep: SuiObjectRef[] = [];
-    const objects_to_give: SuiObjectRef[] = [];
+  splitObjects(pred: (obj: SuiObjectRef | undefined) => boolean | null): PoolObjectsMap {
+    const objects_to_keep: PoolObjectsMap = new Map();
+    const objects_to_give: PoolObjectsMap = new Map();
 
+    // Transform the map into an array of key-value pairs. It's easier to iterate.
+    let objects_array = Array.from(this._objects, ([objectId, object]) => ({ objectId, object }));
     outside:
-    while (this._objects.length !== 0) {
-      switch (pred(this._objects.at(-1))) {
+    while (objects_array.length !== 0) {
+      let last_object_in_array = objects_array.at(-1)?.object;
+      switch (pred(last_object_in_array)) {
         case true:
-          objects_to_give.push(this._objects.pop()!);
+          // Predicate returned true, so we move the object to the new pool
+          let obj_give = objects_array.pop()!;
+          objects_to_give.set(obj_give.objectId, obj_give.object);
           break;
         case false:
-          objects_to_keep.push(this._objects.pop()!);
+          // Predicate returned false, so we keep the object in the current pool
+          let obj_keep = objects_array.pop()!;
+          objects_to_keep.set(obj_keep.objectId, obj_keep.object);
           continue;
         case null:
+          // The predicate returned null, so we stop the split, and keep
+          // all the remaining objects of the array in the current pool.
+          objects_array.forEach((obj) => {objects_to_keep.set(obj.objectId, obj.object)});
           break outside;
       }
     }
-    this.objects.push(...objects_to_keep);
+    this._objects = objects_to_keep;
     return objects_to_give;
   }
 
   /**
-   * Removes from the current pool and accumulates into an array the 
-   * coins that will be moved to the new pool from the current pool. 
+   * Splits off the pool's coins map into two new maps. One for the current pool 
+   * (the ones with the coins to keep), and one for the new pool (the ones to give). 
    * @param pred a predicate function that returns true if a coin should 
    * be moved to the new pool after split
-   * @returns the array of coins that will be moved to the new pool
+   * @returns the map of coins that will be assigned to the new pool
    */
-  split_coins(pred: (coin: CoinStruct | undefined) => boolean | null): CoinStruct[] {
-    const coins_to_keep: CoinStruct[] = [];
-    const coins_to_give: CoinStruct[] = [];
+  splitCoins(pred: (coin: CoinStruct | undefined) => boolean | null): PoolCoinsMap {
+    const coins_to_keep: PoolCoinsMap = new Map();
+    const coins_to_give: PoolCoinsMap = new Map();
 
+    // Transform the map into an array of key-value pairs. It's easier to iterate.
+    let coins_array = Array.from(this._coins, ([coinObjectId, coin]) => ({ coinObjectId, coin }));
     outside:
-    while (this._coins.length !== 0) {
-      switch (pred(this._coins.at(-1))) {
+    while (coins_array.length !== 0) {
+      let last_coin_in_array = coins_array.at(-1)?.coin;
+      switch (pred(last_coin_in_array)) {
         case true:
-          coins_to_give.push(this._coins.pop()!);
+          // Predicate returned true, so we move the coin to the new pool
+          let coin_give = coins_array.pop()!;
+          coins_to_give.set(coin_give.coinObjectId, coin_give.coin);
           break;
         case false:
-          coins_to_keep.push(this._coins.pop()!);
+          // Predicate returned false, so we keep the coin in the current pool
+          let coin_keep = coins_array.pop()!;
+          coins_to_keep.set(coin_keep.coinObjectId, coin_keep.coin);
           continue;
         case null:
+          // The predicate returned null, so we stop the split, and keep
+          // all the remaining coins of the array in the current pool.
+          coins_array.forEach((coin) => {coins_to_keep.set(coin.coinObjectId, coin.coin)});
           break outside;
       }
     }
-    this._coins.push(...coins_to_keep);
+    this._coins = coins_to_keep;
     return coins_to_give;
   }
 
@@ -165,7 +189,7 @@ export class Pool {
 		let { transactionBlock, options, requestType } = input;
 
 		// (1). Check object ownership
-		if (!this.check_total_ownership(transactionBlock)) {
+		if (!this.checkTotalOwnership(transactionBlock)) {
       throw new Error(
         "All objects of the transaction block must be owned by the pool's creator."
         );
@@ -180,28 +204,25 @@ export class Pool {
 		});
 	}
 
-  /*
-  Check that all objects in the transaction block
-  are included in this pool. 
-  Since the pool is created by the signer, if an object 
-  is in the pool then it is owned by the pool's 
-  creator (signer).
-  */
-  public check_total_ownership(txb: TransactionBlock): boolean {
+  /**
+   * Check that all objects in the transaction block
+   * are included in this pool. 
+   * Since the pool is created by the signer, if an object 
+   * is in the pool then it is owned by the pool's 
+   * creator (signer).
+   */
+  public checkTotalOwnership(txb: TransactionBlock): boolean {
     const inputs = txb.blockData.inputs;
     return inputs.every((input) => {
       // Skip the signer's address - doesn't make sense to check for onwership
       const is_address = isValidSuiAddress(input.value) && input.type! == 'pure';
       if (is_address) return true
       
-      // Currently, we only check for object ownership.
+      // NOTE: Currently, we only check for object ownership.
       // Coins are skipped - i.e. we pass them as true (owned).
-      // TODO: check for coin ownership
       const is_coin = input.type! == 'pure';
-      if (is_coin) return true
-      
-      // check that the object is in the pool
-      return this.is_inside_pool(input.value)
+      if (is_coin) return true  // TODO: check for coin ownership
+      else return this.isInsidePool(input.value)
     });
   }
 
@@ -210,19 +231,15 @@ export class Pool {
    * @param objectId the object id to check
    * @returns true if the object is in the pool, false otherwise
    */
-  private is_inside_pool(objectId: string): boolean {
-    const object = this._objects.find(
-      (obj) => obj.objectId === objectId
-      );
-      const is_found = object !== undefined;
-      return is_found;
+  private isInsidePool(objectId: string): boolean {
+      return this._objects.has(objectId);
   }
 
-  get objects(): SuiObjectRef[] {
+  get objects(): PoolObjectsMap {
     return this._objects;
   }
 
-  get coins(): CoinStruct[] {
+  get coins(): PoolCoinsMap {
     return this._coins;
   }
 
