@@ -3,55 +3,43 @@
 
 import { SuiClient, SuiTransactionBlockResponse, OwnedObjectRef } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
-import {
-  getObjectReference,
-  SuiObjectData,
-} from '@mysten/sui.js/dist/cjs/types';
+import { getObjectReference, } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
-import {
-  SuiObjectRef,
-  SuiObjectResponse,
-} from '@mysten/sui.js/src/types/objects';
-import { 
-  CoinStruct, 
-  PaginatedCoins } from '@mysten/sui.js/dist/cjs/client/types/';
+import { SuiObjectRef, SuiObjectResponse, } from '@mysten/sui.js/src/types/objects';
+import { CoinStruct, PaginatedCoins } from '@mysten/sui.js/dist/cjs/client/types/';
 import { 
   SuiTransactionBlockResponseOptions, 
-  ExecuteTransactionRequestType} from '@mysten/sui.js/src/types/transactions';
+  ExecuteTransactionRequestType
+} from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from "@mysten/sui.js/transactions";
 import { isValidSuiAddress } from "@mysten/sui.js/utils";
-
-
 type PoolObjectsMap = Map<string, SuiObjectRef>;  // Map<objectId, object>
 type PoolCoinsMap = Map<string, CoinStruct>;  // Map<coinObjectId, coin>
 
 export class Pool {
   private _keypair: Keypair;
-  // private _client: SuiClient;
   private _objects: PoolObjectsMap;
   private _coins: PoolCoinsMap;
 
   private constructor(
     keypair: Keypair,
-    // client: SuiClient,
     objects: PoolObjectsMap,
     coins: PoolCoinsMap,
   ) {
     this._keypair = keypair;
-    // this._client = client;
     this._objects = objects;
     this._coins = coins;
   }
 
-  static async full(input: { 
-    keypair: Keypair; 
-    client: SuiClient 
+  static async full(input: {
+    keypair: Keypair;
+    client: SuiClient
   }) {
     const { keypair, client } = input;
     const owner = keypair.toSuiAddress();
 
     console.log('Creating Pool for account ', owner);
-    
+
     // Get all objects owned by the pool's creator
     const objects: PoolObjectsMap = new Map();
     let resp: PaginatedObjectsResponse | null;
@@ -79,7 +67,7 @@ export class Pool {
       cursor = coins_resp?.nextCursor;
     } while (coins_resp.hasNextPage);
 
-    return new Pool(keypair, 
+    return new Pool(keypair,
       // client, 
       objects, coins);
   }
@@ -88,17 +76,17 @@ export class Pool {
    * Split off a new Pool from this Pool using `pred_obj` to determine how
    * the objects are split, and `pred_coins` to determine how the coins are.
    *
-   * A `pred_obj/coins` is called on each object in the current pool.objects and 
-   * pool.coins in turn. 
-   * If the corresponding predicate: 
+   * A `pred_obj/coins` is called on each object in the current pool.objects and
+   * pool.coins in turn.
+   * If the corresponding predicate:
    * 1. returns `true`, then the object will be moved to the new Pool, if it
    * 2. returns `false`, then the object will stay in `this` Pool, and if it
    * 3. returns `null`, it skips all remaining objects and returns the split Pool immediately.
-   * @param pred_obj a predicate function that returns true if an object 
+   * @param pred_obj a predicate function that returns true if an object
    * should be moved to the new pool, false if it should stay in the current pool,
    * and null if the split should stop immediately.
    * @param pred_coins a predicate function that returns true if a coin
-   * should be moved to the new's pool struct "coins", false if it should 
+   * should be moved to the new's pool struct "coins", false if it should
    * stay in the current pool.coins.
    * @returns the new Pool with the objects and coins that were split off
    */
@@ -151,9 +139,9 @@ export class Pool {
   }
 
   /**
-   * Splits off the pool's coins map into two new maps. One for the current pool 
-   * (the ones with the coins to keep), and one for the new pool (the ones to give). 
-   * @param pred a predicate function that returns true if a coin should 
+   * Splits off the pool's coins map into two new maps. One for the current pool
+   * (the ones with the coins to keep), and one for the new pool (the ones to give).
+   * @param pred a predicate function that returns true if a coin should
    * be moved to the new pool after split
    * @returns the map of coins that will be assigned to the new pool
    */
@@ -210,30 +198,60 @@ export class Pool {
 			options: { ...options, showEffects: true },
 			signer: this._keypair,
 		});
-    // transactionBlock.setGasBudget(res.gasUsed)
-    // transactionBlock.setGasPayment
-    // this.client.getCoins
+
     const created = res.effects?.created;
     const unwrapped = res.effects?.unwrapped;
-    const mutated = res.effects?.mutated;    
+    const mutated = res.effects?.mutated;
 
     // (4). Update the pool's objects and coins
-    this.updatePool(created);
-    this.updatePool(unwrapped);
-    this.updatePool(mutated);
+    await this.updatePool(created, input.client);
+    await this.updatePool(unwrapped, input.client);
+    await this.updatePool(mutated, input.client);
 
     return res
 	}
 
-  private updatePool(newRefs: OwnedObjectRef[] | undefined) {  
-    if (!newRefs) return;  // maybe unecessary line
+  private async updatePool(newRefs: OwnedObjectRef[] | undefined, client: SuiClient) {
+    const signerAddress = this._keypair.getPublicKey().toSuiAddress();
+    if (!newRefs) return; // maybe unnecessary line
     for (const ref in newRefs) {
-      console.log(ref);
-      // if (ref.owner.AddressOwner == this.address) {  //
-      //   // TODO find the correct function to add the object details too
-      //   this._objects.set(ref.reference, ref);  // FIXME - add to map instead of array
-      // }
+      // @ts-ignore
+      let objectOwner = newRefs[ref].owner.AddressOwner;
+      let object = newRefs[ref].reference;
+      let objectId = object.objectId;
+
+      // WARNING - this is a hack to skip get the object type
+      //  It should be improved to avoid the extra calls
+      let objectDetails = await client.getObject({
+        id: object.objectId,
+        options: { showContent: true }
+      });
+      if (objectOwner != signerAddress) {
+        return;
+      }
+
+      // @ts-ignore
+      if (this.isCoin(objectDetails.data?.content?.type)) {
+        // @ts-ignore
+        let coin: CoinStruct = {
+          // @ts-ignore
+          balance: objectDetails.data?.content?.fields["balance"],
+          coinObjectId: objectId,
+          // @ts-ignore
+          coinType: objectDetails.data?.content?.type,
+          digest: object.digest,
+          previousTransaction: "---",  // FIXME: don't know how to parse this
+          version: object.version,
+        };
+        this._coins.set(objectId, coin);
+      } else {
+        this._objects.set(objectId, object);
+      }
     }
+  }
+
+  private isCoin(type: string): Boolean {
+    return type.includes("::coin::Coin");
   }
 
   /**
@@ -273,14 +291,6 @@ export class Pool {
   get coins(): PoolCoinsMap {
     return this._coins;
   }
-
-  // get client(): SuiClient {
-  //   return this._client;
-  // }
-
-  // set client(value: SuiClient) {
-  //   this._client = value;
-  // }
 
   get keypair(): Keypair {
     return this._keypair;
