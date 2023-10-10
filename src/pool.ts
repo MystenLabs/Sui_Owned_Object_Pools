@@ -27,23 +27,26 @@ type PoolCoinsMap = Map<string, CoinStruct>;  // Map<coinObjectId, coin>
 
 export class Pool {
   private _keypair: Keypair;
-  private _client: SuiClient;
+  // private _client: SuiClient;
   private _objects: PoolObjectsMap;
   private _coins: PoolCoinsMap;
 
   private constructor(
     keypair: Keypair,
-    client: SuiClient,
+    // client: SuiClient,
     objects: PoolObjectsMap,
     coins: PoolCoinsMap,
   ) {
     this._keypair = keypair;
-    this._client = client;
+    // this._client = client;
     this._objects = objects;
     this._coins = coins;
   }
 
-  static async full(input: { keypair: Keypair; client: SuiClient }) {
+  static async full(input: { 
+    keypair: Keypair; 
+    client: SuiClient 
+  }) {
     const { keypair, client } = input;
     const owner = keypair.toSuiAddress();
 
@@ -76,7 +79,9 @@ export class Pool {
       cursor = coins_resp?.nextCursor;
     } while (coins_resp.hasNextPage);
 
-    return new Pool(keypair, client, objects, coins);
+    return new Pool(keypair, 
+      // client, 
+      objects, coins);
   }
 
   /**
@@ -102,7 +107,9 @@ export class Pool {
     const objects_to_give: PoolObjectsMap = this.splitObjects(pred_obj);
     const coins_to_give: PoolCoinsMap = this.splitCoins(pred_coins);
 
-    return new Pool(this._keypair, this._client, objects_to_give, coins_to_give);
+    return new Pool(this._keypair,
+      //  this._client, 
+       objects_to_give, coins_to_give);
   }
 
   /**
@@ -182,6 +189,7 @@ export class Pool {
   }
 
   async signAndExecuteTransactionBlock(input: {
+    client: SuiClient;
 		transactionBlock: TransactionBlock;
 		options?: SuiTransactionBlockResponseOptions;
 		requestType?: ExecuteTransactionRequestType;
@@ -196,13 +204,15 @@ export class Pool {
     }
 
 		// (3). Run the transaction
-		const res = await this.client.signAndExecuteTransactionBlock({
+		const res = await input.client.signAndExecuteTransactionBlock({
 			transactionBlock,
 			requestType,
 			options: { ...options, showEffects: true },
 			signer: this._keypair,
 		});
-
+    // transactionBlock.setGasBudget(res.gasUsed)
+    // transactionBlock.setGasPayment
+    // this.client.getCoins
     const created = res.effects?.created;
     const unwrapped = res.effects?.unwrapped;
     const mutated = res.effects?.mutated;    
@@ -264,13 +274,13 @@ export class Pool {
     return this._coins;
   }
 
-  get client(): SuiClient {
-    return this._client;
-  }
+  // get client(): SuiClient {
+  //   return this._client;
+  // }
 
-  set client(value: SuiClient) {
-    this._client = value;
-  }
+  // set client(value: SuiClient) {
+  //   this._client = value;
+  // }
 
   get keypair(): Keypair {
     return this._keypair;

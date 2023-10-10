@@ -3,6 +3,7 @@ import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
+// @ts-ignore
 import { Pool } from '../../src';
 import { TransactionBlock } from "@mysten/sui.js/transactions";
 
@@ -105,6 +106,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress))
 
     const res = await pool.signAndExecuteTransactionBlock({
+      client,
       transactionBlock: txb,
       requestType: "WaitForLocalExecution",
       options: {
@@ -155,14 +157,19 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Admin transfers an object that belongs to him back to himself.  
     const txb = new TransactionBlock();
     
-    txb.moveCall({arguments: [
+    let hero = txb.moveCall({arguments: [
+      // TODO: add to .env
+      txb.object("0xc9c2f15729f579f9a6c36e39ed2f6e6b6eed660f859ee0bea4b7a5d9e0a3ab59"),
       txb.pure("zed"),
       txb.pure("gold"),
-      txb.pure("3"), 
+      txb.pure(3), 
       txb.pure("ipfs://example.com/"),
     ], target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`});
 
-    const res = pool.signAndExecuteTransactionBlock({
+    txb.transferObjects([hero], txb.pure(adminKeypair.getPublicKey().toSuiAddress()));
+    txb.setGasBudget(10000000);
+    const res = await pool.signAndExecuteTransactionBlock({
+      client,
       transactionBlock: txb,
       requestType: "WaitForLocalExecution",
       options: {
@@ -171,7 +178,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
         showObjectChanges: true
       },
     });
-    console.log(1);
+    console.log(res.effects?.status);
     // expect(res).toBeDefined();
     // expect(res.effects!.status.status).toEqual('success');
     
