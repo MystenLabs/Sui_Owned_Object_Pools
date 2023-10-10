@@ -28,8 +28,7 @@ const testUserKeypair = Ed25519Keypair.fromSecretKey(
 const client = new SuiClient({
   url: getFullnodeUrl('testnet'),
 });
-
-
+const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 
 
 describe('🌊 Basic flow of sign & execute tx block', () => {
@@ -140,5 +139,41 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       },
       signer: testUserKeypair
     });
+  });
+
+  it('mint nft', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.size).toBeGreaterThan(0);
+
+    // Admin transfers an object that belongs to him back to himself.  
+    const txb = new TransactionBlock();
+    
+    txb.moveCall({arguments: [
+      txb.pure("zed"),
+      txb.pure("gold"),
+      txb.pure("3"), 
+      txb.pure("ipfs://example.com/"),
+    ], target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`});
+
+    const res = pool.signAndExecuteTransactionBlock({
+      transactionBlock: txb,
+      requestType: "WaitForLocalExecution",
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true
+      },
+    });
+    console.log(1);
+    // expect(res).toBeDefined();
+    // expect(res.effects!.status.status).toEqual('success');
+    
   });
 });

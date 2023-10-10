@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { SuiClient, SuiTransactionBlockResponse, OwnedObjectRef } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import {
   getObjectReference,
@@ -196,13 +196,35 @@ export class Pool {
     }
 
 		// (3). Run the transaction
-		return this.client.signAndExecuteTransactionBlock({
+		const res = await this.client.signAndExecuteTransactionBlock({
 			transactionBlock,
 			requestType,
 			options: { ...options, showEffects: true },
 			signer: this._keypair,
 		});
+
+    const created = res.effects?.created;
+    const unwrapped = res.effects?.unwrapped;
+    const mutated = res.effects?.mutated;    
+
+    // (4). Update the pool's objects and coins
+    this.updatePool(created);
+    this.updatePool(unwrapped);
+    this.updatePool(mutated);
+
+    return res
 	}
+
+  private updatePool(newRefs: OwnedObjectRef[] | undefined) {  
+    if (!newRefs) return;  // maybe unecessary line
+    for (const ref in newRefs) {
+      console.log(ref);
+      // if (ref.owner.AddressOwner == this.address) {  //
+      //   // TODO find the correct function to add the object details too
+      //   this._objects.set(ref.reference, ref);  // FIXME - add to map instead of array
+      // }
+    }
+  }
 
   /**
    * Check that all objects in the transaction block
