@@ -30,7 +30,7 @@ const client = new SuiClient({
   url: getFullnodeUrl('testnet'),
 });
 const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
-
+const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
 
 describe('🌊 Basic flow of sign & execute tx block', () => {
   const chunksOfGas = 2;  // FIXME - unused
@@ -158,8 +158,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const txb = new TransactionBlock();
     
     let hero = txb.moveCall({arguments: [
-      // TODO: add to .env
-      txb.object("0xc9c2f15729f579f9a6c36e39ed2f6e6b6eed660f859ee0bea4b7a5d9e0a3ab59"),
+      txb.object(NFT_APP_ADMIN_CAP!),
       txb.pure("zed"),
       txb.pure("gold"),
       txb.pure(3), 
