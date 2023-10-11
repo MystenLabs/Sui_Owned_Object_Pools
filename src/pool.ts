@@ -185,7 +185,8 @@ export class Pool {
 		let { transactionBlock, options, requestType } = input;
 
 		// (1). Check object ownership
-		if (!this.checkTotalOwnership(transactionBlock)) {
+    transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
+		if (!this.checkTotalOwnership(transactionBlock, input.client)) {
       throw new Error(
         "All objects of the transaction block must be owned by the pool's creator."
         );
@@ -256,20 +257,28 @@ export class Pool {
 
   /**
    * Check that all objects in the transaction block
-   * are included in this pool. 
-   * Since the pool is created by the signer, if an object 
-   * is in the pool then it is owned by the pool's 
-   * creator (signer).
+   * are included in the pool.
    */
-  public checkTotalOwnership(txb: TransactionBlock): boolean {
-    const inputs = txb.blockData.inputs;
-    return inputs.every((input) => {
-      // Skip the signer's address - doesn't make sense to check for onwership
-      const is_address = isValidSuiAddress(input.value) && input.type! == 'pure';
-      if (is_address) return true 
-      // TODO: Still missing coinObjectID. We need it for lookups in pool.coins.      
-      if (input.type! == 'pure') return true  // FIXME - this row is a hack to skip the coin object
-      return this.isInsidePool(input.value)
+  public async checkTotalOwnership(txb: TransactionBlock, client: SuiClient): Promise<boolean> {
+    try {
+      // Build the transaction block to get the owned inputs
+      await txb.build({ client });
+    } catch (e) {
+      // The build can fail for various reasons (e.g. invalid object id or
+      // the object is not owned by the sender)
+      console.log("Caught error while building transaction block: ", e);
+      return false;
+    }
+    const ownedInputs = txb.blockData.inputs.filter((input) => {
+      return (
+        input.type === "object" &&
+        "Object" in input.value &&
+        "ImmOrOwned" in input.value.Object
+      );
+    });
+    return ownedInputs.every((ownedInput) => {
+      const objID = ownedInput.value.Object.ImmOrOwned.objectId;
+      this.isInsidePool(objID);
     });
   }
 

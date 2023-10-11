@@ -64,9 +64,9 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
     txb.transferObjects([coin], txb.pure(TEST_USER_ADDRESS)); // Transferring the object to a test address
-    
+    txb.setSender(adminAddress);
     // Check ownership of the objects in the transaction block.
-    expect(pool.checkTotalOwnership(txb)).toBeTruthy();
+    expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
   });
 
   it('checks falsy object ownership', async () => {
@@ -82,11 +82,18 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
     // Admin transfers a random object that doesn't belong to himself.  
     const txb = new TransactionBlock();
-    const falsyObjectId = "0x02004"; // random object id - non existent
-    txb.transferObjects([txb.object(falsyObjectId)], txb.pure(TEST_USER_ADDRESS));
+    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+    txb.setSender(adminAddress);
+
+    const falsyObjectId = "0x04d96625fd92745a15ee746429a92c80d6b7eac993ba2df41256457e5e9d7707"; // random object id - not owned by admin
+    txb.transferObjects(
+      [txb.object(falsyObjectId)],
+      txb.pure(TEST_USER_ADDRESS)
+    );
 
     // Check ownership of the objects in the transaction block.
-    expect(pool.checkTotalOwnership(txb)).toBeFalsy();
+    let owned = await pool.checkTotalOwnership(txb, client);
+    expect(owned).toBeFalsy();
   });
 
   it('signs and executes a tx block', async () => {
@@ -177,7 +184,6 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
         showObjectChanges: true
       },
     });
-    console.log(res.effects?.status);
     expect(res.effects!.status.status).toEqual('success');
 
     // Assert that the pool was updated by checking that the object
