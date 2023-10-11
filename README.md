@@ -18,6 +18,12 @@ TEST_USER_SECRET="another-amazing-super-secret-key"  # The corresponding secret 
 
 # This object id points to a test nft object owned by the admin account. Used for testing.
 TEST_NFT_OBJECT_ID="0x..." # Select an object id from the admin account
+
+# Used for testing. Get this by publishing the move_examples/nft_app/
+NFT_APP_PACKAGE_ID=
+NFT_APP_ADMIN_CAP=
+
+# NOTE: The Admin should also be the publisher of the nft_app smart contract
 ```
 
 Tip: You can see your addresses' secret keys by running `cat ~/.sui/sui_config/sui.keystore`
