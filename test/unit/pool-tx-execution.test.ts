@@ -1,12 +1,10 @@
-import { CoinStruct, getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
-import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 // @ts-ignore
 import { Pool } from '../../src';
-import { TransactionBlock } from "@mysten/sui.js/transactions";
-
+import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -33,8 +31,8 @@ const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
 
 describe('🌊 Basic flow of sign & execute tx block', () => {
-  const chunksOfGas = 2;  // FIXME - unused
-  const txnsEstimate = 10;  // FIXME - unused
+  const chunksOfGas = 2; // FIXME - unused
+  const txnsEstimate = 10; // FIXME - unused
   const testObjectId = process.env.TEST_NFT_OBJECT_ID!;
 
   beforeEach(() => {
@@ -54,13 +52,13 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Check that pool was created and contains at least 1 object
     expect(objects.size).toBeGreaterThan(0);
 
-    // Admin transfers an object that belongs to him back to himself.  
+    // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    
+
     // Include a transfer nft object transaction in the transaction block
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress))
-    
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress));
+
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
     txb.transferObjects([coin], txb.pure(TEST_USER_ADDRESS)); // Transferring the object to a test address
@@ -71,33 +69,36 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
   const falsyObjectIds: string[] = [
     process.env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID!, // not owned by admin
-    process.env.TEST_NON_EXISTING_OBJECT_ID! // random object id - not existing
-  ]
-  it.each(falsyObjectIds)('checks falsy object ownership', async (falsyObjectId) => {
-    // Create a pool
-    const pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
-    const objects = pool.objects;
+    process.env.TEST_NON_EXISTING_OBJECT_ID!, // random object id - not existing
+  ];
+  it.each(falsyObjectIds)(
+    'checks falsy object ownership',
+    async (falsyObjectId) => {
+      // Create a pool
+      const pool: Pool = await Pool.full({
+        keypair: adminKeypair,
+        client: client,
+      });
+      const objects = pool.objects;
 
-    // Check that pool was created and contains at least 1 object
-    expect(objects.size).toBeGreaterThan(0);
+      // Check that pool was created and contains at least 1 object
+      expect(objects.size).toBeGreaterThan(0);
 
-    // Admin transfers a random object that doesn't belong to himself.  
-    const txb = new TransactionBlock();
-    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    txb.setSender(adminAddress);
+      // Admin transfers a random object that doesn't belong to himself.
+      const txb = new TransactionBlock();
+      const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+      txb.setSender(adminAddress);
 
-    txb.transferObjects(
-      [txb.object(falsyObjectId)],
-      txb.pure(TEST_USER_ADDRESS)
-    );
+      txb.transferObjects(
+        [txb.object(falsyObjectId)],
+        txb.pure(TEST_USER_ADDRESS),
+      );
 
-    // Check ownership of the objects in the transaction block.
-    let owned = await pool.checkTotalOwnership(txb, client);
-    expect(owned).toBeFalsy();
-  });
+      // Check ownership of the objects in the transaction block.
+      let owned = await pool.checkTotalOwnership(txb, client);
+      expect(owned).toBeFalsy();
+    },
+  );
 
   it('signs and executes a tx block', async () => {
     // Create a pool
@@ -110,46 +111,48 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Check that pool was created and contains at least 1 object
     expect(objects.size).toBeGreaterThan(0);
 
-    // Admin transfers an object that belongs to him back to himself.  
+    // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
-    const recipientAddress = TEST_USER_ADDRESS
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress))
+    const recipientAddress = TEST_USER_ADDRESS;
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress));
 
     const res = await pool.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
-      requestType: "WaitForLocalExecution",
+      requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
         showEvents: true,
-        showObjectChanges: true
+        showObjectChanges: true,
       },
     });
 
     expect(res).toBeDefined();
     expect(res.effects!.status.status).toEqual('success');
-    
-    const recipientObjects = await client.getOwnedObjects({owner: recipientAddress});
+
+    const recipientObjects = await client.getOwnedObjects({
+      owner: recipientAddress,
+    });
     const transferred_object = recipientObjects.data.find(
-      (obj) => obj.data?.objectId === testObjectId
-      );
+      (obj) => obj.data?.objectId === testObjectId,
+    );
     expect(transferred_object).toBeDefined();
 
     // Send NFT back to the original owner
     const txb2 = new TransactionBlock();
     txb2.transferObjects(
-      [txb2.object(testObjectId)], 
-      txb2.pure(adminKeypair.getPublicKey().toSuiAddress())
-      )
+      [txb2.object(testObjectId)],
+      txb2.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
     client.signAndExecuteTransactionBlock({
       transactionBlock: txb2,
-      requestType: "WaitForLocalExecution",
+      requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
         showEvents: true,
-        showObjectChanges: true
+        showObjectChanges: true,
       },
-      signer: testUserKeypair
+      signer: testUserKeypair,
     });
   });
 
@@ -164,27 +167,33 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Check that pool was created and contains at least 1 object
     expect(objects.size).toBeGreaterThan(0);
 
-    // Admin transfers an object that belongs to him back to himself.  
+    // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
-    
-    let hero = txb.moveCall({arguments: [
-      txb.object(NFT_APP_ADMIN_CAP!),
-      txb.pure("zed"),
-      txb.pure("gold"),
-      txb.pure(3), 
-      txb.pure("ipfs://example.com/"),
-    ], target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`});
 
-    txb.transferObjects([hero], txb.pure(adminKeypair.getPublicKey().toSuiAddress()));
+    let hero = txb.moveCall({
+      arguments: [
+        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
+
+    txb.transferObjects(
+      [hero],
+      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
     txb.setGasBudget(10000000);
     const res = await pool.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
-      requestType: "WaitForLocalExecution",
+      requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
         showEvents: true,
-        showObjectChanges: true
+        showObjectChanges: true,
       },
     });
     expect(res.effects!.status.status).toEqual('success');
@@ -193,6 +202,5 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // that was created is in the object's pool.
     const createdObj = res.effects!.created![0];
     expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
-
   });
 });
