@@ -178,8 +178,12 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       },
     });
     console.log(res.effects?.status);
-    // expect(res).toBeDefined();
-    // expect(res.effects!.status.status).toEqual('success');
-    
+    expect(res.effects!.status.status).toEqual('success');
+
+    // Assert that the pool was updated by checking that the object
+    // that was created is in the object's pool.
+    const createdObj = res.effects!.created![0];
+    expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
+
   });
 });
