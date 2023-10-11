@@ -11,13 +11,19 @@ Usually we use testnet for testing. Switch to testnet with: `sui client switch -
 First and foremost, you need to define a `.env`. The file template is in [.env.example](https://github.com/MystenLabs/coin_management_system/blob/main/test/.env.example). The variables defined there are the following
 
 ```[.env]
-ADMIN_SECRET_KEY="super-secret-key" # The secret of the admin account. You can get this by running `sui client get-secret-key`
+# The Admin should also be the publisher of the nft_app smart contract
+ADMIN_SECRET_KEY=
 
-TEST_USER_ADDRESS="0x..."  # Select a different address. This will be used for testing transferring objects and coins.
-TEST_USER_SECRET="another-amazing-super-secret-key"  # The corresponding secret of TEST_USER_ADDRESS.
+# A user address that is used as a receiver of txbs. Used for testing.
+TEST_USER_ADDRESS=
+TEST_USER_SECRET=
 
 # This object id points to a test nft object owned by the admin account. Used for testing.
-TEST_NFT_OBJECT_ID="0x..." # Select an object id from the admin account
+TEST_NFT_OBJECT_ID=
+# This object id is arbitrary and should not exist. Used for testing.
+TEST_NON_EXISTING_OBJECT_ID=
+# This object id should exist in the network but not be owned by the admin account. Used for testing.
+TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID=
 
 # Used for testing. Get this by publishing the move_examples/nft_app/
 NFT_APP_PACKAGE_ID=

@@ -69,7 +69,11 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
   });
 
-  it('checks falsy object ownership', async () => {
+  const falsyObjectIds: string[] = [
+    process.env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID!, // not owned by admin
+    process.env.TEST_NON_EXISTING_OBJECT_ID! // random object id - not existing
+  ]
+  it.each(falsyObjectIds)('checks falsy object ownership', async (falsyObjectId) => {
     // Create a pool
     const pool: Pool = await Pool.full({
       keypair: adminKeypair,
@@ -85,7 +89,6 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
     txb.setSender(adminAddress);
 
-    const falsyObjectId = "0x04d96625fd92745a15ee746429a92c80d6b7eac993ba2df41256457e5e9d7707"; // random object id - not owned by admin
     txb.transferObjects(
       [txb.object(falsyObjectId)],
       txb.pure(TEST_USER_ADDRESS)
