@@ -1,10 +1,14 @@
 import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
+// @ts-ignore
+import { compareMaps } from '../../src/helpers';
 
 // @ts-ignore
 import { Pool } from '../../src';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
+import { CoinStruct } from '@mysten/sui.js/src/client';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -202,5 +206,99 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // that was created is in the object's pool.
     const createdObj = res.effects!.created![0];
     expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
+  });
+
+  it("uses only the pool's coins for gas", async () => {
+    /*
+    When a pool signs and executes a txb, it should use only its own coins for gas.
+    */
+
+    // FIXME: the commented out code below is not working yet.
+    // We do this by splitting the admin's coins into 2.
+    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
+
+    /* Make sure to have at least 2 coins in the admin account for this test to work. */
+    let adminCoins = await client.getAllCoins({owner: adminAddress});
+    if (adminCoins?.data?.length < 2) {
+      const txb_coinTransfer = new TransactionBlock();
+      const [coin] = txb_coinTransfer.splitCoins(
+        txb_coinTransfer.gas,
+        [txb_coinTransfer.pure(100)]  // arbitrary amount, best to be small
+      )
+      txb_coinTransfer.transferObjects([coin], txb_coinTransfer.pure(adminAddress));
+      txb_coinTransfer.setGasBudget(10000000);
+      await client.signAndExecuteTransactionBlock({
+        transactionBlock: txb_coinTransfer,
+        requestType: 'WaitForLocalExecution',
+        options: { showEffects: true },
+        signer: adminKeypair,
+      })
+    }
+
+    /* Create a pool */
+    const poolOne: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+
+    /* 
+    Split the pool by: transfering all objects and at least one coin
+    to the new one. 
+    */
+    const predObj = (o: SuiObjectRef | undefined) => {
+      return true; // Transfer every object to the new pool
+    };
+    // Keep one coin in the initial pool and move the rest to the new pool
+    var counter = 0;
+    const predCoins = (_coin: CoinStruct | undefined): boolean | null => {
+      if (counter < 1) {
+        counter++;
+        return true;
+      } else {
+        return false;
+      }
+    };
+    const poolTwo: Pool = poolOne.split(predObj, predCoins);
+
+    /*
+    Create a nft object using the first pool and
+    transfer it to yourself (admin
+    */
+    const txb = new TransactionBlock();
+
+    let hero = txb.moveCall({
+      arguments: [
+        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
+
+    txb.transferObjects(
+      [hero],
+      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
+    txb.setGasBudget(10000000);
+    const poolOneCoinsBeforeTxbExecution = new Map(poolOne.coins);
+    const poolTwoCoinsBeforeTxbExecution = new Map(poolTwo.coins);
+    const res = await poolOne.signAndExecuteTransactionBlock({
+      client,
+      transactionBlock: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true,
+      },
+    });
+    expect(res.effects!.status.status).toEqual('success');
+
+    // Assert that the poolOne's coins were used for gas
+    expect(compareMaps(poolOneCoinsBeforeTxbExecution, poolOne.coins)).toBeFalsy();
+    // Assert that the poolTwo's coins were not used for gas
+    expect(compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.coins)).toBeTruthy();
   });
 });
