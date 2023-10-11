@@ -65,9 +65,7 @@ export class Pool {
       cursor = coins_resp?.nextCursor;
     } while (coins_resp.hasNextPage);
 
-    return new Pool(keypair,
-      // client, 
-      objects, coins);
+    return new Pool(keypair, objects, coins);
   }
 
   /**
@@ -93,9 +91,7 @@ export class Pool {
     const objects_to_give: PoolObjectsMap = this.splitObjects(pred_obj);
     const coins_to_give: PoolCoinsMap = this.splitCoins(pred_coins);
 
-    return new Pool(this._keypair,
-      //  this._client, 
-       objects_to_give, coins_to_give);
+    return new Pool(this._keypair, objects_to_give, coins_to_give);
   }
 
   /**
