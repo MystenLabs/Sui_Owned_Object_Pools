@@ -9,3 +9,4 @@ Move.lock
 sui.log.*
 dump.rdb
 coverage/
+move_examples/setup/.publish.res.json
