@@ -38,8 +38,6 @@ export class Pool {
     const { keypair, client } = input;
     const owner = keypair.toSuiAddress();
 
-    console.log('Creating Pool for account ', owner);
-
     // Get all objects owned by the pool's creator
     const objects: PoolObjectsMap = new Map();
     let resp: PaginatedObjectsResponse | null;
@@ -266,7 +264,7 @@ export class Pool {
     } catch (e) {
       // The build can fail for various reasons (e.g. invalid object id or
       // the object is not owned by the sender)
-      console.log("Caught error while building transaction block: ", e);
+      console.warn("Handled error building transaction block:", e);
       return false;
     }
     const ownedInputs = txb.blockData.inputs.filter((input) => {
