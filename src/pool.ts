@@ -206,6 +206,25 @@ export class Pool {
       );
     }
 
+    /*
+    (2). Select Gas: Use all the coins in the pool as gas payment.
+    When each pool uses only its own coins, transaction blocks can be executed
+    without interfering with one another, avoiding equivocation. 
+    */
+    // Get the coins from the pool
+    const coinsArray = Array.from(this._coins.values());
+
+    // Cast CoinStructs to SuiObjectRefs to use them as params in txb.setGasPayment(...)
+    const objectRefCoins: SuiObjectRef[] = coinsArray.map((coin) => {
+      return {
+        digest: coin.digest,
+        objectId: coin.coinObjectId,
+        version: coin.version,
+      };
+    });
+    // Finally set the gas payment to be done by the selected coins
+    transactionBlock.setGasPayment(objectRefCoins);
+
     // (3). Run the transaction
     const res = await input.client.signAndExecuteTransactionBlock({
       transactionBlock,
