@@ -5,10 +5,8 @@ import { fromB64 } from '@mysten/sui.js/utils';
 export function getKeyPair(privateKey: string): Ed25519Keypair {
   const privateKeyArray = Array.from(fromB64(privateKey));
   privateKeyArray.shift();
-  // @ts-ignore
   return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
 }
-
 export function compareMaps(map1: any, map2: any) {
   let testVal;
   if (map1.size !== map2.size) {
