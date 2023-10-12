@@ -213,26 +213,28 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     When a pool signs and executes a txb, it should use only its own coins for gas.
     */
 
-    // FIXME: the commented out code below is not working yet.
     // We do this by splitting the admin's coins into 2.
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
 
     /* Make sure to have at least 2 coins in the admin account for this test to work. */
-    let adminCoins = await client.getAllCoins({owner: adminAddress});
+    let adminCoins = await client.getAllCoins({ owner: adminAddress });
     if (adminCoins?.data?.length < 2) {
       const txb_coinTransfer = new TransactionBlock();
       const [coin] = txb_coinTransfer.splitCoins(
         txb_coinTransfer.gas,
-        [txb_coinTransfer.pure(100)]  // arbitrary amount, best to be small
-      )
-      txb_coinTransfer.transferObjects([coin], txb_coinTransfer.pure(adminAddress));
+        [txb_coinTransfer.pure(20000000)], // arbitrary amount, best to be small
+      );
+      txb_coinTransfer.transferObjects(
+        [coin],
+        txb_coinTransfer.pure(adminAddress),
+      );
       txb_coinTransfer.setGasBudget(10000000);
       await client.signAndExecuteTransactionBlock({
         transactionBlock: txb_coinTransfer,
         requestType: 'WaitForLocalExecution',
         options: { showEffects: true },
         signer: adminKeypair,
-      })
+      });
     }
 
     /* Create a pool */
@@ -297,8 +299,12 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(res.effects!.status.status).toEqual('success');
 
     // Assert that the poolOne's coins were used for gas
-    expect(compareMaps(poolOneCoinsBeforeTxbExecution, poolOne.coins)).toBeFalsy();
+    expect(
+      compareMaps(poolOneCoinsBeforeTxbExecution, poolOne.coins),
+    ).toBeFalsy();
     // Assert that the poolTwo's coins were not used for gas
-    expect(compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.coins)).toBeTruthy();
+    expect(
+      compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.coins),
+    ).toBeTruthy();
   });
 });
