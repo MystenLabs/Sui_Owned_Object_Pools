@@ -123,23 +123,26 @@ export class Pool {
     outside: while (objects_array.length !== 0) {
       const last_object_in_array = objects_array.at(-1)?.object;
       switch (pred(last_object_in_array)) {
-        case true:
+        case true: {
           // Predicate returned true, so we move the object to the new pool
           const obj_give = objects_array.pop()!;
           objects_to_give.set(obj_give.objectId, obj_give.object);
           break;
-        case false:
+        }
+        case false: {
           // Predicate returned false, so we keep the object in the current pool
           const obj_keep = objects_array.pop()!;
           objects_to_keep.set(obj_keep.objectId, obj_keep.object);
           continue;
-        case null:
+        }
+        case null: {
           // The predicate returned null, so we stop the split, and keep
           // all the remaining objects of the array in the current pool.
           objects_array.forEach((obj) => {
             objects_to_keep.set(obj.objectId, obj.object);
           });
           break outside;
+        }
       }
     }
     this._objects = objects_to_keep;
@@ -167,16 +170,18 @@ export class Pool {
     outside: while (coins_array.length !== 0) {
       const last_coin_in_array = coins_array.at(-1)?.coin;
       switch (pred(last_coin_in_array)) {
-        case true:
+        case true: {
           // Predicate returned true, so we move the coin to the new pool
           const coin_give = coins_array.pop()!;
           coins_to_give.set(coin_give.coinObjectId, coin_give.coin);
           break;
-        case false:
+        }
+        case false: {
           // Predicate returned false, so we keep the coin in the current pool
           const coin_keep = coins_array.pop()!;
           coins_to_keep.set(coin_keep.coinObjectId, coin_keep.coin);
           continue;
+        }
         case null:
           // The predicate returned null, so we stop the split, and keep
           // all the remaining coins of the array in the current pool.
