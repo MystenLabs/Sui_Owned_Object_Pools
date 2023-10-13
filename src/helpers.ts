@@ -7,7 +7,7 @@ export function getKeyPair(privateKey: string): Ed25519Keypair {
   privateKeyArray.shift();
   return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
 }
-export function compareMaps(map1: any, map2: any) {
+export function compareMaps<T>(map1: Map<string, T>, map2: Map<string, T>) {
   let testVal;
   if (map1.size !== map2.size) {
     return false;

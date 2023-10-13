@@ -13,6 +13,7 @@ import {
 } from '@mysten/sui.js/dist/cjs/client/types/';
 import { getObjectReference } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
+import { MoveStruct } from '@mysten/sui.js/src/client/types/generated';
 import {
   SuiObjectRef,
   SuiObjectResponse,
@@ -123,23 +124,32 @@ export class Pool {
     outside: while (objects_array.length !== 0) {
       const last_object_in_array = objects_array.at(-1)?.object;
       switch (pred(last_object_in_array)) {
-        case true:
+        case true: {
           // Predicate returned true, so we move the object to the new pool
-          const obj_give = objects_array.pop()!;
+          const obj_give = objects_array.pop();
+          if (obj_give === undefined) {
+            break;
+          }
           objects_to_give.set(obj_give.objectId, obj_give.object);
           break;
-        case false:
+        }
+        case false: {
           // Predicate returned false, so we keep the object in the current pool
-          const obj_keep = objects_array.pop()!;
+          const obj_keep = objects_array.pop();
+          if (obj_keep === undefined) {
+            break;
+          }
           objects_to_keep.set(obj_keep.objectId, obj_keep.object);
           continue;
-        case null:
+        }
+        case null: {
           // The predicate returned null, so we stop the split, and keep
           // all the remaining objects of the array in the current pool.
           objects_array.forEach((obj) => {
             objects_to_keep.set(obj.objectId, obj.object);
           });
           break outside;
+        }
       }
     }
     this._objects = objects_to_keep;
@@ -167,16 +177,24 @@ export class Pool {
     outside: while (coins_array.length !== 0) {
       const last_coin_in_array = coins_array.at(-1)?.coin;
       switch (pred(last_coin_in_array)) {
-        case true:
+        case true: {
           // Predicate returned true, so we move the coin to the new pool
-          const coin_give = coins_array.pop()!;
+          const coin_give = coins_array.pop();
+          if (coin_give === undefined) {
+            break;
+          }
           coins_to_give.set(coin_give.coinObjectId, coin_give.coin);
           break;
-        case false:
+        }
+        case false: {
           // Predicate returned false, so we keep the coin in the current pool
-          const coin_keep = coins_array.pop()!;
+          const coin_keep = coins_array.pop();
+          if (coin_keep === undefined) {
+            break;
+          }
           coins_to_keep.set(coin_keep.coinObjectId, coin_keep.coin);
           continue;
+        }
         case null:
           // The predicate returned null, so we stop the split, and keep
           // all the remaining coins of the array in the current pool.
@@ -259,8 +277,8 @@ export class Pool {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
     if (!newRefs) return; // maybe unnecessary line
     for (const ref in newRefs) {
-      // @ts-ignore
-      const objectOwner = newRefs[ref].owner.AddressOwner;
+      const objectOwner = (newRefs[ref].owner as { AddressOwner: string })
+        .AddressOwner;
       const object = newRefs[ref].reference;
       const objectId = object.objectId;
 
@@ -274,15 +292,18 @@ export class Pool {
         return;
       }
 
-      // @ts-ignore
-      if (this.isCoin(objectDetails.data?.content?.type)) {
-        // @ts-ignore
+      const objectContent = objectDetails.data?.content as {
+        dataType: 'moveObject';
+        // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+        fields: MoveStruct | any;
+        hasPublicTransfer: boolean;
+        type: string;
+      };
+      if (this.isCoin(objectContent.type)) {
         const coin: CoinStruct = {
-          // @ts-ignore
-          balance: objectDetails.data?.content?.fields['balance'],
+          balance: objectContent.fields['balance'],
           coinObjectId: objectId,
-          // @ts-ignore
-          coinType: objectDetails.data?.content?.type,
+          coinType: objectContent.type,
           digest: object.digest,
           previousTransaction: '---', // FIXME: don't know how to parse this
           version: object.version,
