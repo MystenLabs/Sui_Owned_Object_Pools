@@ -23,6 +23,16 @@ jobs:
     - uses: actions/checkout@v3
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
+      env:
+        ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
+        TEST_USER_ADDRESS: ${{ env.TEST_USER_ADDRESS }}
+        TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
+        TEST_NFT_OBJECT_ID: ${{ env.TEST_NFT_OBJECT_ID }}
+        TEST_NON_EXISTING_OBJECT_ID: ${{ env.TEST_NON_EXISTING_OBJECT_ID }}
+        TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
+        NFT_APP_PACKAGE_ID: ${{ env.NFT_APP_PACKAGE_ID }}
+        NFT_APP_ADMIN_CAP: ${{ env.NFT_APP_ADMIN_CAP }}
+        SUI_NODE: ${{ env.SUI_NODE }}
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
