@@ -1,0 +1,60 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Node.js CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  print-environment-variables:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump Environment Variables
+        env:
+          ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
+          TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
+          TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
+          TEST_NFT_OBJECT_ID: ${{ vars.TEST_NFT_OBJECT_ID }}
+          TEST_NON_EXISTING_OBJECT_ID: ${{ vars.TEST_NON_EXISTING_OBJECT_ID }}
+          TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ vars.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
+          NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
+          NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
+          SUI_NODE: ${{ vars.SUI_NODE }}
+        run: echo "SUI_NODE=$SUI_NODE | NFT_APP_PACKAGE_ID=$NFT_APP_PACKAGE_ID  | NFT_APP_ADMIN_CAP=$NFT_APP_ADMIN_CAP | TEST_USER_ADDRESS=$TEST_USER_ADDRESS | TEST_NFT_OBJECT_ID=$TEST_NFT_OBJECT_ID | TEST_NON_EXISTING_OBJECT_ID=$TEST_NON_EXISTING_OBJECT_ID | TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID=$TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID "
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build --if-present
+    - run: npm test
+      env:
+        ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
+        TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
+        TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
+        TEST_NFT_OBJECT_ID: ${{ vars.TEST_NFT_OBJECT_ID }}
+        TEST_NON_EXISTING_OBJECT_ID: ${{ vars.TEST_NON_EXISTING_OBJECT_ID }}
+        TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ vars.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
+        NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
+        NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
+        SUI_NODE: ${{ vars.SUI_NODE }}
