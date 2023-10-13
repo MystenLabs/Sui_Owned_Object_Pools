@@ -13,17 +13,17 @@ jobs:
   print-environment-variables:
     runs-on: ubuntu-latest
     steps:
-      - name: Dump GitHub context
+      - name: Dump Environment Variables
         env:
           ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
-          TEST_USER_ADDRESS: ${{ env.TEST_USER_ADDRESS }}
           TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
-          TEST_NFT_OBJECT_ID: ${{ env.TEST_NFT_OBJECT_ID }}
-          TEST_NON_EXISTING_OBJECT_ID: ${{ env.TEST_NON_EXISTING_OBJECT_ID }}
-          TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
-          NFT_APP_PACKAGE_ID: ${{ env.NFT_APP_PACKAGE_ID }}
-          NFT_APP_ADMIN_CAP: ${{ env.NFT_APP_ADMIN_CAP }}
-          SUI_NODE: ${{ env.SUI_NODE }}
+          TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
+          TEST_NFT_OBJECT_ID: ${{ vars.TEST_NFT_OBJECT_ID }}
+          TEST_NON_EXISTING_OBJECT_ID: ${{ vars.TEST_NON_EXISTING_OBJECT_ID }}
+          TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ vars.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
+          NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
+          NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
+          SUI_NODE: ${{ vars.SUI_NODE }}
         run: echo "ADMIN_SECRET_KEY=$ADMIN_SECRET_KEY \n TEST_USER_ADDRESS=$TEST_USER_ADDRESS \n SUI_NODE=$SUI_NODE"
       - name: Dump GitHub context
         env:
@@ -50,11 +50,11 @@ jobs:
     - run: npm test
       env:
         ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
-        TEST_USER_ADDRESS: ${{ env.TEST_USER_ADDRESS }}
         TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
-        TEST_NFT_OBJECT_ID: ${{ env.TEST_NFT_OBJECT_ID }}
-        TEST_NON_EXISTING_OBJECT_ID: ${{ env.TEST_NON_EXISTING_OBJECT_ID }}
-        TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
-        NFT_APP_PACKAGE_ID: ${{ env.NFT_APP_PACKAGE_ID }}
-        NFT_APP_ADMIN_CAP: ${{ env.NFT_APP_ADMIN_CAP }}
-        SUI_NODE: ${{ env.SUI_NODE }}
+        TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
+        TEST_NFT_OBJECT_ID: ${{ vars.TEST_NFT_OBJECT_ID }}
+        TEST_NON_EXISTING_OBJECT_ID: ${{ vars.TEST_NON_EXISTING_OBJECT_ID }}
+        TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID: ${{ vars.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID }}
+        NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
+        NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
+        SUI_NODE: ${{ vars.SUI_NODE }}
