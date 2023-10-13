@@ -12,7 +12,7 @@ export function compareMaps(map1: any, map2: any) {
   if (map1.size !== map2.size) {
     return false;
   }
-  for (let [key, val] of map1) {
+  for (const [key, val] of map1) {
     testVal = map2.get(key);
     // in cases of an undefined value, make sure the key
     // actually exists on the object so there are no false positives
