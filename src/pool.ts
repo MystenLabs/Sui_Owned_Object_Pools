@@ -294,6 +294,7 @@ export class Pool {
 
       const objectContent = objectDetails.data?.content as {
         dataType: 'moveObject';
+        // eslint-disable-next-line  @typescript-eslint/no-explicit-any
         fields: MoveStruct | any;
         hasPublicTransfer: boolean;
         type: string;
