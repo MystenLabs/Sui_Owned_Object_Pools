@@ -4,6 +4,8 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 // @ts-ignore
 import { Pool } from '../../src';
+// @ts-ignore
+import { compareMaps } from '../../src/helpers';
 
 
 const path = require('path');
@@ -223,5 +225,32 @@ describe('Pool creation with factory', () => {
       expect(num_coins_new_pool).toEqual(num_coins_for_new_pool);
       expect(num_coins_after_split).toEqual(num_coins_before_split - num_coins_for_new_pool);
       expect(num_coins_new_pool + num_coins_after_split).toEqual(num_coins_before_split);
+    });
+
+    it('splits a pool and merges it back', async () => {
+      // Create the pool
+      const initial_pool: Pool = await Pool.full({
+        keypair: adminKeypair,
+        client: client,
+      });
+      // Keep a copy of the initial pool's objects and coins
+      const objectsBeforeSplit = new Map(initial_pool.objects);
+      const coinsBeforeSplit = new Map(initial_pool.coins);
+
+      // Split the pool
+      var c= 0;
+      const pred = (_: SuiObjectRef | CoinStruct | undefined) => {
+        return c++ < 2;  // Dumb predicate, doesn't matter much, could use a different one
+      }
+      const new_pool: Pool = initial_pool.split(pred, pred);
+      // Merge the new pool back to the initial pool
+      initial_pool.merge(new_pool);
+
+      const objectsAfterMerge = initial_pool.objects;
+      const coinsAfterMerge = initial_pool.coins;
+
+      // Compare that the objects and coins are the same before and after the split-merge
+      expect(compareMaps(objectsBeforeSplit, objectsAfterMerge)).toBeTruthy();
+      expect(compareMaps(coinsBeforeSplit, coinsAfterMerge)).toBeTruthy();
     });
   });

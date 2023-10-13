@@ -190,6 +190,13 @@ export class Pool {
     return coins_to_give;
   }
 
+  /*
+  Merges the current pool with another pool.
+   */
+  public merge(poolToMerge: Pool) {
+    this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+  }
+
   async signAndExecuteTransactionBlock(input: {
     client: SuiClient;
     transactionBlock: TransactionBlock;
