@@ -29,6 +29,9 @@ TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID=
 NFT_APP_PACKAGE_ID=
 NFT_APP_ADMIN_CAP=
 
+# Example: "https://fullnode.testnet.sui.io:443"
+SUI_NODE=
+
 # NOTE: The Admin should also be the publisher of the nft_app smart contract
 ```
 
