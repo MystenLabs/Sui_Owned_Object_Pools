@@ -126,13 +126,19 @@ export class Pool {
       switch (pred(last_object_in_array)) {
         case true: {
           // Predicate returned true, so we move the object to the new pool
-          const obj_give = objects_array.pop()!;
+          const obj_give = objects_array.pop();
+          if (obj_give === undefined) {
+            break;
+          }
           objects_to_give.set(obj_give.objectId, obj_give.object);
           break;
         }
         case false: {
           // Predicate returned false, so we keep the object in the current pool
-          const obj_keep = objects_array.pop()!;
+          const obj_keep = objects_array.pop();
+          if (obj_keep === undefined) {
+            break;
+          }
           objects_to_keep.set(obj_keep.objectId, obj_keep.object);
           continue;
         }
@@ -173,13 +179,19 @@ export class Pool {
       switch (pred(last_coin_in_array)) {
         case true: {
           // Predicate returned true, so we move the coin to the new pool
-          const coin_give = coins_array.pop()!;
+          const coin_give = coins_array.pop();
+          if (coin_give === undefined) {
+            break;
+          }
           coins_to_give.set(coin_give.coinObjectId, coin_give.coin);
           break;
         }
         case false: {
           // Predicate returned false, so we keep the coin in the current pool
-          const coin_keep = coins_array.pop()!;
+          const coin_keep = coins_array.pop();
+          if (coin_keep === undefined) {
+            break;
+          }
           coins_to_keep.set(coin_keep.coinObjectId, coin_keep.coin);
           continue;
         }
