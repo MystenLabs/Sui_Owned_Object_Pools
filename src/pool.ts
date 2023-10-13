@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  OwnedObjectRef,
   SuiClient,
   SuiTransactionBlockResponse,
-  OwnedObjectRef,
 } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
+import {
+  CoinStruct,
+  PaginatedCoins,
+} from '@mysten/sui.js/dist/cjs/client/types/';
 import { getObjectReference } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
 import {
@@ -14,12 +18,8 @@ import {
   SuiObjectResponse,
 } from '@mysten/sui.js/src/types/objects';
 import {
-  CoinStruct,
-  PaginatedCoins,
-} from '@mysten/sui.js/dist/cjs/client/types/';
-import {
-  SuiTransactionBlockResponseOptions,
   ExecuteTransactionRequestType,
+  SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 type PoolObjectsMap = Map<string, SuiObjectRef>; // Map<objectId, object>
@@ -116,21 +116,21 @@ export class Pool {
     const objects_to_give: PoolObjectsMap = new Map();
 
     // Transform the map into an array of key-value pairs. It's easier to iterate.
-    let objects_array = Array.from(this._objects, ([objectId, object]) => ({
+    const objects_array = Array.from(this._objects, ([objectId, object]) => ({
       objectId,
       object,
     }));
     outside: while (objects_array.length !== 0) {
-      let last_object_in_array = objects_array.at(-1)?.object;
+      const last_object_in_array = objects_array.at(-1)?.object;
       switch (pred(last_object_in_array)) {
         case true:
           // Predicate returned true, so we move the object to the new pool
-          let obj_give = objects_array.pop()!;
+          const obj_give = objects_array.pop()!;
           objects_to_give.set(obj_give.objectId, obj_give.object);
           break;
         case false:
           // Predicate returned false, so we keep the object in the current pool
-          let obj_keep = objects_array.pop()!;
+          const obj_keep = objects_array.pop()!;
           objects_to_keep.set(obj_keep.objectId, obj_keep.object);
           continue;
         case null:
@@ -160,21 +160,21 @@ export class Pool {
     const coins_to_give: PoolCoinsMap = new Map();
 
     // Transform the map into an array of key-value pairs. It's easier to iterate.
-    let coins_array = Array.from(this._coins, ([coinObjectId, coin]) => ({
+    const coins_array = Array.from(this._coins, ([coinObjectId, coin]) => ({
       coinObjectId,
       coin,
     }));
     outside: while (coins_array.length !== 0) {
-      let last_coin_in_array = coins_array.at(-1)?.coin;
+      const last_coin_in_array = coins_array.at(-1)?.coin;
       switch (pred(last_coin_in_array)) {
         case true:
           // Predicate returned true, so we move the coin to the new pool
-          let coin_give = coins_array.pop()!;
+          const coin_give = coins_array.pop()!;
           coins_to_give.set(coin_give.coinObjectId, coin_give.coin);
           break;
         case false:
           // Predicate returned false, so we keep the coin in the current pool
-          let coin_keep = coins_array.pop()!;
+          const coin_keep = coins_array.pop()!;
           coins_to_keep.set(coin_keep.coinObjectId, coin_keep.coin);
           continue;
         case null:
@@ -203,7 +203,7 @@ export class Pool {
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
-    let { transactionBlock, options, requestType } = input;
+    const { transactionBlock, options, requestType } = input;
 
     // (1). Check object ownership
     transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
@@ -260,13 +260,13 @@ export class Pool {
     if (!newRefs) return; // maybe unnecessary line
     for (const ref in newRefs) {
       // @ts-ignore
-      let objectOwner = newRefs[ref].owner.AddressOwner;
-      let object = newRefs[ref].reference;
-      let objectId = object.objectId;
+      const objectOwner = newRefs[ref].owner.AddressOwner;
+      const object = newRefs[ref].reference;
+      const objectId = object.objectId;
 
       // WARNING - this is a hack to skip get the object type
       //  It should be improved to avoid the extra calls
-      let objectDetails = await client.getObject({
+      const objectDetails = await client.getObject({
         id: object.objectId,
         options: { showContent: true },
       });
@@ -277,7 +277,7 @@ export class Pool {
       // @ts-ignore
       if (this.isCoin(objectDetails.data?.content?.type)) {
         // @ts-ignore
-        let coin: CoinStruct = {
+        const coin: CoinStruct = {
           // @ts-ignore
           balance: objectDetails.data?.content?.fields['balance'],
           coinObjectId: objectId,
@@ -294,7 +294,7 @@ export class Pool {
     }
   }
 
-  private isCoin(type: string): Boolean {
+  private isCoin(type: string): boolean {
     return type.includes('::coin::Coin');
   }
 

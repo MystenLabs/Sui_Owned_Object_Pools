@@ -29,7 +29,7 @@ const testUserKeypair = Ed25519Keypair.fromSecretKey(
 );
 
 const client = new SuiClient({
-  url: getFullnodeUrl('testnet'),
+  url: process.env.SUI_NODE!
 });
 const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;

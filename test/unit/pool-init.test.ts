@@ -27,7 +27,7 @@ const testUserKeypair = Ed25519Keypair.fromSecretKey(
 );
 
 const client = new SuiClient({
-  url: getFullnodeUrl('testnet'),
+  url: process.env.SUI_NODE!
 });
 
 
