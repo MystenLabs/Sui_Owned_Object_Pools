@@ -23,6 +23,12 @@ jobs:
     - uses: actions/checkout@v3
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build --if-present
+    - run: npm test
       env:
         ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
         TEST_USER_ADDRESS: ${{ env.TEST_USER_ADDRESS }}
@@ -33,9 +39,3 @@ jobs:
         NFT_APP_PACKAGE_ID: ${{ env.NFT_APP_PACKAGE_ID }}
         NFT_APP_ADMIN_CAP: ${{ env.NFT_APP_ADMIN_CAP }}
         SUI_NODE: ${{ env.SUI_NODE }}
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
