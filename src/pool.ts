@@ -264,8 +264,8 @@ export class Pool {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
     if (!newRefs) return; // maybe unnecessary line
     for (const ref in newRefs) {
-      // @ts-ignore
-      const objectOwner = newRefs[ref].owner.AddressOwner;
+      const objectOwner = (newRefs[ref].owner as { AddressOwner: string })
+        .AddressOwner;
       const object = newRefs[ref].reference;
       const objectId = object.objectId;
 
