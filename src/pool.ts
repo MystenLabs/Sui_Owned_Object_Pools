@@ -13,6 +13,7 @@ import {
 } from '@mysten/sui.js/dist/cjs/client/types/';
 import { getObjectReference } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
+import { MoveStruct } from '@mysten/sui.js/src/client/types/generated';
 import {
   SuiObjectRef,
   SuiObjectResponse,
@@ -279,15 +280,17 @@ export class Pool {
         return;
       }
 
-      // @ts-ignore
-      if (this.isCoin(objectDetails.data?.content?.type)) {
-        // @ts-ignore
+      const objectContent = objectDetails.data?.content as {
+        dataType: 'moveObject';
+        fields: MoveStruct | any;
+        hasPublicTransfer: boolean;
+        type: string;
+      };
+      if (this.isCoin(objectContent.type)) {
         const coin: CoinStruct = {
-          // @ts-ignore
-          balance: objectDetails.data?.content?.fields['balance'],
+          balance: objectContent.fields['balance'],
           coinObjectId: objectId,
-          // @ts-ignore
-          coinType: objectDetails.data?.content?.type,
+          coinType: objectContent.type,
           digest: object.digest,
           previousTransaction: '---', // FIXME: don't know how to parse this
           version: object.version,
