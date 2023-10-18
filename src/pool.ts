@@ -250,6 +250,17 @@ export class Pool {
     // Finally set the gas payment to be done by the selected coins
     transactionBlock.setGasPayment(objectRefCoins);
 
+    /*
+    (2.5). Dry run the transaction block to ensure that Pool has enough
+     resources to run the transaction and also to get required budget
+     */
+    const dryRunRes = await input.client.dryRunTransactionBlock({
+      transactionBlock: await transactionBlock.build({ client: input.client }),
+    });
+    if (dryRunRes.effects.status.status !== 'success') {
+      throw new Error('Dry run failed');
+    }
+
     // (3). Run the transaction
     const res = await input.client.signAndExecuteTransactionBlock({
       transactionBlock,
