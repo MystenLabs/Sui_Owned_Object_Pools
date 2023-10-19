@@ -60,11 +60,15 @@ export class ExecutorServiceHandler {
       // An available worker is found! Assign to it the task of executing the txb.
       worker.status = 'busy';  // Worker is now busy
 
-      // TODO - catch dry-run fail error, remove worker, retrieve another worker and retry the execution
       const result = await worker.pool.signAndExecuteTransactionBlock({
         transactionBlock: txb,
         client: client,
       });
+
+      if (result.effects!.status.status === 'failure') {
+        this.removeWorker(worker);
+        return
+      }
 
       worker.status = 'available';  // Execution finished, the worker is now available again.
       return result;
