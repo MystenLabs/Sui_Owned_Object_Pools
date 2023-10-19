@@ -1,4 +1,4 @@
-import { CoinStruct, getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
