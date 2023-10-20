@@ -41,6 +41,8 @@ export class ExecutorServiceHandler {
       res = await this.executeFlow(txb, client, splitStrategy);
       if (res) {
         return res;
+      } else {
+        console.log(`Failed to execute the txb - [remaining retries: ${retries}]`)
       }
     } while (retries-- > 0);
     throw new Error('Internal server error - could not execute the txb');
