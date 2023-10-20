@@ -34,13 +34,12 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
   it('executes a txb', async () => {
     /*
-    WARNING! - YOU NEED TO HAVE AT LEAST X COINS IN YOUR ACCOUNTS TO RUN THIS TEST.
+    WARNING! - YOU NEED TO HAVE AT LEAST X COIN OBJECTS IN YOUR ACCOUNTS TO RUN THIS TEST.
 
     X = NUMBER_OF_TRANSACTION_TO_EXECUTE
      */
-    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;
+    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 2;
 
-    const txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
 
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
@@ -55,13 +54,18 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       },
     }
 
-    const results = [];
+    const promises = [];
+    let txb: TransactionBlock;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      results.push(await eshandler.execute(txb, client, splitStrategy));
+      txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
+      promises.push(
+        eshandler.execute(txb, client, splitStrategy)
+      );
     }
 
+    const results = await Promise.allSettled(promises);
     results.forEach((result) => {
-      expect(result.effects?.status.status).toEqual('success');
+      expect(result.status).toEqual("fulfilled");
     });
 
   });

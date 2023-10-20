@@ -1,4 +1,4 @@
-import { SuiClient, CoinStruct } from '@mysten/sui.js/client';
+import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
@@ -34,7 +34,7 @@ export class ExecutorServiceHandler {
     txb: TransactionBlock,
     client: SuiClient,
     splitStrategy: SplitStrategy,
-    retries: number = 1,
+    retries = 3,
   ) {
     let res;
     do {
@@ -55,10 +55,10 @@ export class ExecutorServiceHandler {
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
       this.addWorker(splitStrategy);
-      return
+      return;
     } else {
       // An available worker is found! Assign to it the task of executing the txb.
-      worker.status = 'busy';  // Worker is now busy
+      worker.status = 'busy'; // Worker is now busy
 
       const result = await worker.pool.signAndExecuteTransactionBlock({
         transactionBlock: txb,
@@ -67,11 +67,11 @@ export class ExecutorServiceHandler {
 
       if (result.effects!.status.status === 'failure') {
         this.removeWorker(worker);
-        return
+        return;
       }
 
       console.log('TXB execution completed!');
-      worker.status = 'available';  // Execution finished, the worker is now available again.
+      worker.status = 'available'; // Execution finished, the worker is now available again.
       return result;
     }
   }
