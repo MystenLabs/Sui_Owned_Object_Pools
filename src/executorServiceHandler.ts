@@ -81,7 +81,7 @@ export class ExecutorServiceHandler {
   If an available worker is not found in the time span of TIMEOUT_MS, return undefined.
   */
   private getAWorker(): WorkerPool | undefined {
-    const TIMEOUT_MS = 500;
+    const TIMEOUT_MS = 1000;
     const startTime = new Date().getTime();
     while (new Date().getTime() - startTime < TIMEOUT_MS) {
       const result = this._workers.find(

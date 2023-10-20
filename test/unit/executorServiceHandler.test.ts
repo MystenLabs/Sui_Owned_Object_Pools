@@ -4,6 +4,7 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
+import { isBooleanObject } from 'util/types';
 
 
 const path = require('path');
@@ -38,19 +39,25 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
 
     X = NUMBER_OF_TRANSACTION_TO_EXECUTE
      */
-    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 2;
-
+    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;
 
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(adminKeypair, client);
-    var firstRunFlag = 0;
+    var currentCoins = 4;
+    var numInitCoins = 4;
     const splitStrategy = {
       objPred: (_: SuiObjectRef | undefined) => null,
 
-      // Only send the first coin to the new split pool. Keep the rest
+      // Only send one coin to the new split pool. Keep the rest to the init pool.
       coinPred: () => {
-        return firstRunFlag++ === 0
+        if (currentCoins == numInitCoins) {
+          currentCoins--;
+          return true;
+        } else {
+          numInitCoins = currentCoins;
+          return null;
+        }
       },
     }
 
