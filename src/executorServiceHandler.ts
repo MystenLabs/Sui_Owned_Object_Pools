@@ -70,6 +70,7 @@ export class ExecutorServiceHandler {
         return
       }
 
+      console.log('TXB execution completed!');
       worker.status = 'available';  // Execution finished, the worker is now available again.
       return result;
     }
@@ -80,7 +81,7 @@ export class ExecutorServiceHandler {
   If an available worker is not found in the time span of TIMEOUT_MS, return undefined.
   */
   private getAWorker(): WorkerPool | undefined {
-    const TIMEOUT_MS = 1000;
+    const TIMEOUT_MS = 500;
     const startTime = new Date().getTime();
     while (new Date().getTime() - startTime < TIMEOUT_MS) {
       const result = this._workers.find(
@@ -92,7 +93,12 @@ export class ExecutorServiceHandler {
       }
     }
     if (new Date().getTime() - startTime >= TIMEOUT_MS) {
-      console.log('Timeout reached - no available worker found.');
+      const numBusyWorkers = this._workers.filter(
+        (worker: WorkerPool) => worker.status === 'busy',
+      ).length;
+      console.log(
+        `Timeout reached - no available worker found - ${numBusyWorkers} busy workers`,
+      );
     }
   }
 
@@ -112,7 +118,6 @@ export class ExecutorServiceHandler {
   /*
    Remove the worker from the workers array and merge
    it back to the main pool.
-   TODO - do this if the pool.signAndExecuteTransactionBlock *dry run* fails.
   */
   private removeWorker(worker: WorkerPool) {
     const index = this._workers.indexOf(worker);

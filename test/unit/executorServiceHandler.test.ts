@@ -21,14 +21,26 @@ const client = new SuiClient({
   url: process.env.SUI_NODE!
 });
 
+const MIST_TO_TRANSFER = 10;
+
+// Create a transaction that transfers MIST from the admin to a test user address.
+function createPaymentTxb(recipient: string): TransactionBlock {
+  const txb = new TransactionBlock();
+  const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
+  txb.transferObjects([coin], txb.pure(process.env.TEST_USER_ADDRESS!));
+  return txb;
+}
+
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
   it('executes a txb', async () => {
-    // TODO - Create multiple txbs like this in order to stress test the eshandler
-    // Create a transaction that transfers MIST from the admin to a test user address.
-    const txb = new TransactionBlock();
-    const MIST_TO_TRANSFER = 1000;
-    const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
-    txb.transferObjects([coin], txb.pure(process.env.TEST_USER_ADDRESS!));
+    /*
+    WARNING! - YOU NEED TO HAVE AT LEAST X COINS IN YOUR ACCOUNTS TO RUN THIS TEST.
+
+    X = NUMBER_OF_TRANSACTION_TO_EXECUTE
+     */
+    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;
+
+    const txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
 
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
@@ -42,7 +54,15 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
         return firstRunFlag++ === 0
       },
     }
-    const res = await eshandler.execute(txb, client, splitStrategy);
-    expect(res.effects!.status.status).toEqual('success');
+
+    const results = [];
+    for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
+      results.push(await eshandler.execute(txb, client, splitStrategy));
+    }
+
+    results.forEach((result) => {
+      expect(result.effects?.status.status).toEqual('success');
+    });
+
   });
 });
