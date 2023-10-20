@@ -42,7 +42,9 @@ export class ExecutorServiceHandler {
       if (res) {
         return res;
       } else {
-        console.log(`Failed to execute the txb - [remaining retries: ${retries}]`)
+        console.log(
+          `Failed to execute the txb - [remaining retries: ${retries}]`,
+        );
       }
     } while (retries-- > 0);
     throw new Error('Internal server error - could not execute the txb');
@@ -67,7 +69,7 @@ export class ExecutorServiceHandler {
         client: client,
       });
 
-      if (result.effects!.status.status === 'failure') {
+      if (result.effects && result.effects.status.status === 'failure') {
         this.removeWorker(worker);
         return;
       }
