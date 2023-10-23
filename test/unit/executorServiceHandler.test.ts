@@ -5,7 +5,7 @@ import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { isBooleanObject } from 'util/types';
-
+import { SetupTestsHelper} from '../../src/helpers';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -75,5 +75,10 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       expect(result.status).toEqual("fulfilled");
     });
 
+  });
+
+  it('sets up', async () => {
+    const helper = new SetupTestsHelper();
+    await helper.setupAdmin();
   });
 });

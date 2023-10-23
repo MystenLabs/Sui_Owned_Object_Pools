@@ -39,6 +39,9 @@ export class SetupTestsHelper {
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
 
+  private objects: SuiObjectResponse[] = [];
+  private suiCoins: SuiObjectResponse[] = [];
+
   constructor() {
     this.client = new SuiClient({
       url: process.env.SUI_NODE!,
@@ -50,16 +53,17 @@ export class SetupTestsHelper {
   Reassure that the admin has enough coins and objects to run the tests
    */
   public async setupAdmin() {
-    const owner = this.adminKeypair.toSuiAddress();
+    await this.parseCurrentCoinsAndObjects();
+    await this.assureAdminHasEnoughCoins();
+    // TODO await this.assureAdminHasEnoughObjects();
+  }
+
+  private async parseCurrentCoinsAndObjects() {
     let cursor: string | null | undefined = null;
     let resp;
-
-    // Parse objects and coins to separate arrays
-    const objects: SuiObjectResponse[] = [];
-    const suiCoins: SuiObjectResponse[] = [];
     do {
       resp = await this.client.getOwnedObjects({
-        owner,
+        owner: this.adminKeypair.toSuiAddress(),
         options: {
           showContent: true,
           showType: true,
@@ -68,28 +72,32 @@ export class SetupTestsHelper {
       });
       resp?.data.forEach((object) => {
         if (Coin.isSUI(object)) {
-          suiCoins.push(object);
+          this.suiCoins.push(object);
         } else {
-          objects.push(object);
+          this.objects.push(object);
         }
       });
       cursor = resp?.nextCursor;
     } while (resp?.hasNextPage);
+  }
 
-    // If the admin has not enough coins, add more
+  /*
+  Reassure that the admin has enough coins and if not add them to him
+   */
+  private async assureAdminHasEnoughCoins() {
     let coinToSplit: SuiObjectResponse;
-    if (suiCoins.length < this.MINIMUM_ADMIN_COINS_NEEDED) {
+    if (this.suiCoins.length < this.MINIMUM_ADMIN_COINS_NEEDED) {
       for (
         let i = 0;
-        i < this.MINIMUM_ADMIN_COINS_NEEDED - suiCoins.length;
+        i < this.MINIMUM_ADMIN_COINS_NEEDED - this.suiCoins.length;
         i++
       ) {
-        coinToSplit = suiCoins.find((coin) =>
+        coinToSplit = this.suiCoins.find((coin) =>
           Coin.getBalance(coin)
             ? Coin.getBalance(coin)! > 2 * this.MINIMUM_COIN_BALANCE
             : false,
         )!;
-        const gasCoin = suiCoins.find((coin) =>
+        const gasCoin = this.suiCoins.find((coin) =>
           coinToSplit?.data?.objectId !== coin.data?.objectId
         );
         if (!gasCoin) {
@@ -101,6 +109,7 @@ export class SetupTestsHelper {
       }
     }
   }
+
 
   /*
   Increase the coins of the admin account
