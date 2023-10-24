@@ -1,16 +1,7 @@
 #!/bin/bash
 
-# check dependencies are available.
-for i in jq sui; do
-  if ! command -V ${i} 2>/dev/null; then
-    echo "${i} is not installed"
-    exit 1
-  fi
-done
-
 # default network is localnet
 NETWORK=http://localhost:9000
-FAUCET=https://localhost:9000/gas
 
 # If otherwise specified chose testnet or devnet
 if [ $# -ne 0 ]; then
@@ -19,13 +10,26 @@ if [ $# -ne 0 ]; then
   fi
   if [ $1 = "testnet" ]; then
     NETWORK="https://fullnode.testnet.sui.io:443"
-    FAUCET="https://faucet.testnet.sui.io/gas"
   fi
   if [ $1 = "devnet" ]; then
     NETWORK="https://fullnode.devnet.sui.io:443"
-    FAUCET="https://faucet.devnet.sui.io/gas"
   fi
 fi
+
+read -p "You are about to publish a new package at $NETWORK Continue? (y/n): " response
+response=$(echo "$response" | tr '[:upper:]' '[:lower:]') # tolower
+if ! [[ "$response" =~ ^(yes|y)$ ]]; then
+    echo "Exiting package publishing."
+    exit 1
+fi
+
+# check dependencies are available.
+for i in jq sui; do
+  if ! command -V ${i} 2>/dev/null; then
+    echo "${i} is not installed"
+    exit 1
+  fi
+done
 
 publish_res=$(sui client publish --gas-budget 200000000 --json ../nft_app --skip-dependency-verification)
 
@@ -37,35 +41,16 @@ if [[ "$publish_res" =~ "error" ]]; then
   exit 1
 fi
 echo "Contract Deployment finished!"
-
 echo "Setting up environmental variables..."
 
-DIGEST=$(echo "${publish_res}" | jq -r '.digest')
-PACKAGE_ID=$(echo "${publish_res}" | jq -r '.effects.created[] | select(.owner == "Immutable").reference.objectId')
 newObjs=$(echo "$publish_res" | jq -r '.objectChanges[] | select(.type == "created")')
 ADMIN_CAP_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::genesis::AdminCap")).objectId')
-PUBLISHER_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::Publisher")).objectId')
-UPGRADE_CAP_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::package::UpgradeCap")).objectId')
-
+ADMIN_ADDRESS=$(echo "$publish_res" | jq -r '.transaction.data.sender')
+PACKAGE_ID=$(echo "${publish_res}" | jq -r '.effects.created[] | select(.owner == "Immutable").reference.objectId')
 
 cat >.env <<-API_ENV
-SUI_NETWORK=$NETWORK
-DIGEST=$DIGEST
-UPGRADE_CAP_ID=$UPGRADE_CAP_ID
-PACKAGE_ID=$PACKAGE_ID
-ADMIN_CAP_ID=$ADMIN_CAP_ID
-PUBLISHER_ID=$PUBLISHER_ID
-ADMIN_PHRASE=$ADMIN_PHRASE
+NFT_APP_PACKAGE_ID=$PACKAGE_ID
+NFT_APP_ADMIN_CAP=$ADMIN_CAP_ID
+SUI_NODE=$NETWORK
 ADMIN_ADDRESS=$ADMIN_ADDRESS
-NON_CUSTODIAN_ADDRESS=$NON_CUSTODIAN_ADDRESS
 API_ENV
-
-# echo "Waiting for Fullnode to sync..."
-# sleep 5
-
-# echo "Installing dependencies..."
-
-# npm install
-
-# echo "Setting up Display..."
-# npm start 
