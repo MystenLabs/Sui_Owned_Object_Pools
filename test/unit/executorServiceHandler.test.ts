@@ -4,7 +4,6 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
-import { isBooleanObject } from 'util/types';
 import { SetupTestsHelper} from '../../src/helpers';
 
 const path = require('path');
@@ -33,12 +32,20 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 }
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
-  it('executes a txb', async () => {
-    /*
-    WARNING! - YOU NEED TO HAVE AT LEAST X COIN OBJECTS IN YOUR ACCOUNTS TO RUN THIS TEST.
+  beforeEach(async () => {
+    try {
+      const helper = new SetupTestsHelper();
+      await helper.setupAdmin();
+    } catch (e) {
+      console.warn(e);
+      console.log("Retrying admin setup...");
+      const helper = new SetupTestsHelper();
+      await helper.setupAdmin();
+    }
+  })
 
-    X = NUMBER_OF_TRANSACTION_TO_EXECUTE
-     */
+
+  it('creates multiple transactions and executes them in parallel', async () => {
     const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;
 
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
@@ -75,10 +82,5 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       expect(result.status).toEqual("fulfilled");
     });
 
-  });
-
-  it('sets up', async () => {
-    const helper = new SetupTestsHelper();
-    await helper.setupAdmin();
   });
 });
