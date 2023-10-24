@@ -20,5 +20,5 @@ for ((i = 1; i < ${#gascoin_ids_array[@]} ; i++)); do
         --coin-to-merge ${gascoin_ids_array[i]} \
         --gas-budget 10000000"
     echo "Executing command: $command"
-    eval "$command"
+    eval "$command" > /dev/null 2>&1
 done
