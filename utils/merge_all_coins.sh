@@ -1,4 +1,8 @@
 #!/bin/bash
+# This script is used mostly for debugging purposes.
+# It merges all gas coins of the AdminAccount into the first one.
+# This is useful when you want to test coin splitting when starting with a single gas coin.
+
 source ../test/.env
 
 if [[ -z "${ADMIN_ADDRESS}" ]]; then
