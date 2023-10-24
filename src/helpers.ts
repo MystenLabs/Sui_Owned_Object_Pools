@@ -1,10 +1,10 @@
-import path from 'path';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiClient } from '@mysten/sui.js/client';
-import { SuiObjectResponse } from '@mysten/sui.js/src/client/types/generated';
 import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
+import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+import { SuiObjectResponse } from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { fromB64 } from '@mysten/sui.js/utils';
+import path from 'path';
 
 require('dotenv').config({
   path: path.resolve(__dirname, '../test/.env'),
@@ -97,11 +97,13 @@ export class SetupTestsHelper {
             ? Coin.getBalance(coin)! > 2 * this.MINIMUM_COIN_BALANCE
             : false,
         )!;
-        const gasCoin = this.suiCoins.find((coin) =>
-          coinToSplit?.data?.objectId !== coin.data?.objectId
+        const gasCoin = this.suiCoins.find(
+          (coin) => coinToSplit?.data?.objectId !== coin.data?.objectId,
         );
         if (!gasCoin) {
-          throw new Error('Failed to find a coin to use as gas. Split a coin manually or get one from faucet.');
+          throw new Error(
+            'Failed to find a coin to use as gas. Split a coin manually or get one from faucet.',
+          );
         }
         if (coinToSplit) {
           await this.addNewCoinToAccount(coinToSplit, gasCoin);
@@ -110,11 +112,13 @@ export class SetupTestsHelper {
     }
   }
 
-
   /*
   Increase the coins of the admin account
    */
-  private async addNewCoinToAccount(fromCoin: SuiObjectResponse, gasCoin: SuiObjectResponse) {
+  private async addNewCoinToAccount(
+    fromCoin: SuiObjectResponse,
+    gasCoin: SuiObjectResponse,
+  ) {
     const transactionBlockSplitCoin = new TransactionBlock();
     const [coin] = transactionBlockSplitCoin.splitCoins(
       transactionBlockSplitCoin.pure(fromCoin.data?.objectId!),
@@ -126,13 +130,15 @@ export class SetupTestsHelper {
     );
     transactionBlockSplitCoin.setGasBudget(10000000);
 
-    transactionBlockSplitCoin.setGasPayment([{
+    transactionBlockSplitCoin.setGasPayment([
+      {
         objectId: gasCoin.data?.objectId!,
         digest: gasCoin.data?.digest!,
         version: gasCoin.data?.version!,
-    }]);
+      },
+    ]);
 
-    let coins = await this.client.getAllCoins({
+    const coins = await this.client.getAllCoins({
       owner: this.adminKeypair.toSuiAddress(),
     });
 
