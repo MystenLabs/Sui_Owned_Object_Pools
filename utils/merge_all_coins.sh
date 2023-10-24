@@ -11,8 +11,10 @@ while read -r line; do
 done <<< "$input_data"
 
 # Constructing the command with the coinIds array
-for ((i = 1; i < ${#coinIds[@]} - 1; i++)); do
+for ((i = 1; i < ${#coinIds[@]} ; i++)); do
     command="sui client merge-coin --primary-coin ${coinIds[0]} --coin-to-merge ${coinIds[i]} --gas-budget 10000000"
     echo "Executing command: $command"
     eval "$command"
 done
+
+sui client objects 0x1dbd03ee8b78f826ddecedbd1295feb51eb7029b158f5be408f4cd232117ac36 | grep GasCoin

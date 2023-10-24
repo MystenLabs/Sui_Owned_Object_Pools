@@ -34,7 +34,7 @@ export function compareMaps<T>(map1: Map<string, T>, map2: Map<string, T>) {
 
 export class SetupTestsHelper {
   public MINIMUM_ADMIN_COINS_NEEDED = 4;
-  public MINIMUM_COIN_BALANCE = 20000000;
+  public MINIMUM_COIN_BALANCE = 2000000000;
 
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
