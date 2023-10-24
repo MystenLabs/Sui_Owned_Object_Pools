@@ -143,6 +143,14 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       [txb2.object(testObjectId)],
       txb2.pure(adminKeypair.getPublicKey().toSuiAddress()),
     );
+    txb2.setGasBudget(10000000);
+    const coins = await client.getAllCoins({ owner: recipientAddress });
+    const coin = coins.data[0]
+    txb2.setGasPayment([{
+      objectId: coin.coinObjectId,
+      digest: coin.digest,
+      version: coin.version,
+    }])
     client.signAndExecuteTransactionBlock({
       transactionBlock: txb2,
       requestType: 'WaitForLocalExecution',
@@ -207,31 +215,6 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     /*
     When a pool signs and executes a txb, it should use only its own coins for gas.
     */
-
-    // We do this by splitting the admin's coins into 2.
-    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-
-    /* Make sure to have at least 2 coins in the admin account for this test to work. */
-    let adminCoins = await client.getAllCoins({ owner: adminAddress });
-    if (adminCoins?.data?.length < 2) {
-      const txb_coinTransfer = new TransactionBlock();
-      const [coin] = txb_coinTransfer.splitCoins(
-        txb_coinTransfer.gas,
-        [txb_coinTransfer.pure(20000000)], // arbitrary amount, best to be small
-      );
-      txb_coinTransfer.transferObjects(
-        [coin],
-        txb_coinTransfer.pure(adminAddress),
-      );
-      txb_coinTransfer.setGasBudget(10000000);
-      await client.signAndExecuteTransactionBlock({
-        transactionBlock: txb_coinTransfer,
-        requestType: 'WaitForLocalExecution',
-        options: { showEffects: true },
-        signer: adminKeypair,
-      });
-    }
-
     /* Create a pool */
     const poolOne: Pool = await Pool.full({
       keypair: adminKeypair,
