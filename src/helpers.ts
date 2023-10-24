@@ -158,8 +158,8 @@ export class SetupTestsHelper {
   private async addNewCoinToAccount(cointToSplit : string) {
     const txb = new TransactionBlock();
     const coinToPay = await  this.client.getObject({ id: cointToSplit });
-    let newcoins1 = txb.splitCoins(txb.gas, [txb.pure(7000000)]);
-    let newcoins2 = txb.splitCoins(txb.gas, [txb.pure(7000000)]);
+    let newcoins1 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
+    let newcoins2 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
     txb.transferObjects([newcoins1, newcoins2], txb.pure(this.adminKeypair.toSuiAddress()));
     txb.setGasBudget(100000000);
     txb.setGasPayment([this.toSuiObjectRef(coinToPay)]);

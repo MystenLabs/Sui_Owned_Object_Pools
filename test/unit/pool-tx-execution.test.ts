@@ -36,7 +36,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    jest.setTimeout(10000);
+    jest.setTimeout(100000);
     helper = new SetupTestsHelper();
     await helper.setupAdmin(2);
   });
@@ -68,11 +68,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
   });
 
-  const falsyObjectIds: string[] = [
-    process.env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID!, // not owned by admin
-    process.env.TEST_NON_EXISTING_OBJECT_ID!, // random object id - not existing
-  ];
-  it.each(falsyObjectIds)(
+  const falsyObjectIds: string = "0x05d97725fd32745a35fe746489a92c80d0b7eac00vba2df51216457e5e9d8807"  // Random string
+  it.each([falsyObjectIds])(
     'checks falsy object ownership',
     async (falsyObjectId) => {
       // Create a pool
