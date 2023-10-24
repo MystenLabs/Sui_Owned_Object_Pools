@@ -1,7 +1,7 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { SuiObjectResponse } from '@mysten/sui.js/src/client/types/generated';
+import { SuiObjectResponse, SuiObjectRef } from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { fromB64 } from '@mysten/sui.js/utils';
 import path from 'path';
@@ -52,10 +52,10 @@ export class SetupTestsHelper {
   /*
   Reassure that the admin has enough coins and objects to run the tests
    */
-  public async setupAdmin() {
+  public async setupAdmin(minimumObjectsNeeded: number) {
     await this.parseCurrentCoinsAndObjects();
+    await this.assureAdminHasEnoughObjects(minimumObjectsNeeded)
     await this.assureAdminHasEnoughCoins();
-    // TODO await this.assureAdminHasEnoughObjects();
   }
 
   private async parseCurrentCoinsAndObjects() {
@@ -112,6 +112,46 @@ export class SetupTestsHelper {
     }
   }
 
+  private async assureAdminHasEnoughObjects(numberOfObjectsNeeded: number) {
+    while(this.objects.length < numberOfObjectsNeeded) {
+      await this.addNewObjectToAccount();
+    }
+  }
+
+  private async addNewObjectToAccount() {
+    const mintAndTransferTxb = new TransactionBlock();
+    const hero = mintAndTransferTxb.moveCall({
+      arguments: [
+        mintAndTransferTxb.object(process.env.NFT_APP_ADMIN_CAP!),
+        mintAndTransferTxb.pure('zed'),
+        mintAndTransferTxb.pure('gold'),
+        mintAndTransferTxb.pure(3),
+        mintAndTransferTxb.pure('ipfs://example.com/'),
+      ],
+      target: `${process.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
+    // Transfer to self
+    mintAndTransferTxb.transferObjects(
+      [hero],
+      mintAndTransferTxb.pure(this.adminKeypair.getPublicKey().toSuiAddress()),
+    );
+    mintAndTransferTxb.setGasBudget(10000000);
+    mintAndTransferTxb.setGasPayment(
+      this.suiCoins.map(
+        coin => this.toSuiObjectRef(coin)
+      ));
+    await this.client.signAndExecuteTransactionBlock({
+      transactionBlock: mintAndTransferTxb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true,
+      },
+      signer: this.adminKeypair,
+    });
+  }
+
   /*
   Increase the coins of the admin account
    */
@@ -131,16 +171,8 @@ export class SetupTestsHelper {
     transactionBlockSplitCoin.setGasBudget(10000000);
 
     transactionBlockSplitCoin.setGasPayment([
-      {
-        objectId: gasCoin.data?.objectId!,
-        digest: gasCoin.data?.digest!,
-        version: gasCoin.data?.version!,
-      },
+      this.toSuiObjectRef(gasCoin),
     ]);
-
-    const coins = await this.client.getAllCoins({
-      owner: this.adminKeypair.toSuiAddress(),
-    });
 
     const res = await this.client.signAndExecuteTransactionBlock({
       // @ts-ignore
@@ -152,6 +184,14 @@ export class SetupTestsHelper {
 
     if (res.effects?.status?.status !== 'success') {
       throw new Error('Failed to split coin');
+    }
+  }
+
+  private toSuiObjectRef(coin: SuiObjectResponse): SuiObjectRef {
+    return {
+      objectId: coin.data?.objectId!,
+      digest: coin.data?.digest!,
+      version: coin.data?.version!,
     }
   }
 }

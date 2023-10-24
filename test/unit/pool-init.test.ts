@@ -2,16 +2,12 @@ import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
-// @ts-ignore
 import { Pool } from '../../src';
-// @ts-ignore
-import { compareMaps } from '../../src/helpers';
-
+import { compareMaps, SetupTestsHelper } from '../../src/helpers';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-const TEST_USER_ADDRESS: string = process.env.TEST_USER_ADDRESS!;
 const ADMIN_SECRET_KEY: string = process.env.ADMIN_SECRET_KEY!;
 const adminPrivateKeyArray = Uint8Array.from(
   Array.from(fromB64(ADMIN_SECRET_KEY)),
@@ -19,17 +15,12 @@ const adminPrivateKeyArray = Uint8Array.from(
 const adminKeypair = Ed25519Keypair.fromSecretKey(
   adminPrivateKeyArray.slice(1),
 );
-const testUserPrivateKeyArray = Uint8Array.from(
-  Array.from(fromB64(process.env.TEST_USER_SECRET!)),
-);
-const testUserKeypair = Ed25519Keypair.fromSecretKey(
-  testUserPrivateKeyArray.slice(1),
-);
 
 const client = new SuiClient({
   url: process.env.SUI_NODE!
 });
 
+const MINIMUM_NUMBER_OF_ADMIN_OBJECTS = 3;
 
 describe('Pool creation with factory', () => {
     beforeEach(() => {
@@ -53,6 +44,18 @@ describe('Pool creation with factory', () => {
 
 
   describe('✂️ Pool splitting', () => {
+    beforeEach(async () => {
+      try {
+        const helper = new SetupTestsHelper();
+        await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
+      } catch (e) {
+        console.warn(e);
+        console.log("Retrying admin setup...");
+        const helper = new SetupTestsHelper();
+        await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
+      }
+    });
+
     it('splits a pool using an <always-true> predicate', async () => {
       /*
       Create a pool
@@ -155,28 +158,26 @@ describe('Pool creation with factory', () => {
             .toEqual(num_coins_before_split);
     });
 
-    /// This is not a testing an edge case scenario.
+    /// This is not an edge case test scenario.
     /// In this case we use a predicate that could be used in a real scenario.
-    /// === WARNING! ===
-    /// To run this test you need to:
-    /// 1. have at least N objects in your account.
-    /// 2. have at least C coins in your account.
     it('splits a pool using a normal-scenario predicate', async () => {
       // Create a pool
       const initial_pool: Pool = await Pool.full({
         keypair: adminKeypair,
         client: client,
       });
+
+
       const num_objects_before_split = initial_pool.objects.size;
       const num_coins_before_split = initial_pool.coins.size;
 
       /*
       Define a normal scenario predicate.
-      Transfer 10 objects to the new pool and keep the rest to the initial pool.
       */
 
+      const num_objects_for_new_pool = MINIMUM_NUMBER_OF_ADMIN_OBJECTS - 1;
+
       // Check that N is less than the number of objects in the initial pool just to be safe
-      const num_objects_for_new_pool = 3;  // i.e. N (current number of objects in pool'creators account)
       expect(num_objects_for_new_pool).toBeLessThanOrEqual(num_objects_before_split);
       // Define the predicate for the pool.objects split
       var counter = 0;

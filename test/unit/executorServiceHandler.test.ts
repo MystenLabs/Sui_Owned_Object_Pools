@@ -35,12 +35,12 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
   beforeEach(async () => {
     try {
       const helper = new SetupTestsHelper();
-      await helper.setupAdmin();
+      await helper.setupAdmin(5);
     } catch (e) {
       console.warn(e);
       console.log("Retrying admin setup...");
       const helper = new SetupTestsHelper();
-      await helper.setupAdmin();
+      await helper.setupAdmin(5);
     }
   })
 
