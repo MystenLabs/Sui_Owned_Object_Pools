@@ -3,7 +3,7 @@ source .env
 
 echo "=== Tests setup script ==="
 echo "Follow the instructions below to setup the test environment."
-echo "When in doubt, just press enter to use the default value."
+echo "When in doubt, just select 'yes'."
 
 # Check if an argument was passed to the script.
 if [ $# -eq 1 ]; then
