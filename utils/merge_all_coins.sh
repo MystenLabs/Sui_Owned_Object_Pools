@@ -1,20 +1,23 @@
 #!/bin/bash
+source ../test/.env
 
-# Get current admin's gascoins info
-gascoins_info=$(sui client objects $ADMIN_ADDRESS | grep GasCoin)
+if [[ -z "${ADMIN_ADDRESS}" ]]; then
+  echo "Error - ADMIN_ADDRESS is not defined"  1>&2
+  exit 1
+fi
 
 # Extracting coinIds from the gascoin info
-coinIds=()
-while read -r line; do
-    coinId=$(echo "$line" | awk '{print $1}')
-    coinIds+=("$coinId")
-done <<< "$gascoins_info"
+gascoin_ids_array=()
+for gascoinId in $(sui client objects "$ADMIN_ADDRESS" --json \
+                    | jq -r '.[] | select(.data.content.type == "0x2::coin::Coin<0x2::sui::SUI>") | .data.objectId' ); do
+  gascoin_ids_array+=("$gascoinId")
+done
 
 # Merge all gas coins with the first one in the list
-for ((i = 1; i < ${#coinIds[@]} ; i++)); do
+for ((i = 1; i < ${#gascoin_ids_array[@]} ; i++)); do
     command="sui client merge-coin \
-        --primary-coin ${coinIds[0]} \
-        --coin-to-merge ${coinIds[i]} \
+        --primary-coin ${gascoin_ids_array[0]} \
+        --coin-to-merge ${gascoin_ids_array[i]} \
         --gas-budget 10000000"
     echo "Executing command: $command"
     eval "$command"
