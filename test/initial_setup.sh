@@ -1,6 +1,10 @@
 #!/bin/bash
 source .env
 
+echo "=== Tests setup script ==="
+echo "Follow the instructions below to setup the test environment."
+echo "When in doubt, just press enter to use the default value."
+
 # Check if an argument was passed to the script.
 if [ $# -eq 1 ]; then
     # The argument should be the network that the package will be published to.
