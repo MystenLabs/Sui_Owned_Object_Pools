@@ -1,16 +1,13 @@
-import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import path from 'path';
+import { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
-// @ts-ignore
-import { compareMaps } from '../../src/helpers';
-
-// @ts-ignore
+import { compareMaps, SetupTestsHelper } from '../../src/helpers';
 import { Pool } from '../../src';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { CoinStruct } from '@mysten/sui.js/src/client';
 
-const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const TEST_USER_ADDRESS: string = process.env.TEST_USER_ADDRESS!;
@@ -34,15 +31,14 @@ const client = new SuiClient({
 const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
 
+let helper: SetupTestsHelper;
 describe('🌊 Basic flow of sign & execute tx block', () => {
-  const chunksOfGas = 2; // FIXME - unused
-  const txnsEstimate = 10; // FIXME - unused
-  const testObjectId = process.env.TEST_NFT_OBJECT_ID!;
-
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
     jest.setTimeout(10000);
+    helper = new SetupTestsHelper();
+    await helper.setupAdmin(2);
   });
 
   it('checks truthy object ownership', async () => {
@@ -61,6 +57,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
 
     // Include a transfer nft object transaction in the transaction block
+    const testObjectId: string = helper.objects[0].data?.objectId!;
     txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress));
 
     // Include a transfer coin transaction in the transaction block
@@ -118,6 +115,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
     const recipientAddress = TEST_USER_ADDRESS;
+    const testObjectId: string = helper.objects[0].data?.objectId!;
     txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress));
 
     const res = await pool.signAndExecuteTransactionBlock({

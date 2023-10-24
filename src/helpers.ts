@@ -39,7 +39,7 @@ export class SetupTestsHelper {
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
 
-  private objects: SuiObjectResponse[] = [];
+  public readonly objects: SuiObjectResponse[] = [];
   private suiCoins: SuiObjectResponse[] = [];
 
   constructor() {
@@ -53,9 +53,18 @@ export class SetupTestsHelper {
   Reassure that the admin has enough coins and objects to run the tests
    */
   public async setupAdmin(minimumObjectsNeeded: number) {
-    await this.parseCurrentCoinsAndObjects();
-    await this.assureAdminHasEnoughObjects(minimumObjectsNeeded)
-    await this.assureAdminHasEnoughCoins();
+    const setup = async () => {
+      await this.parseCurrentCoinsAndObjects();
+      await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
+      await this.assureAdminHasEnoughCoins();
+    }
+    try {
+      await setup()
+    } catch (e) {
+      console.warn(e);
+      console.log("Retrying admin setup...");
+      await setup()
+    }
   }
 
   private async parseCurrentCoinsAndObjects() {
@@ -97,16 +106,9 @@ export class SetupTestsHelper {
             ? Coin.getBalance(coin)! > 2 * this.MINIMUM_COIN_BALANCE
             : false,
         )!;
-        const gasCoin = this.suiCoins.find(
-          (coin) => coinToSplit?.data?.objectId !== coin.data?.objectId,
-        );
-        if (!gasCoin) {
-          throw new Error(
-            'Failed to find a coin to use as gas. Split a coin manually or get one from faucet.',
-          );
-        }
-        if (coinToSplit) {
-          await this.addNewCoinToAccount(coinToSplit, gasCoin);
+        const coinToSplitId = coinToSplit.data?.objectId;
+        if (coinToSplitId) {
+          await this.addNewCoinToAccount(coinToSplitId);
         }
       }
     }
@@ -152,39 +154,33 @@ export class SetupTestsHelper {
     });
   }
 
-  /*
-  Increase the coins of the admin account
-   */
-  private async addNewCoinToAccount(
-    fromCoin: SuiObjectResponse,
-    gasCoin: SuiObjectResponse,
-  ) {
-    const transactionBlockSplitCoin = new TransactionBlock();
-    const [coin] = transactionBlockSplitCoin.splitCoins(
-      transactionBlockSplitCoin.pure(fromCoin.data?.objectId!),
-      [transactionBlockSplitCoin.pure(this.MINIMUM_COIN_BALANCE)],
-    );
-    transactionBlockSplitCoin.transferObjects(
-      [coin],
-      transactionBlockSplitCoin.pure(this.adminKeypair.toSuiAddress()),
-    );
-    transactionBlockSplitCoin.setGasBudget(10000000);
 
-    transactionBlockSplitCoin.setGasPayment([
-      this.toSuiObjectRef(gasCoin),
-    ]);
-
-    const res = await this.client.signAndExecuteTransactionBlock({
-      // @ts-ignore
-      transactionBlock: transactionBlockSplitCoin,
-      requestType: 'WaitForLocalExecution',
-      options: { showEffects: true },
+  private async addNewCoinToAccount(cointToSplit : string) {
+    const txb = new TransactionBlock();
+    const coinToPay = await  this.client.getObject({ id: cointToSplit });
+    let newcoins1 = txb.splitCoins(txb.gas, [txb.pure(7000000)]);
+    let newcoins2 = txb.splitCoins(txb.gas, [txb.pure(7000000)]);
+    txb.transferObjects([newcoins1, newcoins2], txb.pure(this.adminKeypair.toSuiAddress()));
+    txb.setGasBudget(100000000);
+    txb.setGasPayment([this.toSuiObjectRef(coinToPay)]);
+    this.client.signAndExecuteTransactionBlock({
       signer: this.adminKeypair,
+      transactionBlock: txb,
+      requestType: "WaitForLocalExecution",
+      options: {
+        showEffects: true, showObjectChanges: true,
+      },
+    }).then((txRes) => {
+      let status1 = txRes.effects?.status;
+      if (status1?.status !== "success") {
+        console.log("process failed. Status: ", status1);
+        process.exit(1);
+      }
+      console.log("process Finished. Status: ", status1);
+    }).catch((err) => {
+      console.log("process failed. Error: ", err);
+      process.exit(1);
     });
-
-    if (res.effects?.status?.status !== 'success') {
-      throw new Error('Failed to split coin');
-    }
   }
 
   private toSuiObjectRef(coin: SuiObjectResponse): SuiObjectRef {

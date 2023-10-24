@@ -33,17 +33,9 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
   beforeEach(async () => {
-    try {
-      const helper = new SetupTestsHelper();
-      await helper.setupAdmin(5);
-    } catch (e) {
-      console.warn(e);
-      console.log("Retrying admin setup...");
-      const helper = new SetupTestsHelper();
-      await helper.setupAdmin(5);
-    }
+    const helper = new SetupTestsHelper();
+    await helper.setupAdmin(5);
   })
-
 
   it('creates multiple transactions and executes them in parallel', async () => {
     const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;

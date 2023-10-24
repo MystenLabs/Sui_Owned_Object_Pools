@@ -45,15 +45,8 @@ describe('Pool creation with factory', () => {
 
   describe('✂️ Pool splitting', () => {
     beforeEach(async () => {
-      try {
-        const helper = new SetupTestsHelper();
-        await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
-      } catch (e) {
-        console.warn(e);
-        console.log("Retrying admin setup...");
-        const helper = new SetupTestsHelper();
-        await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
-      }
+      const helper = new SetupTestsHelper();
+      await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
     });
 
     it('splits a pool using an <always-true> predicate', async () => {
