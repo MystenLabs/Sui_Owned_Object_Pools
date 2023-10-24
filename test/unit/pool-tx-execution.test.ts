@@ -38,7 +38,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     jest.clearAllMocks();
     jest.setTimeout(100000);
     helper = new SetupTestsHelper();
-    await helper.setupAdmin(2);
+    await helper.setupAdmin(10);
   });
 
   it('checks truthy object ownership', async () => {
