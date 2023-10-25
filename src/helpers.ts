@@ -7,12 +7,12 @@ import {
 } from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { fromB64 } from '@mysten/sui.js/utils';
+import dotenv from 'dotenv';
 import path from 'path';
 
-require('dotenv').config({
+const result = dotenv.config({
   path: path.resolve(__dirname, '../test/.env'),
 });
-
 /// Method to make keypair from private key that is in string format
 export function getKeyPair(privateKey: string): Ed25519Keypair {
   const privateKeyArray = Array.from(fromB64(privateKey));
@@ -195,10 +195,14 @@ export class SetupTestsHelper {
   }
 
   private toSuiObjectRef(coin: SuiObjectResponse): SuiObjectRef {
+    const data = coin.data;
+    if (!data?.objectId || !data?.digest || !data?.version) {
+      throw new Error('Invalid coin - missing data');
+    }
     return {
-      objectId: coin.data?.objectId!,
-      digest: coin.data?.digest!,
-      version: coin.data?.version!,
+      objectId: data?.objectId,
+      digest: data?.digest,
+      version: data?.version,
     };
   }
 }
