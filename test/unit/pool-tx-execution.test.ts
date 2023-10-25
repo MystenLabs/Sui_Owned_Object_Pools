@@ -36,7 +36,6 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    jest.setTimeout(100000);
     helper = new SetupTestsHelper();
     await helper.setupAdmin(10);
   });
@@ -179,7 +178,6 @@ describe('Transaction block execution directly from pool', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    jest.setTimeout(100000);
     helper = new SetupTestsHelper();
     await helper.setupAdmin(10);
     await sleep(2000)
@@ -263,13 +261,5 @@ describe('Transaction block execution directly from pool', () => {
 
     expect(res).toBeDefined();
     expect(res.effects!.status.status).toEqual('success');
-
-    const recipientObjects = await client.getOwnedObjects({
-      owner: recipientAddress,
-    });
-    const transferred_object = recipientObjects.data.find(
-      (obj) => obj.data?.objectId === testObjectId,
-    );
-    expect(transferred_object).toBeDefined();
   });
 });

@@ -26,7 +26,6 @@ describe('Pool creation with factory', () => {
   beforeEach(() => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    jest.setTimeout(10000);
   });
 
   /// WARNING this test might fail if the account
