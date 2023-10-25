@@ -47,7 +47,7 @@ export class ExecutorServiceHandler {
         );
       }
     } while (retries-- > 0);
-    throw new Error('Internal server error - could not execute the txb');
+    throw new Error('Internal server error - could not execute the transaction block');
   }
 
   private async executeFlow(
@@ -74,7 +74,7 @@ export class ExecutorServiceHandler {
         return;
       }
 
-      console.log('TXB execution completed!');
+      console.log('Transaction block execution completed!');
       worker.status = 'available'; // Execution finished, the worker is now available again.
       return result;
     }
