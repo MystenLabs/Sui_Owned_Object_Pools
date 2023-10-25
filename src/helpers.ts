@@ -173,10 +173,9 @@ export class SetupTestsHelper {
     }).then((txRes) => {
       let status1 = txRes.effects?.status;
       if (status1?.status !== "success") {
-        console.log("process failed. Status: ", status1);
+        console.log("New coin to add failed. Status: ", status1);
         process.exit(1);
       }
-      console.log("process Finished. Status: ", status1);
     }).catch((err) => {
       console.log("process failed. Error: ", err);
       process.exit(1);
