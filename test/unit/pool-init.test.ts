@@ -46,6 +46,7 @@ describe('✂️ Pool splitting', () => {
   beforeEach(async () => {
     const helper = new SetupTestsHelper();
     await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
+
   });
 
   it('splits a pool using an <always-true> predicate', async () => {

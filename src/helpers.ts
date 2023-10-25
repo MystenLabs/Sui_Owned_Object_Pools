@@ -2,8 +2,8 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import {
-  SuiObjectResponse,
   SuiObjectRef,
+  SuiObjectResponse,
 } from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { fromB64 } from '@mysten/sui.js/utils';
@@ -18,6 +18,10 @@ export function getKeyPair(privateKey: string): Ed25519Keypair {
   const privateKeyArray = Array.from(fromB64(privateKey));
   privateKeyArray.shift();
   return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
+}
+
+export async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 export function compareMaps<T>(map1: Map<string, T>, map2: Map<string, T>) {
   let testVal;
@@ -159,8 +163,8 @@ export class SetupTestsHelper {
   private async addNewCoinToAccount(cointToSplit: string) {
     const txb = new TransactionBlock();
     const coinToPay = await this.client.getObject({ id: cointToSplit });
-    let newcoins1 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
-    let newcoins2 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
+    const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
+    const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
     txb.transferObjects(
       [newcoins1, newcoins2],
       txb.pure(this.adminKeypair.toSuiAddress()),
@@ -178,7 +182,7 @@ export class SetupTestsHelper {
         },
       })
       .then((txRes) => {
-        let status1 = txRes.effects?.status;
+        const status1 = txRes.effects?.status;
         if (status1?.status !== 'success') {
           console.log('New coin to add failed. Status: ', status1);
           process.exit(1);

@@ -4,7 +4,7 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
-import { SetupTestsHelper } from '../../src/helpers';
+import { SetupTestsHelper, sleep } from '../../src/helpers';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -35,6 +35,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
   beforeEach(async () => {
     const helper = new SetupTestsHelper();
     await helper.setupAdmin(5);
+    await sleep(1000)
   });
 
   it('creates multiple transactions and executes them in parallel', async () => {

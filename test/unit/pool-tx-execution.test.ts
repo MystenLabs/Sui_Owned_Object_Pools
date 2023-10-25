@@ -2,7 +2,7 @@ import path from 'path';
 import { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
-import { compareMaps, SetupTestsHelper } from '../../src/helpers';
+import { compareMaps, SetupTestsHelper, sleep } from '../../src/helpers';
 import { Pool } from '../../src';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
@@ -182,7 +182,7 @@ describe('Transaction block execution directly from pool', () => {
     jest.setTimeout(100000);
     helper = new SetupTestsHelper();
     await helper.setupAdmin(10);
-    await new Promise((r) => setTimeout(r, 2000));
+    await sleep(2000)
   });
 
   it('mints nft and transfers it to self', async () => {
