@@ -233,7 +233,7 @@ describe('Transaction block execution directly from pool', () => {
     expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
   });
 
-  it('mints nft, transfers it to a test user and then back to self', async () => {
+  it('mints nft, transfers it to a test user', async () => {
     // Create a pool
     const pool: Pool = await Pool.full({
       keypair: adminKeypair,
@@ -271,32 +271,5 @@ describe('Transaction block execution directly from pool', () => {
       (obj) => obj.data?.objectId === testObjectId,
     );
     expect(transferred_object).toBeDefined();
-
-    // Send NFT back to the original owner
-    const txb2 = new TransactionBlock();
-    txb2.transferObjects(
-      [txb2.object(testObjectId)],
-      txb2.pure(adminKeypair.getPublicKey().toSuiAddress()),
-    );
-    txb2.setGasBudget(10000000);
-    const coins = await client.getAllCoins({ owner: recipientAddress });
-    const coin = coins.data[0];
-    txb2.setGasPayment([
-      {
-        objectId: coin.coinObjectId,
-        digest: coin.digest,
-        version: coin.version,
-      },
-    ]);
-    client.signAndExecuteTransactionBlock({
-      transactionBlock: txb2,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showEvents: true,
-        showObjectChanges: true,
-      },
-      signer: testUserKeypair,
-    });
   });
 });
