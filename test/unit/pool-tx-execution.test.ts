@@ -26,7 +26,7 @@ const testUserKeypair = Ed25519Keypair.fromSecretKey(
 );
 
 const client = new SuiClient({
-  url: process.env.SUI_NODE!
+  url: process.env.SUI_NODE!,
 });
 const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
@@ -68,7 +68,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
   });
 
-  const falsyObjectIds: string = "0x05d97725fd32745a35fe746489a92c80d0b7eac00vba2df51216457e5e9d8807"  // Random string
+  const falsyObjectIds: string =
+    '0x05d97725fd32745a35fe746489a92c80d0b7eac00vba2df51216457e5e9d8807'; // Random string
   it.each([falsyObjectIds])(
     'checks falsy object ownership',
     async (falsyObjectId) => {
@@ -181,7 +182,7 @@ describe('Transaction block execution directly from pool', () => {
     jest.setTimeout(100000);
     helper = new SetupTestsHelper();
     await helper.setupAdmin(10);
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 2000));
   });
 
   it('mints nft and transfers it to self', async () => {
@@ -279,12 +280,14 @@ describe('Transaction block execution directly from pool', () => {
     );
     txb2.setGasBudget(10000000);
     const coins = await client.getAllCoins({ owner: recipientAddress });
-    const coin = coins.data[0]
-    txb2.setGasPayment([{
-      objectId: coin.coinObjectId,
-      digest: coin.digest,
-      version: coin.version,
-    }])
+    const coin = coins.data[0];
+    txb2.setGasPayment([
+      {
+        objectId: coin.coinObjectId,
+        digest: coin.digest,
+        version: coin.version,
+      },
+    ]);
     client.signAndExecuteTransactionBlock({
       transactionBlock: txb2,
       requestType: 'WaitForLocalExecution',

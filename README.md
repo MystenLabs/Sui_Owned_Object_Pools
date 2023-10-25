@@ -3,12 +3,14 @@
 This is an initial design of a coin management system. The outcome should be a library with a good docs that will allow any builder to have an address issuing many concurrent transactions without locking its coins.
 
 ## Develop
+
 Install dependencies with `npm install`
 
 ### Test
+
 To setup the tests environment use `./test/initial_setup.sh`
 
-The script will create a .env file in the test folder. 
+The script will create a .env file in the test folder.
 When the script is complete you only need to add a `ADMIN_SECRET_KEY` and a `TEST_USER_SECRET` to the `.env`.
 
 Usually we use the testnet network for testing. Switch to testnet with: `sui client switch --env testnet`

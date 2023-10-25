@@ -1,7 +1,10 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { SuiObjectResponse, SuiObjectRef } from '@mysten/sui.js/src/client/types/generated';
+import {
+  SuiObjectResponse,
+  SuiObjectRef,
+} from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { fromB64 } from '@mysten/sui.js/utils';
 import path from 'path';
@@ -57,13 +60,13 @@ export class SetupTestsHelper {
       await this.parseCurrentCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
       await this.assureAdminHasEnoughCoins();
-    }
+    };
     try {
-      await setup()
+      await setup();
     } catch (e) {
       console.warn(e);
-      console.log("Retrying admin setup...");
-      await setup()
+      console.log('Retrying admin setup...');
+      await setup();
     }
   }
 
@@ -115,7 +118,7 @@ export class SetupTestsHelper {
   }
 
   private async assureAdminHasEnoughObjects(numberOfObjectsNeeded: number) {
-    while(this.objects.length < numberOfObjectsNeeded) {
+    while (this.objects.length < numberOfObjectsNeeded) {
       await this.addNewObjectToAccount();
     }
   }
@@ -139,9 +142,8 @@ export class SetupTestsHelper {
     );
     mintAndTransferTxb.setGasBudget(10000000);
     mintAndTransferTxb.setGasPayment(
-      this.suiCoins.map(
-        coin => this.toSuiObjectRef(coin)
-      ));
+      this.suiCoins.map((coin) => this.toSuiObjectRef(coin)),
+    );
     await this.client.signAndExecuteTransactionBlock({
       transactionBlock: mintAndTransferTxb,
       requestType: 'WaitForLocalExecution',
@@ -154,32 +156,38 @@ export class SetupTestsHelper {
     });
   }
 
-
-  private async addNewCoinToAccount(cointToSplit : string) {
+  private async addNewCoinToAccount(cointToSplit: string) {
     const txb = new TransactionBlock();
-    const coinToPay = await  this.client.getObject({ id: cointToSplit });
+    const coinToPay = await this.client.getObject({ id: cointToSplit });
     let newcoins1 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
     let newcoins2 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
-    txb.transferObjects([newcoins1, newcoins2], txb.pure(this.adminKeypair.toSuiAddress()));
+    txb.transferObjects(
+      [newcoins1, newcoins2],
+      txb.pure(this.adminKeypair.toSuiAddress()),
+    );
     txb.setGasBudget(100000000);
     txb.setGasPayment([this.toSuiObjectRef(coinToPay)]);
-    this.client.signAndExecuteTransactionBlock({
-      signer: this.adminKeypair,
-      transactionBlock: txb,
-      requestType: "WaitForLocalExecution",
-      options: {
-        showEffects: true, showObjectChanges: true,
-      },
-    }).then((txRes) => {
-      let status1 = txRes.effects?.status;
-      if (status1?.status !== "success") {
-        console.log("New coin to add failed. Status: ", status1);
+    this.client
+      .signAndExecuteTransactionBlock({
+        signer: this.adminKeypair,
+        transactionBlock: txb,
+        requestType: 'WaitForLocalExecution',
+        options: {
+          showEffects: true,
+          showObjectChanges: true,
+        },
+      })
+      .then((txRes) => {
+        let status1 = txRes.effects?.status;
+        if (status1?.status !== 'success') {
+          console.log('New coin to add failed. Status: ', status1);
+          process.exit(1);
+        }
+      })
+      .catch((err) => {
+        console.log('process failed. Error: ', err);
         process.exit(1);
-      }
-    }).catch((err) => {
-      console.log("process failed. Error: ", err);
-      process.exit(1);
-    });
+      });
   }
 
   private toSuiObjectRef(coin: SuiObjectResponse): SuiObjectRef {
@@ -187,6 +195,6 @@ export class SetupTestsHelper {
       objectId: coin.data?.objectId!,
       digest: coin.data?.digest!,
       version: coin.data?.version!,
-    }
+    };
   }
 }
