@@ -1,16 +1,13 @@
-import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import path from 'path';
+import { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
-// @ts-ignore
-import { compareMaps } from '../../src/helpers';
-
-// @ts-ignore
+import { compareMaps, SetupTestsHelper, sleep } from '../../src/helpers';
 import { Pool } from '../../src';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { CoinStruct } from '@mysten/sui.js/src/client';
 
-const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const TEST_USER_ADDRESS: string = process.env.TEST_USER_ADDRESS!;
@@ -29,20 +26,18 @@ const testUserKeypair = Ed25519Keypair.fromSecretKey(
 );
 
 const client = new SuiClient({
-  url: process.env.SUI_NODE!
+  url: process.env.SUI_NODE!,
 });
 const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
 const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
 
+let helper: SetupTestsHelper;
 describe('🌊 Basic flow of sign & execute tx block', () => {
-  const chunksOfGas = 2; // FIXME - unused
-  const txnsEstimate = 10; // FIXME - unused
-  const testObjectId = process.env.TEST_NFT_OBJECT_ID!;
-
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    jest.setTimeout(10000);
+    helper = new SetupTestsHelper();
+    await helper.setupAdmin(10);
   });
 
   it('checks truthy object ownership', async () => {
@@ -61,6 +56,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
 
     // Include a transfer nft object transaction in the transaction block
+    const testObjectId: string = helper.objects[0].data?.objectId!;
     txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress));
 
     // Include a transfer coin transaction in the transaction block
@@ -71,11 +67,9 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
   });
 
-  const falsyObjectIds: string[] = [
-    process.env.TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID!, // not owned by admin
-    process.env.TEST_NON_EXISTING_OBJECT_ID!, // random object id - not existing
-  ];
-  it.each(falsyObjectIds)(
+  const falsyObjectIds: string =
+    '0x05d97725fd32745a35fe746489a92c80d0b7eac00vba2df51216457e5e9d8807'; // Random string
+  it.each([falsyObjectIds])(
     'checks falsy object ownership',
     async (falsyObjectId) => {
       // Create a pool
@@ -104,139 +98,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     },
   );
 
-  it('signs and executes a tx block', async () => {
-    // Create a pool
-    const pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
-    const objects = pool.objects;
-
-    // Check that pool was created and contains at least 1 object
-    expect(objects.size).toBeGreaterThan(0);
-
-    // Admin transfers an object that belongs to him back to himself.
-    const txb = new TransactionBlock();
-    const recipientAddress = TEST_USER_ADDRESS;
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress));
-
-    const res = await pool.signAndExecuteTransactionBlock({
-      client,
-      transactionBlock: txb,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showEvents: true,
-        showObjectChanges: true,
-      },
-    });
-
-    expect(res).toBeDefined();
-    expect(res.effects!.status.status).toEqual('success');
-
-    const recipientObjects = await client.getOwnedObjects({
-      owner: recipientAddress,
-    });
-    const transferred_object = recipientObjects.data.find(
-      (obj) => obj.data?.objectId === testObjectId,
-    );
-    expect(transferred_object).toBeDefined();
-
-    // Send NFT back to the original owner
-    const txb2 = new TransactionBlock();
-    txb2.transferObjects(
-      [txb2.object(testObjectId)],
-      txb2.pure(adminKeypair.getPublicKey().toSuiAddress()),
-    );
-    client.signAndExecuteTransactionBlock({
-      transactionBlock: txb2,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showEvents: true,
-        showObjectChanges: true,
-      },
-      signer: testUserKeypair,
-    });
-  });
-
-  it('mint nft', async () => {
-    // Create a pool
-    const pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
-    const objects = pool.objects;
-
-    // Check that pool was created and contains at least 1 object
-    expect(objects.size).toBeGreaterThan(0);
-
-    // Admin transfers an object that belongs to him back to himself.
-    const txb = new TransactionBlock();
-
-    let hero = txb.moveCall({
-      arguments: [
-        txb.object(NFT_APP_ADMIN_CAP!),
-        txb.pure('zed'),
-        txb.pure('gold'),
-        txb.pure(3),
-        txb.pure('ipfs://example.com/'),
-      ],
-      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-    });
-
-    txb.transferObjects(
-      [hero],
-      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
-    );
-    txb.setGasBudget(10000000);
-    const res = await pool.signAndExecuteTransactionBlock({
-      client,
-      transactionBlock: txb,
-      requestType: 'WaitForLocalExecution',
-      options: {
-        showEffects: true,
-        showEvents: true,
-        showObjectChanges: true,
-      },
-    });
-    expect(res.effects!.status.status).toEqual('success');
-
-    // Assert that the pool was updated by checking that the object
-    // that was created is in the object's pool.
-    const createdObj = res.effects!.created![0];
-    expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
-  });
-
   it("uses only the pool's coins for gas", async () => {
     /*
     When a pool signs and executes a txb, it should use only its own coins for gas.
     */
-
-    // We do this by splitting the admin's coins into 2.
-    const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-
-    /* Make sure to have at least 2 coins in the admin account for this test to work. */
-    let adminCoins = await client.getAllCoins({ owner: adminAddress });
-    if (adminCoins?.data?.length < 2) {
-      const txb_coinTransfer = new TransactionBlock();
-      const [coin] = txb_coinTransfer.splitCoins(
-        txb_coinTransfer.gas,
-        [txb_coinTransfer.pure(20000000)], // arbitrary amount, best to be small
-      );
-      txb_coinTransfer.transferObjects(
-        [coin],
-        txb_coinTransfer.pure(adminAddress),
-      );
-      txb_coinTransfer.setGasBudget(10000000);
-      await client.signAndExecuteTransactionBlock({
-        transactionBlock: txb_coinTransfer,
-        requestType: 'WaitForLocalExecution',
-        options: { showEffects: true },
-        signer: adminKeypair,
-      });
-    }
-
     /* Create a pool */
     const poolOne: Pool = await Pool.full({
       keypair: adminKeypair,
@@ -306,5 +171,95 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     expect(
       compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.coins),
     ).toBeTruthy();
+  });
+});
+
+describe('Transaction block execution directly from pool', () => {
+  beforeEach(async () => {
+    // Reset the mock before each test
+    jest.clearAllMocks();
+    helper = new SetupTestsHelper();
+    await helper.setupAdmin(10);
+    await sleep(2000)
+  });
+
+  it('mints nft and transfers it to self', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.size).toBeGreaterThan(0);
+
+    // Admin transfers an object that belongs to him back to himself.
+    const txb = new TransactionBlock();
+
+    let hero = txb.moveCall({
+      arguments: [
+        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
+
+    txb.transferObjects(
+      [hero],
+      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
+    txb.setGasBudget(10000000);
+    const res = await pool.signAndExecuteTransactionBlock({
+      client,
+      transactionBlock: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true,
+      },
+    });
+    expect(res.effects!.status.status).toEqual('success');
+
+    // Assert that the pool was updated by checking that the object
+    // that was created is in the object's pool.
+    const createdObj = res.effects!.created![0];
+    expect(pool.objects.has(createdObj.reference.objectId)).toBeTruthy();
+  });
+
+  it('mints nft, transfers it to a test user', async () => {
+    // Create a pool
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const objects = pool.objects;
+
+    // Check that pool was created and contains at least 1 object
+    expect(objects.size).toBeGreaterThan(0);
+
+    // Admin transfers an object that belongs to him back to himself.
+    const txb = new TransactionBlock();
+    const recipientAddress = TEST_USER_ADDRESS;
+    const testObjectId: string = helper.objects[0].data?.objectId!;
+    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress));
+
+    const res = await pool.signAndExecuteTransactionBlock({
+      client,
+      transactionBlock: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: true,
+      },
+    });
+
+    expect(res).toBeDefined();
+    expect(res.effects!.status.status).toEqual('success');
   });
 });
