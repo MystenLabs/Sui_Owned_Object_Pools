@@ -85,9 +85,12 @@ export class ExecutorServiceHandler {
   If an available worker is not found in the time span of TIMEOUT_MS, return undefined.
   */
   private getAWorker(): WorkerPool | undefined {
-    const TIMEOUT_MS = 1000;
+    if (!process.env.GET_WORKER_TIMEOUT_MS) {
+      throw new Error("Environment variable 'TIMEOUT_MS' not set.");
+    }
+    const timeoutMs = parseInt(process.env.GET_WORKER_TIMEOUT_MS);
     const startTime = new Date().getTime();
-    while (new Date().getTime() - startTime < TIMEOUT_MS) {
+    while (new Date().getTime() - startTime < timeoutMs) {
       const result = this._workers.find(
         (worker: WorkerPool) => worker.status === 'available',
       );
@@ -96,7 +99,7 @@ export class ExecutorServiceHandler {
         return result;
       }
     }
-    if (new Date().getTime() - startTime >= TIMEOUT_MS) {
+    if (new Date().getTime() - startTime >= timeoutMs) {
       const numBusyWorkers = this._workers.filter(
         (worker: WorkerPool) => worker.status === 'busy',
       ).length;

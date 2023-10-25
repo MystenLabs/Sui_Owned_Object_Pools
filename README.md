@@ -32,6 +32,8 @@ NFT_APP_ADMIN_CAP=
 
 # Example: "https://fullnode.testnet.sui.io:443"
 SUI_NODE=
+
+GET_WORKER_TIMEOUT_MS=1000
 ```
 
 _Tip: You can see your addresses' secret keys by running `cat ~/.sui/sui_config/sui.keystore`_
