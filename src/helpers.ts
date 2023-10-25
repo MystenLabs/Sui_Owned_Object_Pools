@@ -10,7 +10,7 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import dotenv from 'dotenv';
 import path from 'path';
 
-const result = dotenv.config({
+dotenv.config({
   path: path.resolve(__dirname, '../test/.env'),
 });
 /// Method to make keypair from private key that is in string format
@@ -50,10 +50,16 @@ export class SetupTestsHelper {
   private suiCoins: SuiObjectResponse[] = [];
 
   constructor() {
+    if (!process.env.SUI_NODE) {
+      throw new Error('SUI_NODE env variable is not set');
+    }
     this.client = new SuiClient({
-      url: process.env.SUI_NODE!,
+      url: process.env.SUI_NODE,
     });
-    this.adminKeypair = getKeyPair(process.env.ADMIN_SECRET_KEY!);
+    if (!process.env.ADMIN_SECRET_KEY) {
+      throw new Error('ADMIN_SECRET_KEY env variable is not set');
+    }
+    this.adminKeypair = getKeyPair(process.env.ADMIN_SECRET_KEY);
   }
 
   /*
@@ -101,7 +107,7 @@ export class SetupTestsHelper {
   Reassure that the admin has enough coins and if not add them to him
    */
   private async assureAdminHasEnoughCoins() {
-    let coinToSplit: SuiObjectResponse;
+    let coinToSplit: SuiObjectResponse | undefined;
     if (this.suiCoins.length < this.MINIMUM_ADMIN_COINS_NEEDED) {
       for (
         let i = 0;
@@ -110,9 +116,16 @@ export class SetupTestsHelper {
       ) {
         coinToSplit = this.suiCoins.find((coin) =>
           Coin.getBalance(coin)
-            ? Coin.getBalance(coin)! > 2 * this.MINIMUM_COIN_BALANCE
+            ? (Coin.getBalance(coin) ?? 0) > 2 * this.MINIMUM_COIN_BALANCE
             : false,
-        )!;
+        );
+        if (!coinToSplit) {
+          throw new Error(
+            `No coin with enough balance found. \
+            To add new coins to account by splitting \
+            you need at least ${2 * this.MINIMUM_COIN_BALANCE}`,
+          );
+        }
         const coinToSplitId = coinToSplit.data?.objectId;
         if (coinToSplitId) {
           await this.addNewCoinToAccount(coinToSplitId);
@@ -129,9 +142,12 @@ export class SetupTestsHelper {
 
   private async addNewObjectToAccount() {
     const mintAndTransferTxb = new TransactionBlock();
+    if (!process.env.NFT_APP_ADMIN_CAP) {
+      throw new Error('NFT_APP_ADMIN_CAP env variable is not set');
+    }
     const hero = mintAndTransferTxb.moveCall({
       arguments: [
-        mintAndTransferTxb.object(process.env.NFT_APP_ADMIN_CAP!),
+        mintAndTransferTxb.object(process.env.NFT_APP_ADMIN_CAP),
         mintAndTransferTxb.pure('zed'),
         mintAndTransferTxb.pure('gold'),
         mintAndTransferTxb.pure(3),
