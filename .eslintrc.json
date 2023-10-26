@@ -16,6 +16,7 @@
     "@typescript-eslint/no-explicit-any": "error",
     "prefer-const": "error",
     "@typescript-eslint/no-namespace": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "prettier/prettier": [
       "error",
       {
