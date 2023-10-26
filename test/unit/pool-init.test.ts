@@ -2,7 +2,7 @@ import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
-import { Pool } from '../../src';
+import { Pool, SplitStrategy } from '../../src';
 import { compareMaps, SetupTestsHelper } from '../../src/helpers';
 
 const path = require('path');
@@ -45,10 +45,9 @@ describe('✂️ Pool splitting', () => {
   beforeEach(async () => {
     const helper = new SetupTestsHelper();
     await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
-
   });
 
-  it('splits a pool using an <always-true> predicate', async () => {
+  it('splits a pool moving all objects to the new pool', async () => {
     /*
       Create a pool
       */
@@ -64,20 +63,18 @@ describe('✂️ Pool splitting', () => {
       a newly created pool. Since the predicate returns only true,
       all objects will be moved to the new pool.
       */
-    const always_true_predicate = (
-      _obj: SuiObjectRef | CoinStruct | undefined,
-    ) => true;
-    const new_pool: Pool = initial_pool.split(
-      always_true_predicate,
-      always_true_predicate,
-    );
+    const splitStrategy: SplitStrategy = {
+      objPred: (_: SuiObjectRef | undefined) => true,
+      coinPred: (_: CoinStruct | undefined) => true,
+    };
+    const new_pool: Pool = initial_pool.split(splitStrategy);
     const num_objects_new_pool = new_pool.objects.size;
 
     /*
-      Number of objects in the initial pool has changed!
-      Some of them have been moved to new_pool (based on the predicate),
-      so we calculate the new number of objects in the initial pool.
-      */
+    Number of objects in the initial pool has changed!
+    Some of them have been moved to new_pool (based on the predicate),
+    so we calculate the new number of objects in the initial pool.
+    */
     const num_objects_after_split = initial_pool.objects.size;
     const num_coins_after_split = initial_pool.coins.size;
 
@@ -89,7 +86,7 @@ describe('✂️ Pool splitting', () => {
     );
   });
 
-  it('splits a pool using an <always-false> predicate', async () => {
+  it('splits a pool not moving anything to new pool', async () => {
     /*
       Create a pool
       */
@@ -105,13 +102,11 @@ describe('✂️ Pool splitting', () => {
       a newly created pool. Since the predicate returns only false,
       no objects will be moved to the new pool.
       */
-    const always_false_predicate = (
-      _obj: SuiObjectRef | CoinStruct | undefined,
-    ) => false;
-    const new_pool: Pool = initial_pool.split(
-      always_false_predicate,
-      always_false_predicate,
-    );
+    const splitStrategy: SplitStrategy = {
+      objPred: (_: SuiObjectRef | undefined) => false,
+      coinPred: (_: CoinStruct | undefined) => false,
+    };
+    const new_pool: Pool = initial_pool.split(splitStrategy);
     const num_objects_new_pool = new_pool.objects.size;
     const num_coins_new_pool = new_pool.coins.size;
     /*
@@ -129,7 +124,7 @@ describe('✂️ Pool splitting', () => {
     );
   });
 
-  it('splits a pool using an <always-null> predicate', async () => {
+  it('splits a pool moving everything to the new pool by using always-null predicate', async () => {
     /*
       Create a pool
       */
@@ -145,13 +140,11 @@ describe('✂️ Pool splitting', () => {
       a newly created pool. Since the predicate returns only null,
       no objects will be moved to the new pool.
       */
-    const always_null_predicate = (
-      _obj: SuiObjectRef | CoinStruct | undefined,
-    ) => null;
-    const new_pool: Pool = initial_pool.split(
-      always_null_predicate,
-      always_null_predicate,
-    );
+    const splitStrategy: SplitStrategy = {
+      objPred: (_: SuiObjectRef | undefined) => null,
+      coinPred: (_: CoinStruct | undefined) => null,
+    }
+    const new_pool: Pool = initial_pool.split(splitStrategy);
     const num_objects_new_pool = new_pool.objects.size;
     const num_coins_new_pool = new_pool.coins.size;
 
@@ -171,9 +164,8 @@ describe('✂️ Pool splitting', () => {
     );
   });
 
-  /// This is not an edge case test scenario.
-  /// In this case we use a predicate that could be used in a real scenario.
-  it('splits a pool using a normal-scenario predicate', async () => {
+
+  it('splits a pool using the default predicate', async () => {
     // Create a pool
     const initial_pool: Pool = await Pool.full({
       keypair: adminKeypair,
@@ -182,27 +174,6 @@ describe('✂️ Pool splitting', () => {
 
     const num_objects_before_split = initial_pool.objects.size;
     const num_coins_before_split = initial_pool.coins.size;
-
-    /*
-      Define a normal scenario predicate.
-      */
-
-    const num_objects_for_new_pool = MINIMUM_NUMBER_OF_ADMIN_OBJECTS - 1;
-
-    // Check that N is less than the number of objects in the initial pool just to be safe
-    expect(num_objects_for_new_pool).toBeLessThanOrEqual(
-      num_objects_before_split,
-    );
-    // Define the predicate for the pool.objects split
-    var counter = 0;
-    const predicate_obj = (obj: SuiObjectRef | undefined): boolean | null => {
-      if (counter < num_objects_for_new_pool) {
-        counter++;
-        return true;
-      } else {
-        return false;
-      }
-    };
 
     // Define the predicate for the pool.coins split
     const num_coins_for_new_pool = 1; // i.e. N (current number of objects in pool'creators account)
@@ -220,7 +191,7 @@ describe('✂️ Pool splitting', () => {
       Split the initial pool, moving some objects to
       a newly created pool.
       */
-    const new_pool: Pool = initial_pool.split(predicate_obj, predicate_coins);
+    const new_pool: Pool = initial_pool.split();
     const num_objects_new_pool = new_pool.objects.size;
     const num_coins_new_pool = new_pool.coins.size;
     /*
@@ -232,9 +203,9 @@ describe('✂️ Pool splitting', () => {
     const num_coins_after_split = initial_pool.coins.size;
 
     // Validity checks for object array splitting
-    expect(num_objects_new_pool).toEqual(num_objects_for_new_pool);
+    expect(num_objects_new_pool).toEqual(1);
     expect(num_objects_after_split).toEqual(
-      num_objects_before_split - num_objects_for_new_pool,
+      num_objects_before_split - 1,
     );
     expect(num_objects_new_pool + num_objects_after_split).toEqual(
       num_objects_before_split,
@@ -250,7 +221,7 @@ describe('✂️ Pool splitting', () => {
     );
   });
 
-  it('splits a pool and merges it back', async () => {
+  it('merges back a pool', async () => {
     // Create the pool
     const initial_pool: Pool = await Pool.full({
       keypair: adminKeypair,
@@ -260,12 +231,7 @@ describe('✂️ Pool splitting', () => {
     const objectsBeforeSplit = new Map(initial_pool.objects);
     const coinsBeforeSplit = new Map(initial_pool.coins);
 
-    // Split the pool
-    var c = 0;
-    const pred = (_: SuiObjectRef | CoinStruct | undefined) => {
-      return c++ < 2; // Dumb predicate, doesn't matter much, could use a different one
-    };
-    const new_pool: Pool = initial_pool.split(pred, pred);
+    const new_pool: Pool = initial_pool.split();
     // Merge the new pool back to the initial pool
     initial_pool.merge(new_pool);
 

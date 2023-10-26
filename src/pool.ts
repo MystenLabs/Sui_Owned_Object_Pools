@@ -192,6 +192,7 @@ export class Pool {
    */
   public merge(poolToMerge: Pool) {
     this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    this._coins = new Map([...this._coins, ...poolToMerge.coins]);
   }
 
   async signAndExecuteTransactionBlock(input: {

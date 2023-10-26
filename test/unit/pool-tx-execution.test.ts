@@ -108,24 +108,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       client: client,
     });
 
-    /* 
-    Split the pool by: transfering all objects and at least one coin
-    to the new one. 
-    */
-    const predObj = (o: SuiObjectRef | undefined) => {
-      return true; // Transfer every object to the new pool
-    };
-    // Keep one coin in the initial pool and move the rest to the new pool
-    var counter = 0;
-    const predCoins = (_coin: CoinStruct | undefined): boolean | null => {
-      if (counter < 1) {
-        counter++;
-        return true;
-      } else {
-        return false;
-      }
-    };
-    const poolTwo: Pool = poolOne.split(predObj, predCoins);
+    const poolTwo: Pool = poolOne.split();
 
     /*
     Create a nft object using the first pool and
