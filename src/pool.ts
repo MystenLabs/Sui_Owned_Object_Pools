@@ -238,7 +238,7 @@ export class Pool {
       transactionBlock: await transactionBlock.build({ client: input.client }),
     });
     if (dryRunRes.effects.status.status !== 'success') {
-      throw new Error('Dry run failed');
+      throw new Error(`Dry run failed. ${dryRunRes.effects.status.error}`);
     }
 
     // (3). Run the transaction
