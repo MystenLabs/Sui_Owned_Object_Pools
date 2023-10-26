@@ -47,28 +47,15 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       adminKeypair,
       client,
     );
-    var currentCoins = 4;
-    var numInitCoins = 4;
-    const splitStrategy = {
-      objPred: (_: SuiObjectRef | undefined) => null,
-
-      // Only send one coin to the new split pool. Keep the rest to the init pool.
-      coinPred: () => {
-        if (currentCoins == numInitCoins) {
-          currentCoins--;
-          return true;
-        } else {
-          numInitCoins = currentCoins;
-          return null;
-        }
-      },
-    };
 
     const promises = [];
     let txb: TransactionBlock;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
-      promises.push(eshandler.execute(txb, client, splitStrategy));
+      if (!process.env.TEST_USER_ADDRESS) {
+        throw new Error('TEST_USER_ADDRESS is not defined');
+      }
+      txb = createPaymentTxb(process.env.TEST_USER_ADDRESS);
+      promises.push(eshandler.execute(txb, client));
     }
 
     const results = await Promise.allSettled(promises);
