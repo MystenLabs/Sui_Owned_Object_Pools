@@ -37,7 +37,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Reset the mock before each test
     jest.clearAllMocks();
     helper = new SetupTestsHelper();
-    await helper.setupAdmin(0, 5);
+    await helper.setupAdmin(2, 5);
     sleep(5000);
   });
 
@@ -164,7 +164,7 @@ describe('Transaction block execution directly from pool', () => {
     jest.clearAllMocks();
     helper = new SetupTestsHelper();
     await helper.setupAdmin(0, 5);
-    await sleep(2000)
+    await sleep(2000);
   });
 
   it('mints nft and transfers it to self', async () => {
@@ -229,9 +229,20 @@ describe('Transaction block execution directly from pool', () => {
     // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
     const recipientAddress = TEST_USER_ADDRESS;
-    const testObjectId: string = helper.objects[0].data?.objectId!;
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(recipientAddress));
 
+    let hero = txb.moveCall({
+      arguments: [
+        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
+
+    txb.transferObjects([hero], txb.pure(recipientAddress));
+    txb.setGasBudget(10000000);
     const res = await pool.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
