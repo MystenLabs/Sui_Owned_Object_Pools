@@ -69,7 +69,7 @@ export class SetupTestsHelper {
     const setup = async () => {
       await this.parseCurrentCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
-      await this.assureAdminHasEnoughCoins(minimumCoinsNeeded);
+      await this.assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded);
     };
     try {
       await setup();
@@ -106,9 +106,10 @@ export class SetupTestsHelper {
   /*
   Reassure that the admin has enough coins and if not add them to him
    */
-  private async assureAdminHasEnoughCoins(minimumCoinsNeeded: number) {
+  private async assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded: number) {
     let coinToSplit: SuiObjectResponse | undefined;
-    while (this.suiCoins.length < minimumCoinsNeeded) {
+    if (this.suiCoins.length < minimumCoinsNeeded) {
+      for (let i = 0; i < minimumCoinsNeeded - this.suiCoins.length; i++) {
         coinToSplit = this.suiCoins.find((coin) =>
           Coin.getBalance(coin)
             ? (Coin.getBalance(coin) ?? 0) > 2 * this.MINIMUM_COIN_BALANCE
@@ -125,6 +126,7 @@ export class SetupTestsHelper {
         if (coinToSplitId) {
           await this.addNewCoinToAccount(coinToSplitId);
         }
+      }
     }
   }
 
@@ -176,7 +178,10 @@ export class SetupTestsHelper {
     const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
     const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
     txb.transferObjects(
-      [newcoins1, newcoins2],
+      [
+        newcoins1,
+        newcoins2
+      ],
       txb.pure(this.adminKeypair.toSuiAddress()),
     );
     txb.setGasBudget(100000000);
@@ -192,9 +197,9 @@ export class SetupTestsHelper {
         },
       })
       .then((txRes) => {
-        const status1 = txRes.effects?.status;
-        if (status1?.status !== 'success') {
-          throw new Error(`Failed to split and add new coin to admin account! ${status1}`)
+        const status = txRes.effects?.status?.status;
+        if (status !== 'success') {
+          throw new Error(`Failed to split and add new coin to admin account! ${status}`)
         }
       })
       .catch((err) => {

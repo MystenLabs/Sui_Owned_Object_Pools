@@ -3,7 +3,7 @@ import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { Pool, SplitStrategy } from '../../src';
-import { compareMaps, SetupTestsHelper } from '../../src/helpers';
+import { compareMaps, SetupTestsHelper, sleep } from '../../src/helpers';
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -44,7 +44,11 @@ describe('Pool creation with factory', () => {
 describe('✂️ Pool splitting', () => {
   beforeEach(async () => {
     const helper = new SetupTestsHelper();
-    await helper.setupAdmin(MINIMUM_NUMBER_OF_ADMIN_OBJECTS);
+    await helper.setupAdmin(
+      MINIMUM_NUMBER_OF_ADMIN_OBJECTS,
+      MINIMUM_NUMBER_OF_ADMIN_OBJECTS * 2
+    );
+    sleep(2000);
   });
 
   it('splits a pool moving all objects to the new pool', async () => {

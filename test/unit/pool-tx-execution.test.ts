@@ -37,7 +37,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Reset the mock before each test
     jest.clearAllMocks();
     helper = new SetupTestsHelper();
-    await helper.setupAdmin(10);
+    await helper.setupAdmin(0, 5);
+    sleep(5000);
   });
 
   it('checks truthy object ownership', async () => {
@@ -162,7 +163,7 @@ describe('Transaction block execution directly from pool', () => {
     // Reset the mock before each test
     jest.clearAllMocks();
     helper = new SetupTestsHelper();
-    await helper.setupAdmin(10);
+    await helper.setupAdmin(0, 5);
     await sleep(2000)
   });
 
