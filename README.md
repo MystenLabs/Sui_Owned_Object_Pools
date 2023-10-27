@@ -1,7 +1,24 @@
-# Coin Management System (CMS)
+# Sui Execution Handler
 
 A library that provides a set of tools for managing multiple concurrent
-transactions on the Sui network. Avoiding equivocation and gas smashing.
+transactions on the Sui network to help avoiding object equivocation and locking.
+
+## Quickstart
+Note: You can find a more detailed example in a later section bellow.
+```typescript
+// Initialize the ExecutorServiceHandler.
+const eshandler = await ExecutorServiceHandler.initialize(
+adminKeypair,
+suiClient,
+);
+
+/// An then for each incoming request...
+/// ...get the incoming transactionBlock
+const myTransactionBlock;
+
+/// and send it for execution
+const promise = eshandler.execute(myTransactionBlock, suiClient, splitStrategy);
+```
 
 ## Motivation
 
