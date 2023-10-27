@@ -80,7 +80,7 @@ export class ExecutorServiceHandler {
   */
   private getAWorker(): WorkerPool | undefined {
     if (!process.env.GET_WORKER_TIMEOUT_MS) {
-      throw new Error("Environment variable 'TIMEOUT_MS' not set.");
+      throw new Error("Environment variable 'GET_WORKER_TIMEOUT_MS' not set.");
     }
     const timeoutMs = parseInt(process.env.GET_WORKER_TIMEOUT_MS);
     const startTime = new Date().getTime();
@@ -109,6 +109,7 @@ export class ExecutorServiceHandler {
     that is produced is added to the workers array.
    */
   private addWorker(splitStrategy?: SplitStrategy) {
+    console.log("Splitting main pool to add new worker Pool...");
     const newPool = this._mainPool.split(splitStrategy);
     this._workers.push({ status: 'available', pool: newPool });
   }
