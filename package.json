@@ -1,10 +1,9 @@
 {
-  "name": "coin-management",
+  "name": "sui-execution-handler",
   "version": "1.0.0",
-  "description": "Coin management system",
+  "description": "A library that provides a set of tools for managing multiple concurrent transactions on the Sui network to help avoiding object equivocation and locking",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.ts",
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
     "test": "jest test/unit/executorServiceHandler.test.ts; jest test/unit/pool-tx-execution.test.ts; jest test/unit/pool-init.test.ts"
