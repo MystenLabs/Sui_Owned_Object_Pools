@@ -15,6 +15,7 @@ import { getObjectReference } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
 import { MoveStruct } from '@mysten/sui.js/src/client/types/generated';
 import {
+  ObjectContentFields,
   SuiObjectRef,
   SuiObjectResponse,
 } from '@mysten/sui.js/src/types/objects';
@@ -23,6 +24,7 @@ import {
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 type PoolObjectsMap = Map<string, SuiObjectRef>; // Map<objectId, object>
 type PoolCoinsMap = Map<string, CoinStruct>; // Map<coinObjectId, coin>
 
@@ -218,7 +220,13 @@ export class Pool {
     */
     // Get the coins from the pool
     const coinsArray = Array.from(this._coins.values());
-
+    const NoSuiCoinFound = !coinsArray.some((coin) => {
+      const isSui = Coin.getCoinSymbol(coin.coinType) === 'SUI';
+      if (isSui) { return coin}
+    })
+    if (NoSuiCoinFound) {
+      throw new Error('No SUI coins in the pool to use as gas payment.');
+    }
     // Cast CoinStructs to SuiObjectRefs to use them as params in txb.setGasPayment(...)
     const objectRefCoins: SuiObjectRef[] = coinsArray.map((coin) => {
       return {
@@ -307,7 +315,7 @@ export class Pool {
   }
 
   private isCoin(type: string): boolean {
-    return type.includes('::coin::Coin');
+    return type.includes('::coin::Coin') || Coin.getCoinSymbol(type) === 'SUI'
   }
 
   /**
@@ -382,7 +390,8 @@ export type SplitStrategy = {
 };
 
 /*
-The default strategy only moves 1 object and 1 coin to the new pool.
+The default strategy only moves 1 object and 1 SUI coin to the new pool.
+The coin should be a SUI coin because it is used as gas payment.
  */
 class DefaultSplitStrategy implements SplitStrategy {
   private objectsToMove = 1;
@@ -392,7 +401,12 @@ class DefaultSplitStrategy implements SplitStrategy {
     return this.objectsToMove-- > 0 ? true : null;
   }
 
-  public coinPred(_: SuiObjectRef | CoinStruct | undefined) {
-    return this.coinsToMove-- > 0 ? true : null;
+  public coinPred(coin: CoinStruct | undefined) {
+    if (!coin) return false;
+    const isSui = Coin.getCoinSymbol(coin.coinType) === 'SUI';
+    if (isSui) {
+      return this.coinsToMove-- > 0 ? true : null;
+    }
+    return false
   }
 }

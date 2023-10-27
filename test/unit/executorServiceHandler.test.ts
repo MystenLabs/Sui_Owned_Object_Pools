@@ -3,7 +3,6 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { fromB64 } from '@mysten/sui.js/utils';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { SetupTestsHelper, sleep } from '../../src/helpers';
 
 const path = require('path');
@@ -32,7 +31,6 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 }
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
-
   it('creates multiple transactions and executes them in parallel', async () => {
     const NUMBER_OF_TRANSACTION_TO_EXECUTE = 5;
     const COINS_NEEDED = NUMBER_OF_TRANSACTION_TO_EXECUTE * 2;
