@@ -6,15 +6,19 @@
   "scripts": {
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
-    "test": "jest test/unit/executorServiceHandler.test.ts; jest test/unit/pool-tx-execution.test.ts; jest test/unit/pool-init.test.ts"
+    "test": "jest test/unit/executorServiceHandler.test.ts; jest test/unit/pool-tx-execution.test.ts; jest test/unit/pool-init.test.ts",
+    "release": "release-it"
   },
   "keywords": [
-    "coin",
-    "management",
-    "Redis"
+    "sui",
+    "execution","handler","manager","pool","transaction","concurrent","object","equivocation","locking"
   ],
   "author": "MystenLabs",
   "license": "MIT",
+  "contributors": [
+    "Alex Tzimas (https://github.com/Tzal3x)",
+    "Theodore Chaikalis (https://github.com/teohaik)"
+  ],
   "dependencies": {
     "@mysten/sui.js": "^0.42.0",
     "@typescript-eslint/eslint-plugin": "5.59.11",
@@ -36,8 +40,14 @@
     "jest": "^26.6.3",
     "prettier": "^3.0.3",
     "prettier-eslint-cli": "^7.1.0",
+    "release-it": "^16.2.1",
     "ts-jest": "^26.5.6",
     "ts-node": "^10.9.1",
     "vitest": "^0.33.0"
+  },
+  "release-it": {
+    "github": {
+      "release": true
+    }
   }
 }
