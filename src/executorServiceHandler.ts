@@ -1,8 +1,8 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-
 import { Pool, SplitStrategy } from './pool';
+import { getEnvironmentVariables } from './helpers';
 
 type WorkerPool = {
   status: 'available' | 'busy';
@@ -12,11 +12,13 @@ type WorkerPool = {
 export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workers: WorkerPool[] = [];
+  private readonly _getWorkerTimeoutMs: number;
   private constructor(mainPool: Pool) {
+    this._getWorkerTimeoutMs = getEnvironmentVariables().GET_WORKER_TIMEOUT_MS;
     this._mainPool = mainPool;
   }
 
-  public static initialize(keypair: Keypair, client: SuiClient) {
+  public static async initialize(keypair: Keypair, client: SuiClient) {
     return Pool.full({ keypair: keypair, client }).then((pool) => {
       return new ExecutorServiceHandler(pool);
     });
@@ -30,13 +32,15 @@ export class ExecutorServiceHandler {
   ) {
     let res;
     do {
-      res = await this.executeFlow(txb, client, splitStrategy);
+      try {
+        res = await this.executeFlow(txb, client, splitStrategy);
+      } catch (e) {
+        console.log('Error executing transaction block')
+        console.log(e);
+        continue;
+      }
       if (res) {
         return res;
-      } else {
-        console.log(
-          `Failed to execute the txb - [remaining retries: ${retries}]`,
-        );
       }
     } while (retries-- > 0);
     throw new Error(
@@ -79,10 +83,7 @@ export class ExecutorServiceHandler {
   If an available worker is not found in the time span of TIMEOUT_MS, return undefined.
   */
   private getAWorker(): WorkerPool | undefined {
-    if (!process.env.GET_WORKER_TIMEOUT_MS) {
-      throw new Error("Environment variable 'GET_WORKER_TIMEOUT_MS' not set.");
-    }
-    const timeoutMs = parseInt(process.env.GET_WORKER_TIMEOUT_MS);
+    const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
     while (new Date().getTime() - startTime < timeoutMs) {
       const result = this._workers.find(
@@ -109,7 +110,7 @@ export class ExecutorServiceHandler {
     that is produced is added to the workers array.
    */
   private addWorker(splitStrategy?: SplitStrategy) {
-    console.log("Splitting main pool to add new worker Pool...");
+    console.log('Splitting main pool to add new worker Pool...');
     const newPool = this._mainPool.split(splitStrategy);
     this._workers.push({ status: 'available', pool: newPool });
   }

@@ -1,35 +1,13 @@
-import path from 'path';
 import { SuiClient } from '@mysten/sui.js/client';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { fromB64 } from '@mysten/sui.js/utils';
-import { compareMaps, SetupTestsHelper, sleep } from '../../src/helpers';
+import { compareMaps, SetupTestsHelper, sleep, getEnvironmentVariables, getKeyPair } from '../../src/helpers';
 import { Pool } from '../../src';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
-import { CoinStruct } from '@mysten/sui.js/src/client';
 
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-
-const TEST_USER_ADDRESS: string = process.env.TEST_USER_ADDRESS!;
-const ADMIN_SECRET_KEY: string = process.env.ADMIN_SECRET_KEY!;
-const adminPrivateKeyArray = Uint8Array.from(
-  Array.from(fromB64(ADMIN_SECRET_KEY)),
-);
-const adminKeypair = Ed25519Keypair.fromSecretKey(
-  adminPrivateKeyArray.slice(1),
-);
-const testUserPrivateKeyArray = Uint8Array.from(
-  Array.from(fromB64(process.env.TEST_USER_SECRET!)),
-);
-const testUserKeypair = Ed25519Keypair.fromSecretKey(
-  testUserPrivateKeyArray.slice(1),
-);
-
+const env = getEnvironmentVariables();
+const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
-  url: process.env.SUI_NODE!,
+  url: env.SUI_NODE,
 });
-const NFT_APP_PACKAGE_ID = process.env.NFT_APP_PACKAGE_ID!;
-const NFT_APP_ADMIN_CAP = process.env.NFT_APP_ADMIN_CAP!;
 
 let helper: SetupTestsHelper;
 describe('🌊 Basic flow of sign & execute tx block', () => {
@@ -62,7 +40,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
-    txb.transferObjects([coin], txb.pure(TEST_USER_ADDRESS)); // Transferring the object to a test address
+    txb.transferObjects([coin], txb.pure(env.TEST_USER_ADDRESS)); // Transferring the object to a test address
     txb.setSender(adminAddress);
     // Check ownership of the objects in the transaction block.
     expect(pool.checkTotalOwnership(txb, client)).toBeTruthy();
@@ -90,7 +68,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
       txb.transferObjects(
         [txb.object(falsyObjectId)],
-        txb.pure(TEST_USER_ADDRESS),
+        txb.pure(env.TEST_USER_ADDRESS),
       );
 
       // Check ownership of the objects in the transaction block.
@@ -119,13 +97,13 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
     let hero = txb.moveCall({
       arguments: [
-        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.object(env.NFT_APP_ADMIN_CAP!),
         txb.pure('zed'),
         txb.pure('gold'),
         txb.pure(3),
         txb.pure('ipfs://example.com/'),
       ],
-      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
     });
 
     txb.transferObjects(
@@ -183,13 +161,13 @@ describe('Transaction block execution directly from pool', () => {
 
     let hero = txb.moveCall({
       arguments: [
-        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.object(env.NFT_APP_ADMIN_CAP!),
         txb.pure('zed'),
         txb.pure('gold'),
         txb.pure(3),
         txb.pure('ipfs://example.com/'),
       ],
-      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
     });
 
     txb.transferObjects(
@@ -228,17 +206,17 @@ describe('Transaction block execution directly from pool', () => {
 
     // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
-    const recipientAddress = TEST_USER_ADDRESS;
+    const recipientAddress = env.TEST_USER_ADDRESS;
 
     let hero = txb.moveCall({
       arguments: [
-        txb.object(NFT_APP_ADMIN_CAP!),
+        txb.object(env.NFT_APP_ADMIN_CAP!),
         txb.pure('zed'),
         txb.pure('gold'),
         txb.pure(3),
         txb.pure('ipfs://example.com/'),
       ],
-      target: `${NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
     });
 
     txb.transferObjects([hero], txb.pure(recipientAddress));

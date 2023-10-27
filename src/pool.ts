@@ -11,11 +11,11 @@ import {
   CoinStruct,
   PaginatedCoins,
 } from '@mysten/sui.js/dist/cjs/client/types/';
+import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { getObjectReference } from '@mysten/sui.js/dist/cjs/types';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
 import { MoveStruct } from '@mysten/sui.js/src/client/types/generated';
 import {
-  ObjectContentFields,
   SuiObjectRef,
   SuiObjectResponse,
 } from '@mysten/sui.js/src/types/objects';
@@ -24,7 +24,6 @@ import {
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 type PoolObjectsMap = Map<string, SuiObjectRef>; // Map<objectId, object>
 type PoolCoinsMap = Map<string, CoinStruct>; // Map<coinObjectId, coin>
 
@@ -207,7 +206,7 @@ export class Pool {
 
     // (1). Check object ownership
     transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
-    if (!this.checkTotalOwnership(transactionBlock, input.client)) {
+    if (!(await this.checkTotalOwnership(transactionBlock, input.client))) {
       throw new Error(
         "All objects of the transaction block must be owned by the pool's creator.",
       );
@@ -216,14 +215,13 @@ export class Pool {
     /*
     (2). Select Gas: Use all the coins in the pool as gas payment.
     When each pool uses only its own coins, transaction blocks can be executed
-    without interfering with one another, avoiding equivocation. 
+    without interfering with one another, avoiding equivocation.
     */
     // Get the coins from the pool
-    const coinsArray = Array.from(this._coins.values());
-    const NoSuiCoinFound = !coinsArray.some((coin) => {
-      const isSui = Coin.getCoinSymbol(coin.coinType) === 'SUI';
-      if (isSui) { return coin}
-    })
+    const coinsArray = Array.from(this._coins.values()).filter(
+      (coin) => Coin.getCoinSymbol(coin.coinType) === 'SUI'
+    );
+    const NoSuiCoinFound = coinsArray.length === 0;
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
@@ -298,7 +296,8 @@ export class Pool {
         hasPublicTransfer: boolean;
         type: string;
       };
-      if (this.isCoin(objectContent.type)) {
+      const isSui = Coin.getCoinSymbol(objectContent.type) === 'SUI';
+      if (isSui) {
         const coin: CoinStruct = {
           balance: objectContent.fields['balance'],
           coinObjectId: objectId,
@@ -314,10 +313,6 @@ export class Pool {
     }
   }
 
-  private isCoin(type: string): boolean {
-    return type.includes('::coin::Coin') || Coin.getCoinSymbol(type) === 'SUI'
-  }
-
   /**
    * Check that all objects in the transaction block
    * are included in the pool.
@@ -326,25 +321,22 @@ export class Pool {
     txb: TransactionBlock,
     client: SuiClient,
   ): Promise<boolean> {
-    try {
-      // Build the transaction block to get the owned inputs
-      await txb.build({ client });
-    } catch (e) {
-      // The build can fail for various reasons (e.g. invalid object id or
-      // the object is not owned by the sender)
-      console.warn('Handled error building transaction block:', e);
-      return false;
-    }
+    await txb.build({ client });
     const ownedInputs = txb.blockData.inputs.filter((input) => {
       return (
         input.type === 'object' &&
-        'Object' in input.value &&
+        ('Object' in input.value || 'Input' in input.value) &&
         'ImmOrOwned' in input.value.Object
       );
     });
     return ownedInputs.every((ownedInput) => {
       const objID = ownedInput.value.Object.ImmOrOwned.objectId;
-      this.isInsidePool(objID);
+      const isInsidePool = this.isInsidePool(objID);
+      const notInsidePool = !isInsidePool;
+      if (notInsidePool) {
+        console.error(`Object ${objID} is not owned by the pool's creator.`);
+      }
+      return isInsidePool;
     });
   }
 
@@ -407,6 +399,6 @@ class DefaultSplitStrategy implements SplitStrategy {
     if (isSui) {
       return this.coinsToMove-- > 0 ? true : null;
     }
-    return false
+    return false;
   }
 }
