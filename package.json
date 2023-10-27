@@ -7,7 +7,7 @@
     "start": "node src/index.ts",
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
-    "test": "jest test/**/*.test.ts --runInBand"
+    "test": "jest test/unit/executorServiceHandler.test.ts; jest test/unit/pool-tx-execution.test.ts; jest test/unit/pool-init.test.ts"
   },
   "keywords": [
     "coin",

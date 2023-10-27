@@ -40,8 +40,7 @@ export function compareMaps<T>(map1: Map<string, T>, map2: Map<string, T>) {
 }
 
 export class SetupTestsHelper {
-  public MINIMUM_ADMIN_COINS_NEEDED = 4;
-  public MINIMUM_COIN_BALANCE = 2000000000;
+  public MINIMUM_COIN_BALANCE: number;
 
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
@@ -50,6 +49,7 @@ export class SetupTestsHelper {
   private suiCoins: SuiObjectResponse[] = [];
 
   constructor() {
+    this.MINIMUM_COIN_BALANCE = 700000000
     if (!process.env.SUI_NODE) {
       throw new Error('SUI_NODE env variable is not set');
     }
@@ -65,11 +65,11 @@ export class SetupTestsHelper {
   /*
   Reassure that the admin has enough coins and objects to run the tests
    */
-  public async setupAdmin(minimumObjectsNeeded: number) {
+  public async setupAdmin(minimumObjectsNeeded: number, minimumCoinsNeeded: number) {
     const setup = async () => {
       await this.parseCurrentCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
-      await this.assureAdminHasEnoughCoins();
+      await this.assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded);
     };
     try {
       await setup();
@@ -106,14 +106,10 @@ export class SetupTestsHelper {
   /*
   Reassure that the admin has enough coins and if not add them to him
    */
-  private async assureAdminHasEnoughCoins() {
+  private async assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded: number) {
     let coinToSplit: SuiObjectResponse | undefined;
-    if (this.suiCoins.length < this.MINIMUM_ADMIN_COINS_NEEDED) {
-      for (
-        let i = 0;
-        i < this.MINIMUM_ADMIN_COINS_NEEDED - this.suiCoins.length;
-        i++
-      ) {
+    if (this.suiCoins.length < minimumCoinsNeeded) {
+      for (let i = 0; i < minimumCoinsNeeded - this.suiCoins.length; i++) {
         coinToSplit = this.suiCoins.find((coin) =>
           Coin.getBalance(coin)
             ? (Coin.getBalance(coin) ?? 0) > 2 * this.MINIMUM_COIN_BALANCE
@@ -179,10 +175,13 @@ export class SetupTestsHelper {
   private async addNewCoinToAccount(cointToSplit: string) {
     const txb = new TransactionBlock();
     const coinToPay = await this.client.getObject({ id: cointToSplit });
-    const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
-    const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(700000000)]);
+    const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
+    const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
     txb.transferObjects(
-      [newcoins1, newcoins2],
+      [
+        newcoins1,
+        newcoins2
+      ],
       txb.pure(this.adminKeypair.toSuiAddress()),
     );
     txb.setGasBudget(100000000);
@@ -198,15 +197,13 @@ export class SetupTestsHelper {
         },
       })
       .then((txRes) => {
-        const status1 = txRes.effects?.status;
-        if (status1?.status !== 'success') {
-          console.log('New coin to add failed. Status: ', status1);
-          process.exit(1);
+        const status = txRes.effects?.status?.status;
+        if (status !== 'success') {
+          throw new Error(`Failed to split and add new coin to admin account! ${status}`)
         }
       })
       .catch((err) => {
-        console.log('process failed. Error: ', err);
-        process.exit(1);
+        throw new Error(`Failed to split coin <${cointToSplit}> and add new coin to admin account! ${err}`)
       });
   }
 

@@ -78,27 +78,12 @@ export class Pool {
   /**
    * Split off a new Pool from this Pool using `pred_obj` to determine how
    * the objects are split, and `pred_coins` to determine how the coins are.
-   *
-   * A `pred_obj/coins` is called on each object in the current pool.objects and
-   * pool.coins in turn.
-   * If the corresponding predicate:
-   * 1. returns `true`, then the object will be moved to the new Pool, if it
-   * 2. returns `false`, then the object will stay in `this` Pool, and if it
-   * 3. returns `null`, it skips all remaining objects and returns the split Pool immediately.
-   * @param pred_obj a predicate function that returns true if an object
-   * should be moved to the new pool, false if it should stay in the current pool,
-   * and null if the split should stop immediately.
-   * @param pred_coins a predicate function that returns true if a coin
-   * should be moved to the new's pool struct "coins", false if it should
-   * stay in the current pool.coins.
+   * @splitStrategy the strategy used to split the pool's objects and coins
    * @returns the new Pool with the objects and coins that were split off
    */
-  split(
-    pred_obj: (obj: SuiObjectRef | undefined) => boolean | null,
-    pred_coins: (obj: CoinStruct | undefined) => boolean | null,
-  ): Pool {
-    const objects_to_give: PoolObjectsMap = this.splitObjects(pred_obj);
-    const coins_to_give: PoolCoinsMap = this.splitCoins(pred_coins);
+  split(splitStrategy: SplitStrategy = new DefaultSplitStrategy()): Pool {
+    const objects_to_give: PoolObjectsMap = this.splitObjects(splitStrategy);
+    const coins_to_give: PoolCoinsMap = this.splitCoins(splitStrategy);
 
     return new Pool(this._keypair, objects_to_give, coins_to_give);
   }
@@ -106,13 +91,10 @@ export class Pool {
   /**
    * Splits off the pool's objects map into two new maps. One for the current pool
    * (the ones with the objects to keep), and one for the new pool (the ones to give).
-   * @param pred a predicate function that returns true if an object should
-   * be moved to the new pool after split
+   * @param splitStrategy determines how the split will be done
    * @returns the map of objects that will be assigned to the new pool
    */
-  splitObjects(
-    pred: (obj: SuiObjectRef | undefined) => boolean | null,
-  ): PoolObjectsMap {
+  splitObjects(splitStrategy: SplitStrategy): PoolObjectsMap {
     const objects_to_keep: PoolObjectsMap = new Map();
     const objects_to_give: PoolObjectsMap = new Map();
 
@@ -123,7 +105,7 @@ export class Pool {
     }));
     outside: while (objects_array.length !== 0) {
       const last_object_in_array = objects_array.at(-1)?.object;
-      switch (pred(last_object_in_array)) {
+      switch (splitStrategy.objPred(last_object_in_array)) {
         case true: {
           // Predicate returned true, so we move the object to the new pool
           const obj_give = objects_array.pop();
@@ -159,13 +141,10 @@ export class Pool {
   /**
    * Splits off the pool's coins map into two new maps. One for the current pool
    * (the ones with the coins to keep), and one for the new pool (the ones to give).
-   * @param pred a predicate function that returns true if a coin should
-   * be moved to the new pool after split
+   * @param splitStrategy determines how the split will be done
    * @returns the map of coins that will be assigned to the new pool
    */
-  splitCoins(
-    pred: (coin: CoinStruct | undefined) => boolean | null,
-  ): PoolCoinsMap {
+  splitCoins(splitStrategy: SplitStrategy): PoolCoinsMap {
     const coins_to_keep: PoolCoinsMap = new Map();
     const coins_to_give: PoolCoinsMap = new Map();
 
@@ -176,7 +155,7 @@ export class Pool {
     }));
     outside: while (coins_array.length !== 0) {
       const last_coin_in_array = coins_array.at(-1)?.coin;
-      switch (pred(last_coin_in_array)) {
+      switch (splitStrategy.coinPred(last_coin_in_array)) {
         case true: {
           // Predicate returned true, so we move the coin to the new pool
           const coin_give = coins_array.pop();
@@ -213,6 +192,7 @@ export class Pool {
    */
   public merge(poolToMerge: Pool) {
     this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    this._coins = new Map([...this._coins, ...poolToMerge.coins]);
   }
 
   async signAndExecuteTransactionBlock(input: {
@@ -258,7 +238,7 @@ export class Pool {
       transactionBlock: await transactionBlock.build({ client: input.client }),
     });
     if (dryRunRes.effects.status.status !== 'success') {
-      throw new Error('Dry run failed');
+      throw new Error(`Dry run failed. ${dryRunRes.effects.status.error}`);
     }
 
     // (3). Run the transaction
@@ -364,7 +344,7 @@ export class Pool {
    * Check if the id of an object or coin is in the object pool.
    * If it is in either the object pool or the coin pool, then it is
    * owned by the pool's creator.
-   * @param objectId the object id to check
+   * @param id the object id to check
    * @returns true if the object is in the pool, false otherwise
    */
   private isInsidePool(id: string): boolean {
@@ -385,5 +365,34 @@ export class Pool {
 
   set keypair(value: Keypair) {
     this._keypair = value;
+  }
+}
+
+/*
+Here are defined the predicate functions used to split the pool's objects and coins
+into a new pool.
+If the corresponding predicate:
+  1. returns `true`, then the object will be moved to the new Pool, if it
+  2. returns `false`, then the object will stay in `this` Pool, and if it
+  3. returns `null`, it skips all remaining objects and returns the split Pool immediately.
+*/
+export type SplitStrategy = {
+  objPred: (obj: SuiObjectRef | undefined) => boolean | null;
+  coinPred: (coin: CoinStruct | undefined) => boolean | null;
+};
+
+/*
+The default strategy only moves 1 object and 1 coin to the new pool.
+ */
+class DefaultSplitStrategy implements SplitStrategy {
+  private objectsToMove = 1;
+  private coinsToMove = 1;
+
+  public objPred(_: SuiObjectRef | CoinStruct | undefined) {
+    return this.objectsToMove-- > 0 ? true : null;
+  }
+
+  public coinPred(_: SuiObjectRef | CoinStruct | undefined) {
+    return this.coinsToMove-- > 0 ? true : null;
   }
 }

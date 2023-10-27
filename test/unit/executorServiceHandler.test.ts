@@ -32,47 +32,40 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 }
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
-  beforeEach(async () => {
-    const helper = new SetupTestsHelper();
-    await helper.setupAdmin(5);
-    await sleep(1000)
-  });
 
   it('creates multiple transactions and executes them in parallel', async () => {
-    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 3;
+    const NUMBER_OF_TRANSACTION_TO_EXECUTE = 5;
 
+    const helper = new SetupTestsHelper();
+    await helper.setupAdmin(
+      0, // doesn't play a role for this test since we only transfer coins
+      NUMBER_OF_TRANSACTION_TO_EXECUTE * 2
+    );
+    console.log('Admin setup complete. Waiting a few seconds for effects to take place...')
+    await sleep(5000)
+    console.log('Done! Proceeding with transactions execution...')
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(
       adminKeypair,
       client,
     );
-    var currentCoins = 4;
-    var numInitCoins = 4;
-    const splitStrategy = {
-      objPred: (_: SuiObjectRef | undefined) => null,
-
-      // Only send one coin to the new split pool. Keep the rest to the init pool.
-      coinPred: () => {
-        if (currentCoins == numInitCoins) {
-          currentCoins--;
-          return true;
-        } else {
-          numInitCoins = currentCoins;
-          return null;
-        }
-      },
-    };
 
     const promises = [];
     let txb: TransactionBlock;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
-      promises.push(eshandler.execute(txb, client, splitStrategy));
+      if (!process.env.TEST_USER_ADDRESS) {
+        throw new Error('TEST_USER_ADDRESS is not defined');
+      }
+      txb = createPaymentTxb(process.env.TEST_USER_ADDRESS);
+      promises.push(eshandler.execute(txb, client));
     }
 
     const results = await Promise.allSettled(promises);
     results.forEach((result) => {
+      if (result.status === 'rejected') {
+        console.log(result.reason);
+      }
       expect(result.status).toEqual('fulfilled');
     });
   });

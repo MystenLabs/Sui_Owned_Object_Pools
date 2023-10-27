@@ -1,20 +1,12 @@
-import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
+import { SuiClient } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
-import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { Pool } from './pool';
+import { Pool, SplitStrategy } from './pool';
 
 type WorkerPool = {
   status: 'available' | 'busy';
   pool: Pool;
-};
-
-// SplitStrategy defines the predicates used to split the pool's objects and coins
-// to get new worker pools.
-type SplitStrategy = {
-  objPred: (obj: SuiObjectRef | undefined) => boolean | null;
-  coinPred: (coin: CoinStruct | undefined) => boolean | null;
 };
 
 export class ExecutorServiceHandler {
@@ -33,7 +25,7 @@ export class ExecutorServiceHandler {
   public async execute(
     txb: TransactionBlock,
     client: SuiClient,
-    splitStrategy: SplitStrategy,
+    splitStrategy?: SplitStrategy,
     retries = 3,
   ) {
     let res;
@@ -47,13 +39,15 @@ export class ExecutorServiceHandler {
         );
       }
     } while (retries-- > 0);
-    throw new Error('Internal server error - could not execute the transaction block');
+    throw new Error(
+      'Internal server error - could not execute the transaction block',
+    );
   }
 
   private async executeFlow(
     txb: TransactionBlock,
     client: SuiClient,
-    splitStrategy: SplitStrategy,
+    splitStrategy?: SplitStrategy,
   ) {
     const worker: WorkerPool | undefined = this.getAWorker();
     const noWorkerAvailable = worker === undefined;
@@ -114,11 +108,8 @@ export class ExecutorServiceHandler {
     The worker is created by splitting the main pool and the new pool
     that is produced is added to the workers array.
    */
-  private addWorker(splitStrategy: SplitStrategy) {
-    const newPool = this._mainPool.split(
-      splitStrategy.objPred,
-      splitStrategy.coinPred,
-    );
+  private addWorker(splitStrategy?: SplitStrategy) {
+    const newPool = this._mainPool.split(splitStrategy);
     this._workers.push({ status: 'available', pool: newPool });
   }
 
