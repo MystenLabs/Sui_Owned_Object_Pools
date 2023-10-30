@@ -1,11 +1,13 @@
-import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import { SuiClient } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+
+import { Pool } from '../../src';
+import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import {
   getEnvironmentVariables,
+  getKeyPair,
   SetupTestsHelper,
   sleep,
-  getKeyPair,
 } from '../../src/helpers';
 
 const env = getEnvironmentVariables();
@@ -19,11 +21,34 @@ const MIST_TO_TRANSFER = 10;
 function createPaymentTxb(recipient: string): TransactionBlock {
   const txb = new TransactionBlock();
   const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
-  txb.transferObjects([coin], txb.pure(env.TEST_USER_ADDRESS));
+  txb.transferObjects([coin], txb.pure(recipient));
   return txb;
 }
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
+  it('parses coins from owned objects', async () => {
+    const pool = await Pool.full({ client, keypair: adminKeypair });
+    const coinsFromClient = new Map();
+    let coins_resp;
+    let cursor = null;
+    do {
+      coins_resp = await client.getAllCoins({
+        owner: adminKeypair.toSuiAddress(),
+        cursor,
+      });
+      coins_resp.data.forEach((coin) => {
+        coinsFromClient.set(coin.coinObjectId, coin);
+      });
+      cursor = coins_resp?.nextCursor;
+    } while (coins_resp.hasNextPage);
+    const coinsFromOwnedObjects = pool.getCoins();
+    expect(
+      Array.from(coinsFromOwnedObjects.keys()).every((key) => {
+        return coinsFromClient.has(key);
+      }),
+    ).toBeTruthy();
+  });
+
   it('creates multiple transactions and executes them in parallel', async () => {
     const NUMBER_OF_TRANSACTION_TO_EXECUTE = 5;
     const COINS_NEEDED = NUMBER_OF_TRANSACTION_TO_EXECUTE * 2;

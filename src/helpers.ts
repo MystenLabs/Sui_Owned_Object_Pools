@@ -50,6 +50,10 @@ export function getEnvironmentVariables() {
   return env;
 }
 
+export function isCoin(objectType: string, ofType: string) {
+  return Coin.getCoinSymbol(objectType).slice(0, -1) === ofType;
+}
+
 function checkForMissingVariables(env: EnvironmentVariables) {
   for (const [key, value] of Object.entries(env)) {
     if (!value) {
