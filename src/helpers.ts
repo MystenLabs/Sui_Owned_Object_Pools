@@ -20,6 +20,44 @@ export function getKeyPair(privateKey: string): Ed25519Keypair {
   return Ed25519Keypair.fromSecretKey(Uint8Array.from(privateKeyArray));
 }
 
+type EnvironmentVariables = {
+  NFT_APP_PACKAGE_ID: string;
+  NFT_APP_ADMIN_CAP: string;
+  SUI_NODE: string;
+  ADMIN_ADDRESS: string;
+  ADMIN_SECRET_KEY: string;
+  TEST_USER_ADDRESS: string;
+  TEST_USER_SECRET: string;
+  GET_WORKER_TIMEOUT_MS: number;
+};
+
+export function getEnvironmentVariables() {
+  const env = {
+    NFT_APP_PACKAGE_ID: process.env.NFT_APP_PACKAGE_ID ?? '',
+    NFT_APP_ADMIN_CAP: process.env.NFT_APP_ADMIN_CAP ?? '',
+    SUI_NODE: process.env.SUI_NODE ?? '',
+    ADMIN_ADDRESS: process.env.ADMIN_ADDRESS ?? '',
+    ADMIN_SECRET_KEY: process.env.ADMIN_SECRET_KEY ?? '',
+    TEST_USER_ADDRESS: process.env.TEST_USER_ADDRESS ?? '',
+    TEST_USER_SECRET: process.env.TEST_USER_SECRET ?? '',
+    GET_WORKER_TIMEOUT_MS: parseInt(
+      process.env.GET_WORKER_TIMEOUT_MS ?? '10000',
+    ),
+  } as EnvironmentVariables;
+
+  checkForMissingVariables(env);
+
+  return env;
+}
+
+function checkForMissingVariables(env: EnvironmentVariables) {
+  for (const [key, value] of Object.entries(env)) {
+    if (!value) {
+      throw new Error(`Missing environment variable ${key}`);
+    }
+  }
+}
+
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -41,7 +79,7 @@ export function compareMaps<T>(map1: Map<string, T>, map2: Map<string, T>) {
 
 export class SetupTestsHelper {
   public MINIMUM_COIN_BALANCE: number;
-
+  private readonly env: EnvironmentVariables;
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
 
@@ -49,23 +87,21 @@ export class SetupTestsHelper {
   private suiCoins: SuiObjectResponse[] = [];
 
   constructor() {
-    this.MINIMUM_COIN_BALANCE = 700000000
-    if (!process.env.SUI_NODE) {
-      throw new Error('SUI_NODE env variable is not set');
-    }
+    this.env = getEnvironmentVariables();
+    this.MINIMUM_COIN_BALANCE = 700000000;
     this.client = new SuiClient({
-      url: process.env.SUI_NODE,
+      url: this.env.SUI_NODE,
     });
-    if (!process.env.ADMIN_SECRET_KEY) {
-      throw new Error('ADMIN_SECRET_KEY env variable is not set');
-    }
-    this.adminKeypair = getKeyPair(process.env.ADMIN_SECRET_KEY);
+    this.adminKeypair = getKeyPair(this.env.ADMIN_SECRET_KEY);
   }
 
   /*
   Reassure that the admin has enough coins and objects to run the tests
    */
-  public async setupAdmin(minimumObjectsNeeded: number, minimumCoinsNeeded: number) {
+  public async setupAdmin(
+    minimumObjectsNeeded: number,
+    minimumCoinsNeeded: number,
+  ) {
     const setup = async () => {
       await this.parseCurrentCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
@@ -138,18 +174,15 @@ export class SetupTestsHelper {
 
   private async addNewObjectToAccount() {
     const mintAndTransferTxb = new TransactionBlock();
-    if (!process.env.NFT_APP_ADMIN_CAP) {
-      throw new Error('NFT_APP_ADMIN_CAP env variable is not set');
-    }
     const hero = mintAndTransferTxb.moveCall({
       arguments: [
-        mintAndTransferTxb.object(process.env.NFT_APP_ADMIN_CAP),
+        mintAndTransferTxb.object(this.env.NFT_APP_ADMIN_CAP),
         mintAndTransferTxb.pure('zed'),
         mintAndTransferTxb.pure('gold'),
         mintAndTransferTxb.pure(3),
         mintAndTransferTxb.pure('ipfs://example.com/'),
       ],
-      target: `${process.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+      target: `${this.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
     });
     // Transfer to self
     mintAndTransferTxb.transferObjects(
@@ -175,13 +208,14 @@ export class SetupTestsHelper {
   private async addNewCoinToAccount(cointToSplit: string) {
     const txb = new TransactionBlock();
     const coinToPay = await this.client.getObject({ id: cointToSplit });
-    const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
-    const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(this.MINIMUM_COIN_BALANCE)]);
+    const newcoins1 = txb.splitCoins(txb.gas, [
+      txb.pure(this.MINIMUM_COIN_BALANCE),
+    ]);
+    const newcoins2 = txb.splitCoins(txb.gas, [
+      txb.pure(this.MINIMUM_COIN_BALANCE),
+    ]);
     txb.transferObjects(
-      [
-        newcoins1,
-        newcoins2
-      ],
+      [newcoins1, newcoins2],
       txb.pure(this.adminKeypair.toSuiAddress()),
     );
     txb.setGasBudget(100000000);
@@ -199,11 +233,15 @@ export class SetupTestsHelper {
       .then((txRes) => {
         const status = txRes.effects?.status?.status;
         if (status !== 'success') {
-          throw new Error(`Failed to split and add new coin to admin account! ${status}`)
+          throw new Error(
+            `Failed to split and add new coin to admin account! ${status}`,
+          );
         }
       })
       .catch((err) => {
-        throw new Error(`Failed to split coin <${cointToSplit}> and add new coin to admin account! ${err}`)
+        throw new Error(
+          `Failed to split coin <${cointToSplit}> and add new coin to admin account! ${err}`,
+        );
       });
   }
 

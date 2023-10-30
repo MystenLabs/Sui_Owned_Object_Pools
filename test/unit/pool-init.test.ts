@@ -1,23 +1,18 @@
 import { CoinStruct, SuiClient } from '@mysten/sui.js/client';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { fromB64 } from '@mysten/sui.js/utils';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 import { Pool, SplitStrategy } from '../../src';
-import { compareMaps, SetupTestsHelper, sleep } from '../../src/helpers';
+import {
+  getEnvironmentVariables,
+  SetupTestsHelper,
+  compareMaps,
+  sleep,
+  getKeyPair,
+} from '../../src/helpers';
 
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-
-const ADMIN_SECRET_KEY: string = process.env.ADMIN_SECRET_KEY!;
-const adminPrivateKeyArray = Uint8Array.from(
-  Array.from(fromB64(ADMIN_SECRET_KEY)),
-);
-const adminKeypair = Ed25519Keypair.fromSecretKey(
-  adminPrivateKeyArray.slice(1),
-);
-
+const env = getEnvironmentVariables();
+const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
-  url: process.env.SUI_NODE!,
+  url: env.SUI_NODE,
 });
 
 const MINIMUM_NUMBER_OF_ADMIN_OBJECTS = 3;

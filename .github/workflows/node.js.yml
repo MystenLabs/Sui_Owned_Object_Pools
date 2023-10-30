@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Dump Environment Variables
         env:
+          ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
           ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
           TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
           TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
@@ -48,6 +49,7 @@ jobs:
     - run: npm run lint
     - run: npm run test
       env:
+        ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
         ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
         TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
         TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
