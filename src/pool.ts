@@ -7,7 +7,6 @@ import {
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
-import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
 import { SuiObjectResponse } from '@mysten/sui.js/src/types/objects';
 import {
