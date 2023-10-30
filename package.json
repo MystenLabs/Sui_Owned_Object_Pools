@@ -1,6 +1,6 @@
 {
   "name": "sui-execution-handler",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A library that provides a set of tools for managing multiple concurrent transactions on the Sui network to help avoiding object equivocation and locking",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,15 @@
   },
   "keywords": [
     "sui",
-    "execution","handler","manager","pool","transaction","concurrent","object","equivocation","locking"
+    "execution",
+    "handler",
+    "manager",
+    "pool",
+    "transaction",
+    "concurrent",
+    "object",
+    "equivocation",
+    "locking"
   ],
   "author": "MystenLabs",
   "license": "MIT",
