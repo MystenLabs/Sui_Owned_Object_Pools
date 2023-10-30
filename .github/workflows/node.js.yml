@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Dump Environment Variables
         env:
+          ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
           ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
           TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
           TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
@@ -22,7 +23,7 @@ jobs:
           NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
           SUI_NODE: ${{ vars.SUI_NODE }}
           GET_WORKER_TIMEOUT_MS: ${{ vars.GET_WORKER_TIMEOUT_MS }}
-        run: echo "SUI_NODE=$SUI_NODE | GET_WORKER_TIMEOUT_MS=$GET_WORKER_TIMEOUT_MS | NFT_APP_PACKAGE_ID=$NFT_APP_PACKAGE_ID | NFT_APP_ADMIN_CAP=$NFT_APP_ADMIN_CAP | TEST_USER_ADDRESS=$TEST_USER_ADDRESS | TEST_NFT_OBJECT_ID=$TEST_NFT_OBJECT_ID | TEST_NON_EXISTING_OBJECT_ID=$TEST_NON_EXISTING_OBJECT_ID | TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID=$TEST_NOT_OWNED_BY_ADMIN_OBJECT_ID "
+        run: echo "SUI_NODE=$SUI_NODE | GET_WORKER_TIMEOUT_MS=$GET_WORKER_TIMEOUT_MS | NFT_APP_PACKAGE_ID=$NFT_APP_PACKAGE_ID | NFT_APP_ADMIN_CAP=$NFT_APP_ADMIN_CAP | TEST_USER_ADDRESS=$TEST_USER_ADDRESS |  ADMIN_ADDRESS=$ADMIN_ADDRESS "
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
@@ -48,6 +49,7 @@ jobs:
     - run: npm run lint
     - run: npm run test
       env:
+        ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
         ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
         TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
         TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
