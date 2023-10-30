@@ -4,7 +4,14 @@ A library that provides a set of tools for managing multiple concurrent
 transactions on the Sui network to help avoiding object equivocation and locking.
 
 ## Quickstart
-Note: You can find a more detailed example in a later section bellow.
+
+### Installation
+```bash
+npm i sui-execution-handler
+```
+
+### Usage
+Note: _You can find a more detailed example in the [section below](#Example-code)._
 ```typescript
 // Initialize the ExecutorServiceHandler.
 const eshandler = await ExecutorServiceHandler.initialize(
@@ -119,7 +126,7 @@ const results = await Promise.allSettled(promises);
 
 It's that simple! 
 
-## Development
+## Local Development
 
 ### Installing the library
 
