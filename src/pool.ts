@@ -316,14 +316,14 @@ class DefaultSplitStrategy implements SplitStrategy {
 export class IncludeAdminCapStrategy implements SplitStrategy {
   private objectsToMove = 1;
   private coinsToMove = 1;
-  private readonly adminCap: string;
+  private readonly packageId: string;
   private adminCapIncluded = false;
-  constructor(adminCap: string) {
-    this.adminCap = adminCap;
+  constructor(packageId: string) {
+    this.packageId = packageId;
   }
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
-    if (obj.type.includes(this.adminCap)) {
+    if (obj.type.includes('AdminCap') && obj.type.includes(this.packageId)) {
       this.adminCapIncluded = true;
       return true;
     }

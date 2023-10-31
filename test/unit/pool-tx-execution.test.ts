@@ -112,7 +112,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     });
 
     const poolTwo: Pool = mainPool.split(
-      new IncludeAdminCapStrategy('AdminCap'),
+      new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
     );
 
     /*
