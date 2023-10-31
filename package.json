@@ -1,6 +1,6 @@
 {
   "name": "sui-execution-handler",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A library that provides a set of tools for managing multiple concurrent transactions on the Sui network to help avoiding object equivocation and locking",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -13,6 +13,11 @@
       "require": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
