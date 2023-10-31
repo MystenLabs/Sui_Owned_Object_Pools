@@ -1,8 +1,9 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { Pool, SplitStrategy } from './pool';
+
 import { getEnvironmentVariables } from './helpers';
+import { Pool, SplitStrategy } from './pool';
 
 type WorkerPool = {
   status: 'available' | 'busy';
@@ -35,7 +36,7 @@ export class ExecutorServiceHandler {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
-        console.log('Error executing transaction block')
+        console.log('Error executing transaction block');
         console.log(e);
         continue;
       }
