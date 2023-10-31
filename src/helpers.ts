@@ -51,7 +51,13 @@ export function getEnvironmentVariables() {
 }
 
 export function isCoin(objectType: string, ofType: string) {
-  return Coin.getCoinSymbol(objectType).slice(0, -1) === ofType;
+  const symbolRegExp = /^(\w+)::coin::Coin<\w+::\w+::(\w+)>$/;
+  const matchAndGroups = objectType.match(symbolRegExp);
+  if (!matchAndGroups || matchAndGroups.length < 2) {
+    return false;
+  }
+  const coinSymbol = matchAndGroups[2];
+  return coinSymbol === ofType;
 }
 
 function checkForMissingVariables(env: EnvironmentVariables) {
@@ -133,7 +139,7 @@ export class SetupTestsHelper {
         cursor,
       });
       resp?.data.forEach((object) => {
-        if (Coin.isSUI(object)) {
+        if (isCoin(object?.data?.type ?? '', 'SUI')) {
           this.suiCoins.push(object);
         } else {
           this.objects.push(object);
