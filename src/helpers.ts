@@ -1,5 +1,4 @@
 import { SuiClient } from '@mysten/sui.js/client';
-import { Coin } from '@mysten/sui.js/dist/cjs/framework/framework';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import {
   SuiObjectRef,
@@ -113,7 +112,7 @@ export class SetupTestsHelper {
     minimumCoinsNeeded: number,
   ) {
     const setup = async () => {
-      await this.parseCurrentCoinsAndObjects();
+      await this.parseCurrentGasCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
       await this.assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded);
     };
@@ -126,7 +125,7 @@ export class SetupTestsHelper {
     }
   }
 
-  private async parseCurrentCoinsAndObjects() {
+  private async parseCurrentGasCoinsAndObjects() {
     let cursor: string | null | undefined = null;
     let resp;
     do {
@@ -156,11 +155,17 @@ export class SetupTestsHelper {
     let coinToSplit: SuiObjectResponse | undefined;
     if (this.suiCoins.length < minimumCoinsNeeded) {
       for (let i = 0; i < minimumCoinsNeeded - this.suiCoins.length; i++) {
-        coinToSplit = this.suiCoins.find((coin) =>
-          Coin.getBalance(coin)
-            ? (Coin.getBalance(coin) ?? 0) > 2 * this.MINIMUM_COIN_BALANCE
-            : false,
-        );
+        coinToSplit = this.suiCoins.find((coin) => {
+          const content = coin.data?.content;
+          if (content && 'fields' in content && 'balance' in content.fields) {
+            return (
+              Number(content.fields?.balance ?? '0') >
+              2 * this.MINIMUM_COIN_BALANCE
+            );
+          } else {
+            return false;
+          }
+        });
         if (!coinToSplit) {
           throw new Error(
             `No coin with enough balance found. \
