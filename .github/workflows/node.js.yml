@@ -28,6 +28,13 @@ jobs:
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
+  install-pnpm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
   build:
 
     runs-on: ubuntu-latest
@@ -44,8 +51,6 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - name: pnpm-setup
-      uses: pnpm/action-setup@v2
     - run: npm ci
     - run: npm run build --if-present
     - run: npm run lint
