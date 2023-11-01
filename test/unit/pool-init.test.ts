@@ -3,7 +3,6 @@ import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool, SplitStrategy } from '../../src';
 import {
-  compareMaps,
   getEnvironmentVariables,
   getKeyPair,
   SetupTestsHelper,
@@ -54,8 +53,9 @@ describe('✂️ Pool splitting', () => {
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       pred: (_: SuiObjectRef | undefined) => false,
+      succeeded: () => true,
     };
-    const new_pool: Pool = initial_pool.split(splitStrategy);
+    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
     const num_objects_new_pool = new_pool.objects.size;
 
     const num_objects_after_split = initial_pool.objects.size;
@@ -71,8 +71,9 @@ describe('✂️ Pool splitting', () => {
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       pred: (_: SuiObjectRef | undefined) => null,
+      succeeded: () => true,
     };
-    const new_pool: Pool = initial_pool.split(splitStrategy);
+    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
     const num_objects_new_pool = new_pool.objects.size;
     const num_objects_after_split = initial_pool.objects.size;
 
@@ -88,7 +89,7 @@ describe('✂️ Pool splitting', () => {
     });
 
     const num_objects_before_split = initial_pool.objects.size;
-    const new_pool: Pool = initial_pool.split();
+    const new_pool: Pool = await initial_pool.split(client);
     const num_objects_new_pool = new_pool.objects.size;
     const num_objects_after_split = initial_pool.objects.size;
 
@@ -100,22 +101,26 @@ describe('✂️ Pool splitting', () => {
     );
   });
 
-  it('merges back a pool', async () => {
+  it('merges two pools', async () => {
     // Create the pool
     const initial_pool: Pool = await Pool.full({
       keypair: adminKeypair,
       client: client,
     });
-    // Keep a copy of the initial pool's objects and coins
-    const objectsBeforeSplit = new Map(initial_pool.objects);
+    const pool1: Pool = await initial_pool.split(client);
+    const pool1ObjectsBeforeMerge = Array.from(pool1.objects.keys());
 
-    const new_pool: Pool = initial_pool.split();
-    // Merge the new pool back to the initial pool
-    initial_pool.merge(new_pool);
+    const pool2: Pool = await initial_pool.split(client);
+    const pool2ObjectsBeforeMerge = Array.from(pool2.objects.keys());
 
-    const objectsAfterMerge = initial_pool.objects;
+    pool1.merge(pool2);
 
-    // Compare that the objects and coins are the same before and after the split-merge
-    expect(compareMaps(objectsBeforeSplit, objectsAfterMerge)).toBeTruthy();
+    expect(
+      pool1ObjectsBeforeMerge.every((o) => pool1.objects.has(o)),
+    ).toBeTruthy();
+
+    expect(
+      pool2ObjectsBeforeMerge.every((o) => pool2.objects.has(o)),
+    ).toBeTruthy();
   });
 });

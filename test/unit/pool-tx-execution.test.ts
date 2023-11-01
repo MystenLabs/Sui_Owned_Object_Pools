@@ -111,7 +111,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       client: client,
     });
 
-    const poolTwo: Pool = mainPool.split(
+    const poolTwo: Pool = await mainPool.split(
+      client,
       new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
     );
 
@@ -155,11 +156,16 @@ describe('Transaction block execution directly from pool', () => {
   });
 
   it('mints nft and transfers it to self', async () => {
-    // Create a pool
-    const pool: Pool = await Pool.full({
+    // Create a main pool and split it to use a different pool for the
+    // transaction execution
+    const mainPool: Pool = await Pool.full({
       keypair: adminKeypair,
       client: client,
     });
+    const pool = await mainPool.split(
+      client,
+      new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+    );
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object
@@ -189,11 +195,14 @@ describe('Transaction block execution directly from pool', () => {
   });
 
   it('mints nft, transfers it to a test user', async () => {
-    // Create a pool
-    const pool: Pool = await Pool.full({
+    const mainPool: Pool = await Pool.full({
       keypair: adminKeypair,
       client: client,
     });
+    const pool = await mainPool.split(
+      client,
+      new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+    );
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object

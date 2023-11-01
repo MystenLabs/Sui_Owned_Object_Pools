@@ -30,14 +30,33 @@ export class Pool {
   static async full(input: { keypair: Keypair; client: SuiClient }) {
     const { keypair, client } = input;
     const owner = keypair.toSuiAddress();
+    const firstObjectsBatch = await Pool.objectBatchGenerator({
+      owner,
+      client,
+    }).next();
+    if (!firstObjectsBatch.value) {
+      throw new Error('Pool creation: No objects found.');
+    }
+    return new Pool(keypair, firstObjectsBatch.value);
+  }
 
-    // Get all objects owned by the pool's creator
-    const objects: PoolObjectsMap = new Map();
+  /*
+  Creates a generator that yields batches of objects owned by the pool's creator.
+  This is done so that we lazily load the objects, and not all at once.
+   */
+  public static async *objectBatchGenerator(
+    input: {
+      owner: string;
+      client: SuiClient;
+    },
+    cursor: string | null | undefined = null,
+  ) {
     let resp: PaginatedObjectsResponse | null;
-    let cursor = null;
+    let tempObjects: PoolObjectsMap;
     do {
-      resp = await client.getOwnedObjects({
-        owner,
+      tempObjects = new Map();
+      resp = await input.client.getOwnedObjects({
+        owner: input.owner,
         cursor,
         options: {
           showContent: true,
@@ -55,13 +74,12 @@ export class Pool {
           type: obj.data.type ?? '',
         };
         if (objectReference) {
-          objects.set(objectReference.objectId, objectReference);
+          tempObjects.set(objectReference.objectId, objectReference);
         }
       });
+      yield tempObjects;
       cursor = resp?.nextCursor;
     } while (resp.hasNextPage);
-
-    return new Pool(keypair, objects);
   }
 
   /**
@@ -70,9 +88,30 @@ export class Pool {
    * @splitStrategy the strategy used to split the pool's objects and coins
    * @returns the new Pool with the objects and coins that were split off
    */
-  split(splitStrategy: SplitStrategy = new DefaultSplitStrategy()): Pool {
-    const objects_to_give: PoolObjectsMap = this.splitObjects(splitStrategy);
-
+  async split(
+    client: SuiClient,
+    splitStrategy: SplitStrategy = new DefaultSplitStrategy(),
+  ) {
+    let objects_to_give: PoolObjectsMap = new Map();
+    let ownedObjectsBatch;
+    const generator = Pool.objectBatchGenerator({
+      owner: this._keypair.toSuiAddress(),
+      client: client,
+    });
+    do {
+      ownedObjectsBatch = await generator.next();
+      if (!ownedObjectsBatch.value) {
+        throw new Error('Pool split: No objects found.');
+      }
+      this._objects = ownedObjectsBatch.value;
+      objects_to_give = new Map([
+        ...objects_to_give,
+        ...this.splitObjects(splitStrategy),
+      ]);
+    } while (!(splitStrategy.succeeded() || ownedObjectsBatch.done));
+    if (!splitStrategy.succeeded()) {
+      throw new Error('Pool split: The split strategy failed');
+    }
     return new Pool(this._keypair, objects_to_give);
   }
 
@@ -290,6 +329,14 @@ If the corresponding predicate:
 */
 export type SplitStrategy = {
   pred: (obj: PoolObject | undefined) => boolean | null;
+
+  /*
+  Call this function after the split is done to check if 
+  the split utilized the strategy as supposed to.
+  Used in order to decide if it should be retried by loading more objects
+  for the strategy to iterate over.
+   */
+  succeeded: () => boolean;
 };
 
 /*
@@ -311,8 +358,15 @@ class DefaultSplitStrategy implements SplitStrategy {
       return this.objectsToMove-- > 0;
     }
   }
+  public succeeded() {
+    return this.coinsToMove <= 0 && this.objectsToMove <= 0;
+  }
 }
 
+/*
+Moves to the new pool 1 NFT object, 1 coin to use as gas,
+and an AdminCap object of the package.
+ */
 export class IncludeAdminCapStrategy implements SplitStrategy {
   private objectsToMove = 1;
   private coinsToMove = 1;
@@ -339,5 +393,10 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     } else {
       return false;
     }
+  }
+  public succeeded() {
+    return (
+      this.objectsToMove <= 0 && this.coinsToMove <= 0 && this.adminCapIncluded
+    );
   }
 }
