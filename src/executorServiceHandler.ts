@@ -57,7 +57,7 @@ export class ExecutorServiceHandler {
     const worker: WorkerPool | undefined = this.getAWorker();
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
-      this.addWorker(splitStrategy);
+      await this.addWorker(client, splitStrategy);
       return;
     } else {
       // An available worker is found! Assign to it the task of executing the txb.
@@ -110,9 +110,9 @@ export class ExecutorServiceHandler {
     The worker is created by splitting the main pool and the new pool
     that is produced is added to the workers array.
    */
-  private addWorker(splitStrategy?: SplitStrategy) {
+  private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
     console.log('Splitting main pool to add new worker Pool...');
-    const newPool = this._mainPool.split(splitStrategy);
+    const newPool = await this._mainPool.split(client, splitStrategy);
     this._workers.push({ status: 'available', pool: newPool });
   }
 

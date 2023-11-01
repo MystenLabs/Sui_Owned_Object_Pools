@@ -19,26 +19,63 @@ import { isCoin } from './helpers';
 import { PoolObject, PoolObjectsMap } from './types';
 
 export class Pool {
+  private _cursor: string | undefined | null;
+  private readonly _objectGenerator: AsyncGenerator<PoolObjectsMap>;
   private _keypair: Keypair;
   private _objects: PoolObjectsMap;
 
-  private constructor(keypair: Keypair, objects: PoolObjectsMap) {
+  private constructor(
+    keypair: Keypair,
+    objects: PoolObjectsMap,
+    client: SuiClient,
+  ) {
     this._keypair = keypair;
     this._objects = objects;
+    this._cursor = null;
+    this._objectGenerator = this.objectBatchGenerator({
+      owner: this._keypair.toSuiAddress(),
+      client: client,
+    });
   }
 
   static async full(input: { keypair: Keypair; client: SuiClient }) {
-    const { keypair, client } = input;
-    const owner = keypair.toSuiAddress();
+    const { keypair } = input;
+    const pool = new Pool(keypair, new Map(), input.client);
+    await pool.fetchObjects(); // fetch an initial batch of objects
+    return pool;
+  }
 
-    // Get all objects owned by the pool's creator
-    const objects: PoolObjectsMap = new Map();
+  /*
+  Fetches a batch of objects and adds them to the internal objects map.
+  Returns true if succeeded, false otherwise.
+   */
+  private async fetchObjects() {
+    console.log('Fetching objects...');
+    const ownedObjectsBatch = await this._objectGenerator.next();
+    if (!ownedObjectsBatch.value) {
+      console.log('Fetch failed!');
+      return false;
+    }
+    this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
+    console.log('Fetch complete!');
+    return true;
+  }
+
+  /*
+  Creates a generator that yields batches of objects owned by the pool's creator.
+  This is done so that we lazily load the objects, and not all at once.
+   */
+  public async *objectBatchGenerator(input: {
+    owner: string;
+    client: SuiClient;
+  }) {
     let resp: PaginatedObjectsResponse | null;
-    let cursor = null;
+    let tempObjects: PoolObjectsMap;
     do {
-      resp = await client.getOwnedObjects({
-        owner,
-        cursor,
+      tempObjects = new Map();
+      resp = await input.client.getOwnedObjects({
+        owner: input.owner,
+        cursor: this._cursor,
         options: {
           showContent: true,
           showType: true,
@@ -55,13 +92,12 @@ export class Pool {
           type: obj.data.type ?? '',
         };
         if (objectReference) {
-          objects.set(objectReference.objectId, objectReference);
+          tempObjects.set(objectReference.objectId, objectReference);
         }
       });
-      cursor = resp?.nextCursor;
+      yield tempObjects;
+      this._cursor = resp?.nextCursor;
     } while (resp.hasNextPage);
-
-    return new Pool(keypair, objects);
   }
 
   /**
@@ -70,10 +106,33 @@ export class Pool {
    * @splitStrategy the strategy used to split the pool's objects and coins
    * @returns the new Pool with the objects and coins that were split off
    */
-  split(splitStrategy: SplitStrategy = new DefaultSplitStrategy()): Pool {
-    const objects_to_give: PoolObjectsMap = this.splitObjects(splitStrategy);
-
-    return new Pool(this._keypair, objects_to_give);
+  async split(
+    client: SuiClient,
+    splitStrategy: SplitStrategy = new DefaultSplitStrategy(),
+  ) {
+    let fetchSuccess;
+    if (this._objects.size === 0) {
+      fetchSuccess = await this.fetchObjects();
+      if (!fetchSuccess) {
+        throw new Error('Pool split: Could not fetch any objects');
+      }
+    }
+    // Split the pool's objects into a new pool
+    let objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    do {
+      objectsToGiveToNewPool = new Map([
+        ...objectsToGiveToNewPool,
+        ...this.splitObjects(splitStrategy),
+      ]);
+      if (splitStrategy.succeeded()) {
+        break;
+      }
+      fetchSuccess = await this.fetchObjects();
+    } while (!(splitStrategy.succeeded() || !fetchSuccess));
+    if (!splitStrategy.succeeded()) {
+      throw new Error('Pool split: The split strategy did not succeed.');
+    }
+    return new Pool(this._keypair, objectsToGiveToNewPool, client);
   }
 
   /**
@@ -290,6 +349,14 @@ If the corresponding predicate:
 */
 export type SplitStrategy = {
   pred: (obj: PoolObject | undefined) => boolean | null;
+
+  /*
+  Call this function after the split is done to check if 
+  the split utilized the strategy as supposed to.
+  Used in order to decide if it should be retried by loading more objects
+  for the strategy to iterate over.
+   */
+  succeeded: () => boolean;
 };
 
 /*
@@ -311,8 +378,22 @@ class DefaultSplitStrategy implements SplitStrategy {
       return this.objectsToMove-- > 0;
     }
   }
+  public succeeded() {
+    const check = this.coinsToMove <= 0 && this.objectsToMove <= 0;
+    if (!check) {
+      console.log(
+        `Unsuccessful DefaultSplitStrategy: \
+        coinsToMove=${this.coinsToMove} objectsToMove=${this.objectsToMove}.`,
+      );
+    }
+    return check;
+  }
 }
 
+/*
+Moves to the new pool 1 NFT object, 1 coin to use as gas,
+and an AdminCap object of the package.
+ */
 export class IncludeAdminCapStrategy implements SplitStrategy {
   private objectsToMove = 1;
   private coinsToMove = 1;
@@ -339,5 +420,15 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     } else {
       return false;
     }
+  }
+  public succeeded() {
+    const check =
+      this.objectsToMove <= 0 && this.coinsToMove <= 0 && this.adminCapIncluded;
+    if (!check) {
+      console.log(`Unsuccessful IncludeAdminCapStrategy: \
+        coinsToMove=${this.coinsToMove} objectsToMove=${this.objectsToMove} \
+        adminCapIncluded=${this.adminCapIncluded}.`);
+    }
+    return check;
   }
 }
