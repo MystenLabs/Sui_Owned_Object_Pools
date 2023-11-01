@@ -123,4 +123,25 @@ describe('✂️ Pool splitting', () => {
       pool2ObjectsBeforeMerge.every((o) => pool2.objects.has(o)),
     ).toBeTruthy();
   });
+
+  it('checks that no pool contains the same objects after split', async () => {
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    let newPool: Pool;
+    const keysSet = new Set<string>();
+    let totalSize = 0;
+    for (let i = 0; i < 4; i++) {
+      newPool = await initial_pool.split(client);
+      Array.from(newPool.objects.keys()).forEach((key) => {
+        keysSet.add(key);
+      });
+      totalSize += newPool.objects.size;
+    }
+    // If the keySet size is smaller than the total size, it means that there are
+    // some duplicate keys in the pools, meaning that there are some objects
+    // present in 2 (or more) pools. Which would be wrong.
+    expect(keysSet.size).toEqual(totalSize);
+  });
 });
