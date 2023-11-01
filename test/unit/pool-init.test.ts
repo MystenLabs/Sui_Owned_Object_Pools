@@ -129,10 +129,11 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     });
+    const NUMBER_OF_NEW_POOLS = 4;
     let newPool: Pool;
     const keysSet = new Set<string>();
     let totalSize = 0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < NUMBER_OF_NEW_POOLS; i++) {
       newPool = await initial_pool.split(client);
       Array.from(newPool.objects.keys()).forEach((key) => {
         keysSet.add(key);
@@ -143,5 +144,9 @@ describe('✂️ Pool splitting', () => {
     // some duplicate keys in the pools, meaning that there are some objects
     // present in 2 (or more) pools. Which would be wrong.
     expect(keysSet.size).toEqual(totalSize);
+
+    // Each pool should contain 2 objects (1 NFT + 1 coin) as defined in
+    // the DefaultSplitStrategy
+    expect(keysSet.size).toEqual(NUMBER_OF_NEW_POOLS * 2);
   });
 });
