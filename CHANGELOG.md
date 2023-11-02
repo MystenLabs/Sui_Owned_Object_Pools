@@ -1,6 +1,12 @@
 # Change Log
 
 
+## v0.1.4
+
+- Performance enhancement with Lazy load the Pool objects only when needed.
+- Added flowchart to README.md
+
+
 
 ## v0.1.3
 
