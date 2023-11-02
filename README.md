@@ -126,6 +126,12 @@ const results = await Promise.allSettled(promises);
 
 It's that simple! 
 
+## Processing Flow
+The overall processing flow is depicted in the following flowchart:
+
+![](https://github.com/MystenLabs/sui_execution_handler/blob/main/sui-exec-handler-flowchart.png)
+
+
 ## Local Development
 
 ### Installing the library
