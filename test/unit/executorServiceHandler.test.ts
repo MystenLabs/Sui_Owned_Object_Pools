@@ -1,4 +1,4 @@
-import { SuiClient } from '@mysten/sui.js/client';
+import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Pool } from '../../src';
@@ -10,7 +10,7 @@ import {
   sleep,
 } from '../../src/helpers';
 
-const env = getEnvironmentVariables();
+const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
   url: env.SUI_NODE,
@@ -70,7 +70,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       client,
     );
 
-    const promises = [];
+    const promises: Promise<SuiTransactionBlockResponse>[] = [];
     let txb: TransactionBlock;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
       console.log('Creating new Transaction...');

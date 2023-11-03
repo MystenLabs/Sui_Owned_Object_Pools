@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.test.env
 .DS_Store
 build/
 Move.lock

@@ -48,7 +48,7 @@ ADMIN_CAP_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::genesi
 ADMIN_ADDRESS=$(echo "$publish_res" | jq -r '.transaction.data.sender')
 PACKAGE_ID=$(echo "${publish_res}" | jq -r '.effects.created[] | select(.owner == "Immutable").reference.objectId')
 
-cat >../../test/.env <<-API_ENV
+cat >../../test/.test.env <<-API_ENV
 NFT_APP_PACKAGE_ID=$PACKAGE_ID
 NFT_APP_ADMIN_CAP=$ADMIN_CAP_ID
 SUI_NODE=$NETWORK

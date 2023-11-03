@@ -148,12 +148,12 @@ there is a small description of the test's purpose and the library's commands to
 
 To **setup** the tests environment use `./test/initial_setup.sh`
 
-The script will create a .env file in the test folder.
+The script will create a `.test.env` file in the test folder.
 When the script is complete you only need to add a `ADMIN_SECRET_KEY` and a `TEST_USER_SECRET` to the `.env`.
 
 Usually we use the testnet network for testing. Switch to testnet with: `sui client switch --env testnet`
 
-At the end of the setup your .env should look like the template [.env.example](https://github.com/MystenLabs/coin_management_system/blob/main/test/.env.example).
+At the end of the setup your .env should look like the template [.test.env.example](https://github.com/MystenLabs/coin_management_system/blob/main/test/.env.example).
 i.e.
 
 ```[.env]

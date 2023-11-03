@@ -13,9 +13,15 @@ type WorkerPool = {
 export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workers: WorkerPool[] = [];
-  private readonly _getWorkerTimeoutMs: number;
-  private constructor(mainPool: Pool) {
-    this._getWorkerTimeoutMs = getEnvironmentVariables().GET_WORKER_TIMEOUT_MS;
+  private readonly _getWorkerTimeoutMs: number = 1000;
+  private constructor(mainPool: Pool, pathToEnv?: string) {
+    if (pathToEnv) {
+      this._getWorkerTimeoutMs =
+        getEnvironmentVariables(pathToEnv).GET_WORKER_TIMEOUT_MS;
+    } else {
+      this._getWorkerTimeoutMs =
+        getEnvironmentVariables().GET_WORKER_TIMEOUT_MS;
+    }
     this._mainPool = mainPool;
   }
 

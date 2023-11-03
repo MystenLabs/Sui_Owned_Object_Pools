@@ -1,5 +1,5 @@
 #!/bin/bash
-source .env
+source .test.env
 
 echo "=== Tests setup script ==="
 echo "Follow the instructions below to setup the test environment."
@@ -27,7 +27,7 @@ read -p "Create a new TEST_USER_ADDRESS to $(sui client active-env)? (y/n): " re
 response=$(echo "$response" | tr '[:upper:]' '[:lower:]') # tolower
 if [[ "$response" =~ ^(yes|y)$ ]]; then
     NEW_ADDRESS_JSON=$(sui client new-address ed25519 --json)
-    cat "TEST_USER_ADDRESS=$(echo "$NEW_ADDRESS_JSON" | jq -r '.address')">>.env
+    cat "TEST_USER_ADDRESS=$(echo "$NEW_ADDRESS_JSON" | jq -r '.address')">>.test.env
     SUI_AMOUNT=2000000000
     echo "Sending $SUI_AMOUNT to TEST_USER_ADDRESS: $TEST_USER_ADDRESS"
     COIN=$(sui client objects "$(sui client active-address)" --json | jq -r '.[] | select(.data.content.type == "0x2::coin::Coin<0x2::sui::SUI>") | .data.objectId' | head -n 1)
