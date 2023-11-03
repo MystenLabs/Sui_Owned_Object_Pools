@@ -9,9 +9,6 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({
-  path: path.resolve(__dirname, '../test/.env'),
-});
 /// Method to make keypair from private key that is in string format
 export function getKeyPair(privateKey: string): Ed25519Keypair {
   const privateKeyArray = Array.from(fromB64(privateKey));
@@ -30,7 +27,11 @@ type EnvironmentVariables = {
   GET_WORKER_TIMEOUT_MS: number;
 };
 
-export function getEnvironmentVariables() {
+export function getEnvironmentVariables(pathToEnv = '../.env', isTest = false) {
+  dotenv.config({
+    path: path.resolve(__dirname, pathToEnv),
+  });
+
   const env = {
     NFT_APP_PACKAGE_ID: process.env.NFT_APP_PACKAGE_ID ?? '',
     NFT_APP_ADMIN_CAP: process.env.NFT_APP_ADMIN_CAP ?? '',
@@ -44,8 +45,10 @@ export function getEnvironmentVariables() {
     ),
   } as EnvironmentVariables;
 
-  checkForMissingVariables(env);
-
+  if (isTest) {
+    const testEnvVariables: string[] = Array.from(Object.keys(env));
+    checkForMissingEnvVariables(env, testEnvVariables);
+  }
   return env;
 }
 
@@ -59,9 +62,12 @@ export function isCoin(objectType: string, ofType: string) {
   return coinSymbol === ofType;
 }
 
-function checkForMissingVariables(env: EnvironmentVariables) {
+function checkForMissingEnvVariables(
+  env: EnvironmentVariables,
+  envVariablesToCheck: string[],
+) {
   for (const [key, value] of Object.entries(env)) {
-    if (!value) {
+    if (envVariablesToCheck.includes(key) && !value) {
       throw new Error(`Missing environment variable ${key}`);
     }
   }
@@ -96,7 +102,7 @@ export class SetupTestsHelper {
   private suiCoins: SuiObjectResponse[] = [];
 
   constructor() {
-    this.env = getEnvironmentVariables();
+    this.env = getEnvironmentVariables('../test/.env');
     this.MINIMUM_COIN_BALANCE = 700000000;
     this.client = new SuiClient({
       url: this.env.SUI_NODE,

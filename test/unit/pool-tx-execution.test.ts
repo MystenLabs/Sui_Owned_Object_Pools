@@ -10,7 +10,7 @@ import {
   sleep,
 } from '../../src/helpers';
 
-const env = getEnvironmentVariables();
+const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
   url: env.SUI_NODE,
