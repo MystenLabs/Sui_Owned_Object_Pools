@@ -8,7 +8,7 @@ module cms::genesis {
   use sui::package::{Self};
   use sui::object::{Self, UID};
   use sui::tx_context::{sender, TxContext};
-  
+
   // Manager capability assigned to whoever deploys the contract
   // AdminCap is transferrable in case the owner needs to change addresses.
   struct AdminCap has key, store { 
@@ -18,6 +18,10 @@ module cms::genesis {
   // OTW to create the publisher
   struct GENESIS has drop {}
 
+  struct SharedItem has key { 
+    id: UID
+    }
+
   fun init(otw: GENESIS, ctx: &mut TxContext) { 
 
     // Claim the Publisher for the Package
@@ -25,6 +29,11 @@ module cms::genesis {
 
     // Transfer the Publisher to the sender
     transfer::public_transfer(publisher, sender(ctx));
+
+    // Create a shared object
+    transfer::share_object(SharedItem {
+      id: object::new(ctx)
+    });
 
     // Transfer Admin Cap to sender
     transfer::public_transfer(AdminCap { 
