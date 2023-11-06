@@ -1,11 +1,10 @@
 import { SuiClient } from '@mysten/sui.js/client';
+import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { environments } from 'eslint-plugin-prettier';
 
 import { getEnvironmentVariables } from './helpers';
-import { IncludeAdminCapStrategy, Pool, SplitStrategy } from './pool';
-import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
+import { Pool, SplitStrategy } from './pool';
 
 type WorkerPool = {
   status: 'available' | 'busy';
