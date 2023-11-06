@@ -15,7 +15,7 @@ import {
 } from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { isCoin } from './helpers';
+import { isCoin, isImmutable } from './helpers';
 import { PoolObject, PoolObjectsMap } from './types';
 
 export class Pool {
@@ -292,12 +292,17 @@ export class Pool {
         'ImmOrOwned' in input.value.Object
       );
     });
-    return ownedInputs.every((ownedInput) => {
+    return ownedInputs.every(async (ownedInput) => {
       const objID = ownedInput.value.Object.ImmOrOwned.objectId;
       const isInsidePool = this.isInsidePool(objID);
       const notInsidePool = !isInsidePool;
       if (notInsidePool) {
-        console.error(`Object ${objID} is not owned by the pool's creator.`);
+        const immutable = await isImmutable(objID, client);
+        if (immutable) {
+          return true;
+        } else {
+          console.error(`Object ${objID} is not owned by the pool's creator.`);
+        }
       }
       return isInsidePool;
     });
