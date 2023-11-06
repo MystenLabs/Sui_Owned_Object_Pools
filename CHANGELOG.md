@@ -1,6 +1,10 @@
 # Change Log
 
 
+## v0.1.5
+- Fixed bug about Immutable object handling
+- Fixed bug about worker status update
+
 ## v0.1.4
 
 - Performance enhancement with Lazy load the Pool objects only when needed.
