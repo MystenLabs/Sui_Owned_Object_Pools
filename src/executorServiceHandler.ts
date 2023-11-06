@@ -1,4 +1,5 @@
 import { SuiClient } from '@mysten/sui.js/client';
+import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
@@ -51,7 +52,7 @@ export class ExecutorServiceHandler {
       }
     } while (retries-- > 0);
     throw new Error(
-      'Internal server error - could not execute the transaction block',
+      'Internal server error - All retries failed: Could not execute the transaction block',
     );
   }
 
@@ -68,11 +69,17 @@ export class ExecutorServiceHandler {
     } else {
       // An available worker is found! Assign to it the task of executing the txb.
       worker.status = 'busy'; // Worker is now busy
-
-      const result = await worker.pool.signAndExecuteTransactionBlock({
-        transactionBlock: txb,
-        client: client,
-      });
+      let result: SuiTransactionBlockResponse;
+      try {
+        result = await worker.pool.signAndExecuteTransactionBlock({
+          transactionBlock: txb,
+          client: client,
+        });
+      } catch (e) {
+        console.error(`Error executing transaction block: ${e}`);
+        this.removeWorker(worker);
+        return;
+      }
 
       if (result.effects && result.effects.status.status === 'failure') {
         this.removeWorker(worker);

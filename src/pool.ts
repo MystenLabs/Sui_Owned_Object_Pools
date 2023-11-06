@@ -15,7 +15,7 @@ import {
 } from '@mysten/sui.js/src/types/transactions';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { isCoin } from './helpers';
+import { isCoin, isImmutable } from './helpers';
 import { PoolObject, PoolObjectsMap } from './types';
 
 export class Pool {
@@ -52,9 +52,12 @@ export class Pool {
   private async fetchObjects() {
     console.log('Fetching objects...');
     const ownedObjectsBatch = await this._objectGenerator.next();
-    if (!ownedObjectsBatch.value) {
+    if (!ownedObjectsBatch.done && !ownedObjectsBatch.value) {
       console.log('Fetch failed!');
       return false;
+    }
+    if (ownedObjectsBatch.done) {
+      console.warn('End of cursor - No more objects to fetch.');
     }
     this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
     console.log('Fetch complete!');
@@ -292,12 +295,17 @@ export class Pool {
         'ImmOrOwned' in input.value.Object
       );
     });
-    return ownedInputs.every((ownedInput) => {
+    return ownedInputs.every(async (ownedInput) => {
       const objID = ownedInput.value.Object.ImmOrOwned.objectId;
       const isInsidePool = this.isInsidePool(objID);
       const notInsidePool = !isInsidePool;
       if (notInsidePool) {
-        console.error(`Object ${objID} is not owned by the pool's creator.`);
+        const immutable = await isImmutable(objID, client);
+        if (immutable) {
+          return true;
+        } else {
+          console.error(`Object ${objID} is not owned by the pool's creator.`);
+        }
       }
       return isInsidePool;
     });
@@ -393,7 +401,7 @@ class DefaultSplitStrategy implements SplitStrategy {
 /*
 Moves to the new pool 1 NFT object, 1 coin to use as gas,
 and an AdminCap object of the package.
- */
+*/
 export class IncludeAdminCapStrategy implements SplitStrategy {
   private objectsToMove = 1;
   private coinsToMove = 1;
@@ -415,7 +423,7 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     }
     if (isCoin(obj.type, 'SUI') && this.coinsToMove > 0) {
       return this.coinsToMove-- > 0;
-    } else if (this.objectsToMove > 0) {
+    } else if (!isCoin(obj.type, 'SUI') && this.objectsToMove > 0) {
       return this.objectsToMove-- > 0;
     } else {
       return false;

@@ -52,6 +52,20 @@ export function getEnvironmentVariables(pathToEnv = '../.env', isTest = false) {
   return env;
 }
 
+export async function isImmutable(objectId: string, client: SuiClient) {
+  const obj = await client.getObject({
+    id: objectId,
+    options: {
+      showOwner: true,
+    },
+  });
+  const objectOwner = obj?.data?.owner;
+  if (!objectOwner) {
+    throw new Error(`Could not extract "owner" field of object ${objectId}`);
+  }
+  return objectOwner == 'Immutable';
+}
+
 export function isCoin(objectType: string, ofType: string) {
   const symbolRegExp = /^(\w+)::coin::Coin<\w+::\w+::(\w+)>$/;
   const matchAndGroups = objectType.match(symbolRegExp);
