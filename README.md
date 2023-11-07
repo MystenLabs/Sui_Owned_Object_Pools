@@ -1,4 +1,4 @@
-# Sui Execution Handler
+# Sui Owned Object Pools (SOOP)
 
 A library that provides a set of tools for managing multiple concurrent
 transactions on the Sui network to help avoiding object equivocation and locking.
