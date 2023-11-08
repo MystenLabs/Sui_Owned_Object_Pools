@@ -21,7 +21,7 @@ describe('Check that isCoin parses the coin symbol correctly', () => {
       'SUI',
     ],
     ['0x2::package::Publisher', 'SUI'],
-  ])('Should not be matching %s -> %s', (objectType, ofType) => {
+  ])('Should not be matching %s != %s', (objectType, ofType) => {
     expect(isCoin(objectType, ofType)).toBeFalsy();
   });
 });

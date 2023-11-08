@@ -63,7 +63,10 @@ export class Pool {
       console.warn('End of cursor - No more objects to fetch.');
     }
     this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
-    this._gasCoins = Pool.extractCoins(ownedObjectsBatch.value);
+    this._gasCoins = new Map([
+      ...this._gasCoins,
+      ...Pool.extractCoins(ownedObjectsBatch.value),
+    ]);
     console.log('Fetch complete!');
     return true;
   }
@@ -126,10 +129,15 @@ export class Pool {
     }
     // Split the pool's objects into a new pool
     let objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    let gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
     do {
       objectsToGiveToNewPool = new Map([
         ...objectsToGiveToNewPool,
         ...this.splitObjects(splitStrategy),
+      ]);
+      gasCoinsToGiveToNewPool = new Map([
+        ...gasCoinsToGiveToNewPool,
+        ...Pool.extractCoins(objectsToGiveToNewPool),
       ]);
       if (splitStrategy.succeeded()) {
         break;
@@ -139,12 +147,11 @@ export class Pool {
     if (!splitStrategy.succeeded()) {
       throw new Error('Pool split: The split strategy did not succeed.');
     }
-    const coinsToGiveToNewPool = Pool.extractCoins(objectsToGiveToNewPool);
 
     return new Pool(
       this._keypair,
       objectsToGiveToNewPool,
-      coinsToGiveToNewPool,
+      gasCoinsToGiveToNewPool,
       client,
     );
   }
