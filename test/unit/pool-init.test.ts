@@ -120,8 +120,10 @@ describe('✂️ Pool splitting', () => {
     ).toBeTruthy();
 
     expect(
-      pool2ObjectsBeforeMerge.every((o) => pool2.objects.has(o)),
+      pool2ObjectsBeforeMerge.every((o) => pool1.objects.has(o)),
     ).toBeTruthy();
+
+    expect(pool2.objects.size).toEqual(0);
   });
 
   it('checks that no pool contains the same objects after split', async () => {
