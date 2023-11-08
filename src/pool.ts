@@ -23,14 +23,17 @@ export class Pool {
   private readonly _objectGenerator: AsyncGenerator<PoolObjectsMap>;
   private _keypair: Keypair;
   private _objects: PoolObjectsMap;
+  private _gasCoins: PoolObjectsMap;
 
   private constructor(
     keypair: Keypair,
     objects: PoolObjectsMap,
+    gasCoins: PoolObjectsMap,
     client: SuiClient,
   ) {
     this._keypair = keypair;
     this._objects = objects;
+    this._gasCoins = gasCoins;
     this._cursor = null;
     this._objectGenerator = this.objectBatchGenerator({
       owner: this._keypair.toSuiAddress(),
@@ -40,7 +43,7 @@ export class Pool {
 
   static async full(input: { keypair: Keypair; client: SuiClient }) {
     const { keypair } = input;
-    const pool = new Pool(keypair, new Map(), input.client);
+    const pool = new Pool(keypair, new Map(), new Map(), input.client);
     await pool.fetchObjects(); // fetch an initial batch of objects
     return pool;
   }
@@ -60,6 +63,7 @@ export class Pool {
       console.warn('End of cursor - No more objects to fetch.');
     }
     this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
+    this._gasCoins = Pool.extractCoins(ownedObjectsBatch.value);
     console.log('Fetch complete!');
     return true;
   }
@@ -135,7 +139,14 @@ export class Pool {
     if (!splitStrategy.succeeded()) {
       throw new Error('Pool split: The split strategy did not succeed.');
     }
-    return new Pool(this._keypair, objectsToGiveToNewPool, client);
+    const coinsToGiveToNewPool = Pool.extractCoins(objectsToGiveToNewPool);
+
+    return new Pool(
+      this._keypair,
+      objectsToGiveToNewPool,
+      coinsToGiveToNewPool,
+      client,
+    );
   }
 
   /**
@@ -218,7 +229,7 @@ export class Pool {
     without interfering with one another, avoiding equivocation.
     */
     // Get the coins from the pool
-    const coinsArray = Array.from(this.getCoins().values());
+    const coinsArray = Array.from(this._gasCoins.values());
     const NoSuiCoinFound = coinsArray.length === 0;
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
@@ -326,12 +337,16 @@ export class Pool {
   get objects(): PoolObjectsMap {
     return this._objects;
   }
+
+  get gasCoins(): PoolObjectsMap {
+    return this._gasCoins;
+  }
   public deleteObjects() {
     this._objects.clear();
   }
-  public getCoins(ofType = 'SUI') {
+  static extractCoins(fromObjects: PoolObjectsMap, ofType = 'SUI') {
     const coinsMap: PoolObjectsMap = new Map();
-    for (const [key, value] of this._objects) {
+    for (const [key, value] of fromObjects) {
       if (isCoin(value.type, ofType)) {
         coinsMap.set(key, value);
       }

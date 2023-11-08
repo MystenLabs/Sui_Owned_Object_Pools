@@ -121,8 +121,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     transfer it to yourself (admin
     */
     const txb = mintNFTTxb();
-    const mainPoolCoinsBeforeTxbExecution = new Map(mainPool.getCoins());
-    const poolTwoCoinsBeforeTxbExecution = new Map(poolTwo.getCoins());
+    const mainPoolCoinsBeforeTxbExecution = new Map(mainPool.gasCoins);
+    const poolTwoCoinsBeforeTxbExecution = new Map(poolTwo.gasCoins);
     const res = await poolTwo.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
@@ -137,11 +137,11 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
     // Assert that the poolOne's coins were used for gas
     expect(
-      compareMaps(mainPoolCoinsBeforeTxbExecution, mainPool.getCoins()),
+      compareMaps(mainPoolCoinsBeforeTxbExecution, mainPool.gasCoins),
     ).toBeTruthy();
     // Assert that the poolTwo's coins were used for gas
     expect(
-      compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.getCoins()),
+      compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.gasCoins),
     ).toBeFalsy();
   });
 });
