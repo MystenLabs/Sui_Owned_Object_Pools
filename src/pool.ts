@@ -193,6 +193,7 @@ export class Pool {
    */
   public merge(poolToMerge: Pool) {
     this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    poolToMerge.deleteObjects();
   }
 
   async signAndExecuteTransactionBlock(input: {
@@ -324,6 +325,9 @@ export class Pool {
 
   get objects(): PoolObjectsMap {
     return this._objects;
+  }
+  public deleteObjects() {
+    this._objects.clear();
   }
   public getCoins(ofType = 'SUI') {
     const coinsMap: PoolObjectsMap = new Map();
