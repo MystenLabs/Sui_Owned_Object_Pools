@@ -6,13 +6,16 @@ import {
   SuiClient,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js/client';
-import { Keypair } from '@mysten/sui.js/cryptography';
-import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
-import { SuiObjectResponse } from '@mysten/sui.js/src/types/objects';
+import {
+  PaginatedObjectsResponse,
+  SuiObjectRef,
+  SuiObjectResponse,
+} from '@mysten/sui.js/client';
 import {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui.js/src/types/transactions';
+} from '@mysten/sui.js/client';
+import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin, isImmutable } from './helpers';
@@ -62,11 +65,12 @@ export class Pool {
     if (ownedObjectsBatch.done) {
       console.warn('End of cursor - No more objects to fetch.');
     }
-    this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
-    this._gasCoins = new Map([
-      ...this._gasCoins,
-      ...Pool.extractCoins(ownedObjectsBatch.value),
-    ]);
+    ownedObjectsBatch.value.forEach((value: PoolObject, key: string) => {
+      this._objects.set(key, value);
+    });
+    Pool.extractCoins(ownedObjectsBatch.value).forEach((value, key) => {
+      this._gasCoins.set(key, value);
+    });
     console.log('Fetch complete!');
     return true;
   }
@@ -128,17 +132,15 @@ export class Pool {
       }
     }
     // Split the pool's objects into a new pool
-    let objectsToGiveToNewPool: PoolObjectsMap = new Map();
-    let gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
+    const objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    const gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
     do {
-      objectsToGiveToNewPool = new Map([
-        ...objectsToGiveToNewPool,
-        ...this.splitObjects(splitStrategy),
-      ]);
-      gasCoinsToGiveToNewPool = new Map([
-        ...gasCoinsToGiveToNewPool,
-        ...Pool.extractCoins(objectsToGiveToNewPool),
-      ]);
+      this.splitObjects(splitStrategy).forEach((value, key) => {
+        objectsToGiveToNewPool.set(key, value);
+      });
+      Pool.extractCoins(objectsToGiveToNewPool).forEach((value, key) => {
+        gasCoinsToGiveToNewPool.set(key, value);
+      });
       if (splitStrategy.succeeded()) {
         break;
       }
@@ -210,7 +212,9 @@ export class Pool {
   Merges the current pool with another pool.
    */
   public merge(poolToMerge: Pool) {
-    this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    poolToMerge.objects.forEach((value, key) => {
+      this._objects.set(key, value);
+    });
     poolToMerge.deleteObjects();
   }
 
@@ -241,12 +245,8 @@ export class Pool {
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
-    // Cast CoinStructs to SuiObjectRefs to use them as params in txb.setGasPayment(...)
-    const objectRefCoins: PoolObject[] = coinsArray.map((coin) => {
-      return coin;
-    });
     // Finally set the gas payment to be done by the selected coins
-    transactionBlock.setGasPayment(objectRefCoins);
+    transactionBlock.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
@@ -270,18 +270,21 @@ export class Pool {
     const created = res.effects?.created;
     const unwrapped = res.effects?.unwrapped;
     const mutated = res.effects?.mutated;
+    const wrapped = res.effects?.wrapped;
+    const deleted = res.effects?.deleted;
 
     // (4). Update the pool's objects and coins
-    await this.updatePool(created);
-    await this.updatePool(unwrapped);
-    await this.updatePool(mutated);
-
+    this.updatePool(created);
+    this.updatePool(unwrapped);
+    this.updatePool(mutated);
+    this.removeFromPool(wrapped);
+    this.removeFromPool(deleted);
     return res;
   }
 
-  private async updatePool(newRefs: OwnedObjectRef[] | undefined) {
+  private updatePool(newRefs: OwnedObjectRef[] | undefined) {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
-    if (!newRefs) return; // maybe unnecessary line
+    if (!newRefs) return;
     for (const ref in newRefs) {
       const objectOwner = (newRefs[ref].owner as { AddressOwner: string })
         .AddressOwner;
@@ -295,6 +298,14 @@ export class Pool {
         type: this._objects.get(objectId)?.type ?? '',
       };
       this._objects.set(objectId, toUpdate as PoolObject);
+    }
+  }
+
+  private removeFromPool(newRefs: SuiObjectRef[] | undefined) {
+    if (!newRefs) return;
+    for (const ref of newRefs) {
+      const objectId = ref.objectId;
+      this._objects.delete(objectId);
     }
   }
 

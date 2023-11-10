@@ -1,9 +1,8 @@
 import { SuiClient } from '@mysten/sui.js/client';
-import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
-import { Keypair } from '@mysten/sui.js/src/cryptography';
+import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { getEnvironmentVariables } from './helpers';
 import { Pool, SplitStrategy } from './pool';
 
 type WorkerPool = {
@@ -14,22 +13,19 @@ type WorkerPool = {
 export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workers: WorkerPool[] = [];
-  private readonly _getWorkerTimeoutMs: number = 1000;
-  private constructor(mainPool: Pool, pathToEnv?: string) {
-    if (pathToEnv) {
-      this._getWorkerTimeoutMs =
-        getEnvironmentVariables(pathToEnv).GET_WORKER_TIMEOUT_MS;
-    } else {
-      this._getWorkerTimeoutMs =
-        getEnvironmentVariables().GET_WORKER_TIMEOUT_MS;
-    }
+  private readonly _getWorkerTimeoutMs: number;
+  private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
     this._mainPool = mainPool;
+    this._getWorkerTimeoutMs = getWorkerTimeoutMs;
   }
 
-  public static async initialize(keypair: Keypair, client: SuiClient) {
-    return Pool.full({ keypair: keypair, client }).then((pool) => {
-      return new ExecutorServiceHandler(pool);
-    });
+  public static async initialize(
+    keypair: Keypair,
+    client: SuiClient,
+    getWorkerTimeoutMs = 1000,
+  ) {
+    const pool = await Pool.full({ keypair: keypair, client });
+    return new ExecutorServiceHandler(pool, getWorkerTimeoutMs);
   }
 
   public async execute(
@@ -39,7 +35,7 @@ export class ExecutorServiceHandler {
     retries = 3,
   ) {
     let res;
-    do {
+    while (--retries > 0) {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
@@ -50,7 +46,7 @@ export class ExecutorServiceHandler {
       if (res) {
         return res;
       }
-    } while (retries-- > 0);
+    }
     throw new Error(
       'Internal server error - All retries failed: Could not execute the transaction block',
     );
