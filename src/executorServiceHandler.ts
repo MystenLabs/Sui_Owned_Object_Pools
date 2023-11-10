@@ -140,13 +140,12 @@ export class ExecutorServiceHandler {
     }
   }
 
-
   /**
    * Returns an available worker from the workers array, or undefined if none are available within the timeout period.
    * @returns {WorkerPool | undefined} - An available worker from the workers array,
    * or undefined if none are available within the timeout period.
    */
-  private getAWorker(): WorkerPool | undefined {
+  private async getAWorker(): Promise<WorkerPool | undefined> {
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
