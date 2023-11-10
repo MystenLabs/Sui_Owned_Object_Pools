@@ -241,12 +241,8 @@ export class Pool {
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
-    // Cast CoinStructs to SuiObjectRefs to use them as params in txb.setGasPayment(...)
-    const objectRefCoins: PoolObject[] = coinsArray.map((coin) => {
-      return coin;
-    });
     // Finally set the gas payment to be done by the selected coins
-    transactionBlock.setGasPayment(objectRefCoins);
+    transactionBlock.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
