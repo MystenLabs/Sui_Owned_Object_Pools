@@ -14,21 +14,19 @@ type WorkerPool = {
 export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workers: WorkerPool[] = [];
-  private readonly _getWorkerTimeoutMs: number = 1000;
-  private constructor(mainPool: Pool, pathToEnv?: string) {
-    if (pathToEnv) {
-      this._getWorkerTimeoutMs =
-        getEnvironmentVariables(pathToEnv).GET_WORKER_TIMEOUT_MS;
-    } else {
-      this._getWorkerTimeoutMs =
-        getEnvironmentVariables().GET_WORKER_TIMEOUT_MS;
-    }
+  private readonly _getWorkerTimeoutMs: number;
+  private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
     this._mainPool = mainPool;
+    this._getWorkerTimeoutMs = getWorkerTimeoutMs;
   }
 
-  public static async initialize(keypair: Keypair, client: SuiClient) {
+  public static async initialize(
+    keypair: Keypair,
+    client: SuiClient,
+    getWorkerTimeoutMs = 1000,
+  ) {
     const pool = await Pool.full({ keypair: keypair, client });
-    return new ExecutorServiceHandler(pool);
+    return new ExecutorServiceHandler(pool, getWorkerTimeoutMs);
   }
 
   public async execute(

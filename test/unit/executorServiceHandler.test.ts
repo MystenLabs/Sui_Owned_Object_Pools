@@ -68,6 +68,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     const eshandler = await ExecutorServiceHandler.initialize(
       adminKeypair,
       client,
+      env.GET_WORKER_TIMEOUT_MS,
     );
 
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
