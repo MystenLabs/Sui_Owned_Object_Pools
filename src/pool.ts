@@ -8,7 +8,10 @@ import {
 } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
-import { SuiObjectResponse } from '@mysten/sui.js/src/types/objects';
+import {
+  SuiObjectRef,
+  SuiObjectResponse,
+} from '@mysten/sui.js/src/types/objects';
 import {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
@@ -266,18 +269,21 @@ export class Pool {
     const created = res.effects?.created;
     const unwrapped = res.effects?.unwrapped;
     const mutated = res.effects?.mutated;
+    const wrapped = res.effects?.wrapped;
+    const deleted = res.effects?.deleted;
 
     // (4). Update the pool's objects and coins
-    await this.updatePool(created);
-    await this.updatePool(unwrapped);
-    await this.updatePool(mutated);
-
+    this.updatePool(created);
+    this.updatePool(unwrapped);
+    this.updatePool(mutated);
+    this.removeFromPool(wrapped);
+    this.removeFromPool(deleted);
     return res;
   }
 
-  private async updatePool(newRefs: OwnedObjectRef[] | undefined) {
+  private updatePool(newRefs: OwnedObjectRef[] | undefined) {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
-    if (!newRefs) return; // maybe unnecessary line
+    if (!newRefs) return;
     for (const ref in newRefs) {
       const objectOwner = (newRefs[ref].owner as { AddressOwner: string })
         .AddressOwner;
@@ -291,6 +297,14 @@ export class Pool {
         type: this._objects.get(objectId)?.type ?? '',
       };
       this._objects.set(objectId, toUpdate as PoolObject);
+    }
+  }
+
+  private removeFromPool(newRefs: SuiObjectRef[] | undefined) {
+    if (!newRefs) return;
+    for (const ref of newRefs) {
+      const objectId = ref.objectId;
+      this._objects.delete(objectId);
     }
   }
 
