@@ -6,16 +6,16 @@ import {
   SuiClient,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js/client';
-import { Keypair } from '@mysten/sui.js/cryptography';
-import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
 import {
+  PaginatedObjectsResponse,
   SuiObjectRef,
   SuiObjectResponse,
-} from '@mysten/sui.js/src/types/objects';
+} from '@mysten/sui.js/client';
 import {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui.js/src/types/transactions';
+} from '@mysten/sui.js/client';
+import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin, isImmutable } from './helpers';

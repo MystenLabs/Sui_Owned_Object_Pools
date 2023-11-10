@@ -1,9 +1,6 @@
 import { SuiClient } from '@mysten/sui.js/client';
+import { SuiObjectRef, SuiObjectResponse } from '@mysten/sui.js/client/';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import {
-  SuiObjectRef,
-  SuiObjectResponse,
-} from '@mysten/sui.js/src/client/types/generated';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { fromB64 } from '@mysten/sui.js/utils';
 import dotenv from 'dotenv';

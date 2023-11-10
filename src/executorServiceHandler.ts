@@ -1,6 +1,6 @@
 import { SuiClient } from '@mysten/sui.js/client';
-import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
-import { Keypair } from '@mysten/sui.js/src/cryptography';
+import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Pool, SplitStrategy } from './pool';
