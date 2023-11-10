@@ -27,9 +27,8 @@ export class ExecutorServiceHandler {
   }
 
   public static async initialize(keypair: Keypair, client: SuiClient) {
-    return Pool.full({ keypair: keypair, client }).then((pool) => {
-      return new ExecutorServiceHandler(pool);
-    });
+    const pool = await Pool.full({ keypair: keypair, client });
+    return new ExecutorServiceHandler(pool);
   }
 
   public async execute(
