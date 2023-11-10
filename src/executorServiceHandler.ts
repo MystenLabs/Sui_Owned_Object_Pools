@@ -3,7 +3,6 @@ import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { getEnvironmentVariables } from './helpers';
 import { Pool, SplitStrategy } from './pool';
 
 type WorkerPool = {
