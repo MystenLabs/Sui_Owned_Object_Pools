@@ -351,15 +351,15 @@ export class Pool {
   public deleteObjects() {
     this._objects.clear();
   }
-  static extractCoins(fromObjects: PoolObjectsMap, ofType = 'SUI') {
+  static extractCoins(fromObjects: PoolObjectsMap) {
     const coinsMap: PoolObjectsMap = new Map();
     for (const [key, value] of fromObjects) {
-      if (isCoin(value.type, ofType)) {
+      if (isCoin(value.type)) {
         coinsMap.set(key, value);
       }
     }
     if (!coinsMap) {
-      throw new Error(`No ${ofType} coins in the pool.`);
+      throw new Error('No gas coins in the pool.');
     }
     return coinsMap;
   }
@@ -406,7 +406,7 @@ class DefaultSplitStrategy implements SplitStrategy {
     if (this.objectsToMove <= 0 && this.coinsToMove <= 0) {
       return null;
     }
-    if (isCoin(obj.type, 'SUI')) {
+    if (isCoin(obj.type)) {
       return this.coinsToMove-- > 0;
     } else {
       return this.objectsToMove-- > 0;
@@ -447,9 +447,9 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     if (terminateWhen) {
       return null;
     }
-    if (isCoin(obj.type, 'SUI') && this.coinsToMove > 0) {
+    if (isCoin(obj.type) && this.coinsToMove > 0) {
       return this.coinsToMove-- > 0;
-    } else if (!isCoin(obj.type, 'SUI') && this.objectsToMove > 0) {
+    } else if (!isCoin(obj.type) && this.objectsToMove > 0) {
       return this.objectsToMove-- > 0;
     } else {
       return false;
