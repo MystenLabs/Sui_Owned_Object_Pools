@@ -2,6 +2,8 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { SuiTransactionBlockResponse } from '@mysten/sui.js/src/client';
 import { Keypair } from '@mysten/sui.js/src/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { firstValueFrom, from, interval } from 'rxjs';
+import { filter, map, take } from 'rxjs/operators';
 
 import { getEnvironmentVariables } from './helpers';
 import { Pool, SplitStrategy } from './pool';
@@ -61,12 +63,17 @@ export class ExecutorServiceHandler {
     client: SuiClient,
     splitStrategy?: SplitStrategy,
   ) {
-    const worker: WorkerPool | undefined = this.getAWorker();
+    let worker: WorkerPool | undefined;
+    try {
+      worker = await this.getAWorker();
+    } catch (e) {
+      worker = undefined;
+    }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
       await this.addWorker(client, splitStrategy);
       return;
-    } else {
+    } else if (worker) {
       // An available worker is found! Assign to it the task of executing the txb.
       worker.status = 'busy'; // Worker is now busy
       let result: SuiTransactionBlockResponse;
@@ -96,26 +103,18 @@ export class ExecutorServiceHandler {
   Get an available worker from the workers array.
   If an available worker is not found in the time span of TIMEOUT_MS, return undefined.
   */
-  private getAWorker(): WorkerPool | undefined {
+  private async getAWorker(): Promise<WorkerPool | undefined> {
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
-    while (new Date().getTime() - startTime < timeoutMs) {
-      const result = this._workers.find(
-        (worker: WorkerPool) => worker.status === 'available',
-      );
-      if (result) {
-        console.log('Available worker found!');
-        return result;
-      }
-    }
-    if (new Date().getTime() - startTime >= timeoutMs) {
-      const numBusyWorkers = this._workers.filter(
-        (worker: WorkerPool) => worker.status === 'busy',
-      ).length;
-      console.log(
-        `Timeout reached - no available worker found - ${numBusyWorkers} busy workers`,
-      );
-    }
+
+    const observable = from(interval(100)).pipe(
+      map(() => this._workers.find((worker) => worker.status === 'available')),
+      filter(
+        (result) => !!result || new Date().getTime() - startTime >= timeoutMs,
+      ),
+      take(1),
+    );
+    return firstValueFrom(observable);
   }
 
   /*
