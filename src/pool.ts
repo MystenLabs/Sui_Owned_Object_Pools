@@ -65,11 +65,12 @@ export class Pool {
     if (ownedObjectsBatch.done) {
       console.warn('End of cursor - No more objects to fetch.');
     }
-    this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
-    this._gasCoins = new Map([
-      ...this._gasCoins,
-      ...Pool.extractCoins(ownedObjectsBatch.value),
-    ]);
+    ownedObjectsBatch.value.forEach((value: PoolObject, key: string) => {
+      this._objects.set(key, value);
+    });
+    Pool.extractCoins(ownedObjectsBatch.value).forEach((value, key) => {
+      this._gasCoins.set(key, value);
+    });
     console.log('Fetch complete!');
     return true;
   }
@@ -131,17 +132,15 @@ export class Pool {
       }
     }
     // Split the pool's objects into a new pool
-    let objectsToGiveToNewPool: PoolObjectsMap = new Map();
-    let gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
+    const objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    const gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
     do {
-      objectsToGiveToNewPool = new Map([
-        ...objectsToGiveToNewPool,
-        ...this.splitObjects(splitStrategy),
-      ]);
-      gasCoinsToGiveToNewPool = new Map([
-        ...gasCoinsToGiveToNewPool,
-        ...Pool.extractCoins(objectsToGiveToNewPool),
-      ]);
+      this.splitObjects(splitStrategy).forEach((value, key) => {
+        objectsToGiveToNewPool.set(key, value);
+      });
+      Pool.extractCoins(objectsToGiveToNewPool).forEach((value, key) => {
+        gasCoinsToGiveToNewPool.set(key, value);
+      });
       if (splitStrategy.succeeded()) {
         break;
       }
@@ -213,7 +212,9 @@ export class Pool {
   Merges the current pool with another pool.
    */
   public merge(poolToMerge: Pool) {
-    this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    poolToMerge.objects.forEach((value, key) => {
+      this._objects.set(key, value);
+    });
     poolToMerge.deleteObjects();
   }
 
