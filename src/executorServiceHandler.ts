@@ -38,7 +38,7 @@ export class ExecutorServiceHandler {
     retries = 3,
   ) {
     let res;
-    do {
+    while (--retries > 0) {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
@@ -49,7 +49,7 @@ export class ExecutorServiceHandler {
       if (res) {
         return res;
       }
-    } while (retries-- > 0);
+    }
     throw new Error(
       'Internal server error - All retries failed: Could not execute the transaction block',
     );
