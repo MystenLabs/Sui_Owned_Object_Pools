@@ -66,14 +66,11 @@ export async function isImmutable(objectId: string, client: SuiClient) {
   return objectOwner == 'Immutable';
 }
 
-export function isCoin(objectType: string, ofType: string) {
-  const symbolRegExp = /^(\w+)::coin::Coin<\w+::\w+::(\w+)>$/;
-  const matchAndGroups = objectType.match(symbolRegExp);
-  if (!matchAndGroups || matchAndGroups.length < 2) {
-    return false;
-  }
-  const coinSymbol = matchAndGroups[2];
-  return coinSymbol === ofType;
+export function isCoin(
+  objectType: string,
+  ofType = '0x2::coin::Coin<0x2::sui::SUI>',
+) {
+  return objectType === ofType;
 }
 
 function checkForMissingEnvVariables(
@@ -158,7 +155,7 @@ export class SetupTestsHelper {
         cursor,
       });
       resp?.data.forEach((object) => {
-        if (isCoin(object?.data?.type ?? '', 'SUI')) {
+        if (isCoin(object?.data?.type ?? '')) {
           this.suiCoins.push(object);
         } else {
           this.objects.push(object);
