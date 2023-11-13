@@ -9,6 +9,7 @@ import {
   SetupTestsHelper,
   sleep,
 } from '../../src/helpers';
+import { LoggingLevel } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -27,7 +28,10 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
   it('parses coins from owned objects', async () => {
-    const pool = await Pool.full({ client, keypair: adminKeypair });
+    const pool = await Pool.full(
+      { client, keypair: adminKeypair },
+      LoggingLevel.debug,
+    );
     const coinsFromClient = new Map();
     let coins_resp;
     let cursor = null;

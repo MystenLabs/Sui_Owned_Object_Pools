@@ -19,6 +19,7 @@ import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin, isImmutable } from './helpers';
+import { LoggingLevel, setupLogger } from './logger';
 import { PoolObject, PoolObjectsMap } from './types';
 
 /**
@@ -32,12 +33,14 @@ export class Pool {
   private _keypair: Keypair;
   private _objects: PoolObjectsMap;
   private _gasCoins: PoolObjectsMap;
+  private _logger;
 
   private constructor(
     keypair: Keypair,
     objects: PoolObjectsMap,
     gasCoins: PoolObjectsMap,
     client: SuiClient,
+    loggingLevel?: LoggingLevel,
   ) {
     this._keypair = keypair;
     this._objects = objects;
@@ -47,6 +50,7 @@ export class Pool {
       owner: this._keypair.toSuiAddress(),
       client: client,
     });
+    this._logger = setupLogger(loggingLevel);
   }
 
   /**
@@ -55,9 +59,18 @@ export class Pool {
    * @param input - An object containing the keypair and client to use.
    * @returns A Promise that resolves with the newly created Pool instance.
    */
-  static async full(input: { keypair: Keypair; client: SuiClient }) {
+  static async full(
+    input: { keypair: Keypair; client: SuiClient },
+    loggingLevel?: LoggingLevel,
+  ) {
     const { keypair } = input;
-    const pool = new Pool(keypair, new Map(), new Map(), input.client);
+    const pool = new Pool(
+      keypair,
+      new Map(),
+      new Map(),
+      input.client,
+      loggingLevel,
+    );
     await pool.fetchObjects(); // fetch an initial batch of objects
     return pool;
   }
@@ -68,14 +81,13 @@ export class Pool {
    * @returns A boolean indicating whether the fetch was successful or not.
    */
   private async fetchObjects() {
-    console.log('Fetching objects...');
     const ownedObjectsBatch = await this._objectGenerator.next();
     if (!ownedObjectsBatch.done && !ownedObjectsBatch.value) {
-      console.log('Fetch failed!');
+      this._logger.error('Did not fetch any objects!');
       return false;
     }
     if (ownedObjectsBatch.done) {
-      console.warn('End of cursor - No more objects to fetch.');
+      this._logger.warn('End of cursor - No more objects to fetch.');
     }
     ownedObjectsBatch.value.forEach((value: PoolObject, key: string) => {
       this._objects.set(key, value);
@@ -83,7 +95,7 @@ export class Pool {
     Pool.extractCoins(ownedObjectsBatch.value).forEach((value, key) => {
       this._gasCoins.set(key, value);
     });
-    console.log('Fetch complete!');
+    this._logger.debug(`Fetched ${ownedObjectsBatch.value.size} objects.`);
     return true;
   }
 
@@ -146,6 +158,7 @@ export class Pool {
     client: SuiClient,
     splitStrategy: SplitStrategy = new DefaultSplitStrategy(),
   ) {
+    this._logger.debug(`Splitting pool with ${this._objects.size} objects.`);
     let fetchSuccess;
     if (this._objects.size === 0) {
       fetchSuccess = await this.fetchObjects();
@@ -171,13 +184,16 @@ export class Pool {
     if (!splitStrategy.succeeded()) {
       throw new Error('Pool split: The split strategy did not succeed.');
     }
-
-    return new Pool(
+    const newPool = new Pool(
       this._keypair,
       objectsToGiveToNewPool,
       gasCoinsToGiveToNewPool,
       client,
     );
+    this._logger.info(
+      `Split completed: main pool = ${this._objects.size} objects, new pool = ${newPool._objects.size} objects`,
+    );
+    return newPool;
   }
 
   /**
@@ -237,6 +253,9 @@ export class Pool {
    * @param poolToMerge The pool whose objects will be merged to this pool.
    */
   public merge(poolToMerge: Pool) {
+    this._logger.debug(
+      `Merging this pool of ${this._objects.size} with pool of ${poolToMerge._objects.size} objects.`,
+    );
     poolToMerge.objects.forEach((value, key) => {
       this._objects.set(key, value);
     });
@@ -257,9 +276,11 @@ export class Pool {
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
+    this._logger.debug('Pool sign and execute flow...');
     const { transactionBlock, options, requestType } = input;
 
     // (1). Check object ownership
+    this._logger.debug('Checking object ownership...');
     transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
     if (!(await this.checkTotalOwnership(transactionBlock, input.client))) {
       throw new Error(
@@ -272,9 +293,9 @@ export class Pool {
     When each pool uses only its own coins, transaction blocks can be executed
     without interfering with one another, avoiding equivocation.
     */
-    // Get the coins from the pool
     const coinsArray = Array.from(this._gasCoins.values());
     const NoSuiCoinFound = coinsArray.length === 0;
+    this._logger.debug(`Coins used as gas payment: ${coinsArray}`);
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
@@ -285,6 +306,7 @@ export class Pool {
     (2.5). Dry run the transaction block to ensure that Pool has enough
      resources to run the transaction and also to get required budget
      */
+    this._logger.debug('Dry running the transaction block...');
     const dryRunRes = await input.client.dryRunTransactionBlock({
       transactionBlock: await transactionBlock.build({ client: input.client }),
     });
@@ -305,8 +327,14 @@ export class Pool {
     const mutated = res.effects?.mutated;
     const wrapped = res.effects?.wrapped;
     const deleted = res.effects?.deleted;
+    this._logger.debug(`Created: ${created}`);
+    this._logger.debug(`Unwrapped: ${unwrapped}`);
+    this._logger.debug(`Mutated: ${mutated}`);
+    this._logger.debug(`Wrapped: ${wrapped}`);
+    this._logger.debug(`Deleted: ${deleted}`);
 
     // (4). Update the pool's objects and coins
+    this._logger.debug('Updating pool...');
     this.updatePool(created);
     this.updatePool(unwrapped);
     this.updatePool(mutated);
@@ -484,12 +512,6 @@ class DefaultSplitStrategy implements SplitStrategy {
   }
   public succeeded() {
     const check = this.coinsToMove <= 0 && this.objectsToMove <= 0;
-    if (!check) {
-      console.log(
-        `Unsuccessful DefaultSplitStrategy: \
-        coinsToMove=${this.coinsToMove} objectsToMove=${this.objectsToMove}.`,
-      );
-    }
     return check;
   }
 }
@@ -533,11 +555,6 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
   public succeeded() {
     const check =
       this.objectsToMove <= 0 && this.coinsToMove <= 0 && this.adminCapIncluded;
-    if (!check) {
-      console.log(`Unsuccessful IncludeAdminCapStrategy: \
-        coinsToMove=${this.coinsToMove} objectsToMove=${this.objectsToMove} \
-        adminCapIncluded=${this.adminCapIncluded}.`);
-    }
     return check;
   }
 }

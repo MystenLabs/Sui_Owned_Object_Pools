@@ -8,6 +8,7 @@ import {
   SetupTestsHelper,
   sleep,
 } from '../../src/helpers';
+import { LoggingLevel } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -26,10 +27,13 @@ describe('Pool creation with factory', () => {
   /// WARNING this test might fail if the account
   /// has no coins or objects (NFTs).
   it('creates a pool correctly', async () => {
-    const pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
 
     expect(pool.objects.size).toBeGreaterThan(0);
   });
@@ -46,10 +50,13 @@ describe('✂️ Pool splitting', () => {
   });
 
   it('splits a pool not moving anything to new pool using always-false predicate', async () => {
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const initial_pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       pred: (_: SuiObjectRef | undefined) => false,
@@ -64,10 +71,13 @@ describe('✂️ Pool splitting', () => {
   });
 
   it('splits a pool not moving anything to the new pool by using always-null predicate', async () => {
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const initial_pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       pred: (_: SuiObjectRef | undefined) => null,
@@ -83,10 +93,13 @@ describe('✂️ Pool splitting', () => {
 
   it('splits a pool using the default predicate', async () => {
     // Create a pool
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const initial_pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
 
     const num_objects_before_split = initial_pool.objects.size;
     const new_pool: Pool = await initial_pool.split(client);
@@ -103,10 +116,13 @@ describe('✂️ Pool splitting', () => {
 
   it('merges two pools', async () => {
     // Create the pool
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const initial_pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
     const pool1: Pool = await initial_pool.split(client);
     const pool1ObjectsBeforeMerge = Array.from(pool1.objects.keys());
 
@@ -127,10 +143,13 @@ describe('✂️ Pool splitting', () => {
   });
 
   it('checks that no pool contains the same objects after split', async () => {
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
+    const initial_pool: Pool = await Pool.full(
+      {
+        keypair: adminKeypair,
+        client: client,
+      },
+      LoggingLevel.debug,
+    );
     const NUMBER_OF_NEW_POOLS = 4;
     let newPool: Pool;
     const keysSet = new Set<string>();

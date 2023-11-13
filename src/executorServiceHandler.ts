@@ -8,6 +8,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { firstValueFrom, from, interval } from 'rxjs';
 import { filter, map, take } from 'rxjs/operators';
 
+import { LoggingLevel, setupLogger } from './logger';
 import { Pool, SplitStrategy } from './pool';
 
 /**
@@ -21,9 +22,15 @@ export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workersQueue: Pool[] = [];
   private readonly _getWorkerTimeoutMs: number;
-  private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
+  private readonly _logger;
+  private constructor(
+    mainPool: Pool,
+    getWorkerTimeoutMs: number,
+    loggingLevel?: LoggingLevel,
+  ) {
     this._mainPool = mainPool;
     this._getWorkerTimeoutMs = getWorkerTimeoutMs;
+    this._logger = setupLogger(loggingLevel);
   }
 
   /**
@@ -32,12 +39,14 @@ export class ExecutorServiceHandler {
    * @param client - The SuiClient instance to use for communication with the Sui network.
    * @param getWorkerTimeoutMs - The maximum amount of milliseconds to listen for an available
    * worker from the workers array.
+   * @param loggingLevel - (Optional) The logging level to use for the logger.
    * @returns A new ExecutorServiceHandler instance.
    */
   public static async initialize(
     keypair: Keypair,
     client: SuiClient,
     getWorkerTimeoutMs = 10000,
+    loggingLevel?: string,
   ) {
     const pool = await Pool.full({ keypair: keypair, client });
     return new ExecutorServiceHandler(pool, getWorkerTimeoutMs);
@@ -69,14 +78,16 @@ export class ExecutorServiceHandler {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
-        console.log('Error executing transaction block');
-        console.log(e);
+        this._logger.error(`Error executing transaction block: ${e}`);
         continue;
       }
       if (res) {
+        this._logger.info(
+          `Transaction block execution completed: ${JSON.stringify(res)}`,
+        );
         return res;
       }
-      console.log(`${retries} retries left...`);
+      this._logger.debug(`Could not execute flow! ${retries} retries left...`);
     } while (--retries > 0);
     throw new Error(
       'Internal server error - All retries failed: Could not execute the transaction block',
@@ -104,8 +115,8 @@ export class ExecutorServiceHandler {
     }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
+      this._logger.debug('Could not find an available worker.');
       await this.addWorker(client, splitStrategy);
-      console.log('No worker available. Added a new worker pool.');
       return;
     } else if (worker) {
       let result: SuiTransactionBlockResponse;
@@ -115,18 +126,21 @@ export class ExecutorServiceHandler {
           client: client,
         });
       } catch (e) {
-        console.error(`Error executing transaction block: ${e}`);
+        this._logger.error(`Error executing transaction block: ${e}`);
         this.removeWorker(worker);
         return;
       }
 
       if (result.effects && result.effects.status.status === 'failure') {
+        this._logger.error(
+          'Error executing transaction block: result status is "failure"',
+        );
         this.removeWorker(worker);
-        console.log('Transaction block execution status: "failed"!');
         return;
       }
-
-      console.log('Transaction block execution completed!');
+      this._logger.debug(
+        'Transaction block execution completed! Pushing worker back to the queue...',
+      );
       // Execution finished, the worker is now available again.
       this._workersQueue.push(worker);
       return result;
@@ -139,6 +153,7 @@ export class ExecutorServiceHandler {
    * or undefined if none are available within the timeout period.
    */
   private async getAWorker(): Promise<Pool | undefined> {
+    this._logger.debug('Getting a worker...');
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
@@ -158,8 +173,9 @@ export class ExecutorServiceHandler {
    * @param splitStrategy - (Optional) The SplitStrategy to use for splitting the main pool and creating the new pool.
    */
   private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
-    console.log('Splitting main pool to add new worker Pool...');
+    this._logger.debug('Adding new worker to the queue...');
     const newPool = await this._mainPool.split(client, splitStrategy);
+    this._logger.debug(`New worker added to the queue: ${newPool}`);
     this._workersQueue.push(newPool);
   }
 
@@ -169,12 +185,16 @@ export class ExecutorServiceHandler {
    * @throws {Error} If the worker is not found in the list of workers.
    */
   private removeWorker(worker: Pool) {
+    this._logger.debug(`Removing worker from the queue: ${worker}`);
     const index = this._workersQueue.indexOf(worker);
     if (index > -1) {
       this._workersQueue.splice(index, 1);
       this._mainPool.merge(worker);
     } else {
-      throw new Error('Worker not found in workers array.');
+      this._logger.error(
+        `Worker not found in the workers queue: ${worker}\n Workers array: ${this._workersQueue}`,
+      );
+      throw new Error(`Worker not found in workers array: ${worker}`);
     }
   }
 }
