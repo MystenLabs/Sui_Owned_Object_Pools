@@ -41,7 +41,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       });
       cursor = coins_resp?.nextCursor;
     } while (coins_resp.hasNextPage);
-    const coinsFromOwnedObjects = pool.getCoins();
+    const coinsFromOwnedObjects = pool.gasCoins;
     expect(
       Array.from(coinsFromOwnedObjects.keys()).every((key) => {
         return coinsFromClient.has(key);
@@ -68,6 +68,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     const eshandler = await ExecutorServiceHandler.initialize(
       adminKeypair,
       client,
+      env.GET_WORKER_TIMEOUT_MS,
     );
 
     const promises: Promise<SuiTransactionBlockResponse>[] = [];

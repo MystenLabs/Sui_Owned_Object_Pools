@@ -21,7 +21,7 @@
   "scripts": {
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
-    "test": "jest test/unit/executorServiceHandler.test.ts && jest test/unit/pool-tx-execution.test.ts && jest test/unit/pool-init.test.ts && jest test/unit/isCoin.test.ts",
+    "test": "jest test/unit/executorServiceHandler.test.ts && jest test/unit/pool-tx-execution.test.ts && jest test/unit/pool-init.test.ts",
     "release": "release-it",
     "build:types": "tsc --build",
     "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",

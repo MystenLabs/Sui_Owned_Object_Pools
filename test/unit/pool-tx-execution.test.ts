@@ -1,9 +1,9 @@
 import { SuiClient } from '@mysten/sui.js/client';
+import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { IncludeAdminCapStrategy, Pool } from '../../src';
 import {
-  compareMaps,
   getEnvironmentVariables,
   getKeyPair,
   SetupTestsHelper,
@@ -15,6 +15,37 @@ const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
   url: env.SUI_NODE,
 });
+
+async function getAllCoinsFromClient(client: SuiClient, owner: string) {
+  const coinsFromClient = new Map();
+  let coins_resp;
+  let cursor = null;
+  do {
+    coins_resp = await client.getAllCoins({
+      owner,
+      cursor,
+    });
+    coins_resp.data.forEach((coin) => {
+      coinsFromClient.set(coin.coinObjectId, coin);
+    });
+    cursor = coins_resp?.nextCursor;
+  } while (coins_resp.hasNextPage);
+  return coinsFromClient;
+}
+function calculatePoolBalance(
+  pool: Pool,
+  allCoinsFromClient: Map<string, CoinStruct>,
+) {
+  let balance = 0;
+  pool.gasCoins.forEach((c) => {
+    const coin = allCoinsFromClient.get(c.objectId);
+    if (!coin) {
+      throw new Error("Could not find coin in client's account");
+    }
+    balance += parseInt(coin.balance) ?? 0;
+  });
+  return balance;
+}
 
 function mintNFTTxb() {
   const txb = new TransactionBlock();
@@ -120,9 +151,15 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     Create a nft object using the first pool and
     transfer it to yourself (admin
     */
+    const coinsFromClient = await getAllCoinsFromClient(
+      client,
+      adminKeypair.getPublicKey().toSuiAddress(),
+    );
+    const poolTwoBalanceBeforeTransaction = calculatePoolBalance(
+      poolTwo,
+      coinsFromClient,
+    );
     const txb = mintNFTTxb();
-    const mainPoolCoinsBeforeTxbExecution = new Map(mainPool.getCoins());
-    const poolTwoCoinsBeforeTxbExecution = new Map(poolTwo.getCoins());
     const res = await poolTwo.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
@@ -135,14 +172,27 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     });
     expect(res?.effects?.status.status).toEqual('success');
 
-    // Assert that the poolOne's coins were used for gas
-    expect(
-      compareMaps(mainPoolCoinsBeforeTxbExecution, mainPool.getCoins()),
-    ).toBeTruthy();
-    // Assert that the poolTwo's coins were used for gas
-    expect(
-      compareMaps(poolTwoCoinsBeforeTxbExecution, poolTwo.getCoins()),
-    ).toBeFalsy();
+    const coinFromClientAfterTransaction = await getAllCoinsFromClient(
+      client,
+      adminKeypair.getPublicKey().toSuiAddress(),
+    );
+    const poolTwoBalanceAfterTransaction = calculatePoolBalance(
+      poolTwo,
+      coinFromClientAfterTransaction,
+    );
+
+    const gasBill = {
+      computationCost: res?.effects?.gasUsed?.computationCost ?? 0,
+      storageCost: res?.effects?.gasUsed?.storageCost ?? 0,
+      storageRebate: res?.effects?.gasUsed?.storageRebate ?? 0,
+    };
+    const gasBillTotal =
+      parseInt(<string>gasBill.computationCost) +
+      parseInt(<string>gasBill.storageCost) -
+      parseInt(<string>gasBill.storageRebate);
+    const gasPayedByPool =
+      poolTwoBalanceBeforeTransaction - poolTwoBalanceAfterTransaction;
+    expect(gasPayedByPool).toEqual(gasBillTotal);
   });
 });
 

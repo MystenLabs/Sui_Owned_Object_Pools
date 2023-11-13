@@ -6,31 +6,42 @@ import {
   SuiClient,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js/client';
-import { Keypair } from '@mysten/sui.js/cryptography';
-import { PaginatedObjectsResponse } from '@mysten/sui.js/src/client/types';
-import { SuiObjectResponse } from '@mysten/sui.js/src/types/objects';
+import {
+  PaginatedObjectsResponse,
+  SuiObjectRef,
+  SuiObjectResponse,
+} from '@mysten/sui.js/client';
 import {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui.js/src/types/transactions';
+} from '@mysten/sui.js/client';
+import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin, isImmutable } from './helpers';
 import { PoolObject, PoolObjectsMap } from './types';
 
+/**
+ * A class representing a pool of Sui objects and gas coins.
+ * Multiple pools are used by ExecutorServiceHandler in order to
+ * execute transactions asynchronously.
+ */
 export class Pool {
   private _cursor: string | undefined | null;
   private readonly _objectGenerator: AsyncGenerator<PoolObjectsMap>;
   private _keypair: Keypair;
   private _objects: PoolObjectsMap;
+  private _gasCoins: PoolObjectsMap;
 
   private constructor(
     keypair: Keypair,
     objects: PoolObjectsMap,
+    gasCoins: PoolObjectsMap,
     client: SuiClient,
   ) {
     this._keypair = keypair;
     this._objects = objects;
+    this._gasCoins = gasCoins;
     this._cursor = null;
     this._objectGenerator = this.objectBatchGenerator({
       owner: this._keypair.toSuiAddress(),
@@ -38,16 +49,23 @@ export class Pool {
     });
   }
 
+  /**
+   * Creates a new Pool instance and fetches an initial batch of objects.
+   * The objects are fetched so that the pool is ready to be split.
+   * @param input - An object containing the keypair and client to use.
+   * @returns A Promise that resolves with the newly created Pool instance.
+   */
   static async full(input: { keypair: Keypair; client: SuiClient }) {
     const { keypair } = input;
-    const pool = new Pool(keypair, new Map(), input.client);
+    const pool = new Pool(keypair, new Map(), new Map(), input.client);
     await pool.fetchObjects(); // fetch an initial batch of objects
     return pool;
   }
 
-  /*
-  Fetches a batch of objects and adds them to the internal objects map.
-  Returns true if succeeded, false otherwise.
+  /**
+   * Fetches a batch of objects from the object generator and adds them to the pool.
+   * Also extracts any gas coins associated with the objects and adds them to the pool's gas coin collection.
+   * @returns A boolean indicating whether the fetch was successful or not.
    */
   private async fetchObjects() {
     console.log('Fetching objects...');
@@ -59,14 +77,25 @@ export class Pool {
     if (ownedObjectsBatch.done) {
       console.warn('End of cursor - No more objects to fetch.');
     }
-    this._objects = new Map([...this._objects, ...ownedObjectsBatch.value]);
+    ownedObjectsBatch.value.forEach((value: PoolObject, key: string) => {
+      this._objects.set(key, value);
+    });
+    Pool.extractCoins(ownedObjectsBatch.value).forEach((value, key) => {
+      this._gasCoins.set(key, value);
+    });
     console.log('Fetch complete!');
     return true;
   }
 
-  /*
-  Creates a generator that yields batches of objects owned by the pool's creator.
-  This is done so that we lazily load the objects, and not all at once.
+  /**
+   * Creates a generator that yields batches of objects owned by the pool's creator.
+   * @generator
+   * @async
+   * @param {Object} input - An object containing the owner and client parameters.
+   * @param {string} input.owner - The owner of the objects to retrieve.
+   * @param {SuiClient} input.client - The SuiClient instance to use for retrieving the objects.
+   * @yields {Map<string, ObjectReference>} A Map containing the object references for each batch of objects retrieved.
+   * @throws {Error} If an object's data is undefined.
    */
   public async *objectBatchGenerator(input: {
     owner: string;
@@ -104,8 +133,12 @@ export class Pool {
   }
 
   /**
-   * Split off a new Pool from this Pool using `pred_obj` to determine how
-   * the objects are split, and `pred_coins` to determine how the coins are.
+   * Lazily splits off a new Pool using the split strategy provided.
+   * By lazy, we mean that the objects are fetched by the blockchain only when needed.
+   * Initially we try to split the pool using the objects that are already in the pool.
+   * If the split strategy does not succeed/complete, then we fetch more objects and
+   * try to split split those as well. We repeat this process until the split strategy
+   * succeeds or we run out of objects to fetch.
    * @splitStrategy the strategy used to split the pool's objects and coins
    * @returns the new Pool with the objects and coins that were split off
    */
@@ -121,12 +154,15 @@ export class Pool {
       }
     }
     // Split the pool's objects into a new pool
-    let objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    const objectsToGiveToNewPool: PoolObjectsMap = new Map();
+    const gasCoinsToGiveToNewPool: PoolObjectsMap = new Map();
     do {
-      objectsToGiveToNewPool = new Map([
-        ...objectsToGiveToNewPool,
-        ...this.splitObjects(splitStrategy),
-      ]);
+      this.splitObjects(splitStrategy).forEach((value, key) => {
+        objectsToGiveToNewPool.set(key, value);
+      });
+      Pool.extractCoins(objectsToGiveToNewPool).forEach((value, key) => {
+        gasCoinsToGiveToNewPool.set(key, value);
+      });
       if (splitStrategy.succeeded()) {
         break;
       }
@@ -135,13 +171,21 @@ export class Pool {
     if (!splitStrategy.succeeded()) {
       throw new Error('Pool split: The split strategy did not succeed.');
     }
-    return new Pool(this._keypair, objectsToGiveToNewPool, client);
+
+    return new Pool(
+      this._keypair,
+      objectsToGiveToNewPool,
+      gasCoinsToGiveToNewPool,
+      client,
+    );
   }
 
   /**
-   * Splits off the pool's objects map into two new maps. One for the current pool
-   * (the ones with the objects to keep), and one for the new pool (the ones to give).
-   * @param splitStrategy determines how the split will be done
+   * Splits off the pool's objects map into two new maps.
+   * One for the current pool (the ones with the objects to keep),
+   * and one for the new pool (the ones to give).
+   * The split strategy determines in which map each object will be moved to.
+   * @param splitStrategy determines which objects will be moved to the new pool.
    * @returns the map of objects that will be assigned to the new pool
    */
   splitObjects(splitStrategy: SplitStrategy): PoolObjectsMap {
@@ -188,14 +232,25 @@ export class Pool {
     return objects_to_give;
   }
 
-  /*
-  Merges the current pool with another pool.
+  /**
+   * Merges the objects of poolToMerge to this pool.
+   * @param poolToMerge The pool whose objects will be merged to this pool.
    */
   public merge(poolToMerge: Pool) {
-    this._objects = new Map([...this._objects, ...poolToMerge.objects]);
+    poolToMerge.objects.forEach((value, key) => {
+      this._objects.set(key, value);
+    });
     poolToMerge.deleteObjects();
   }
 
+  /**
+   * Signs and executes a transaction block using the provided client and options.
+   * @param input An object containing the client, transaction block, options, and request type.
+   * @returns A promise that resolves to a SuiTransactionBlockResponse object.
+   * @throws An error if any of the objects in the transaction block are not owned by the pool's creator,
+   * or if there are no SUI coins in the pool to use as gas payment,
+   * or if the dry run of the transaction block fails.
+   */
   async signAndExecuteTransactionBlock(input: {
     client: SuiClient;
     transactionBlock: TransactionBlock;
@@ -218,17 +273,13 @@ export class Pool {
     without interfering with one another, avoiding equivocation.
     */
     // Get the coins from the pool
-    const coinsArray = Array.from(this.getCoins().values());
+    const coinsArray = Array.from(this._gasCoins.values());
     const NoSuiCoinFound = coinsArray.length === 0;
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
-    // Cast CoinStructs to SuiObjectRefs to use them as params in txb.setGasPayment(...)
-    const objectRefCoins: PoolObject[] = coinsArray.map((coin) => {
-      return coin;
-    });
     // Finally set the gas payment to be done by the selected coins
-    transactionBlock.setGasPayment(objectRefCoins);
+    transactionBlock.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
@@ -252,18 +303,26 @@ export class Pool {
     const created = res.effects?.created;
     const unwrapped = res.effects?.unwrapped;
     const mutated = res.effects?.mutated;
+    const wrapped = res.effects?.wrapped;
+    const deleted = res.effects?.deleted;
 
     // (4). Update the pool's objects and coins
-    await this.updatePool(created);
-    await this.updatePool(unwrapped);
-    await this.updatePool(mutated);
-
+    this.updatePool(created);
+    this.updatePool(unwrapped);
+    this.updatePool(mutated);
+    this.removeFromPool(wrapped);
+    this.removeFromPool(deleted);
     return res;
   }
 
-  private async updatePool(newRefs: OwnedObjectRef[] | undefined) {
+  /**
+   * After the transaction block execution, updates the pool with new references,
+   * if the owner of the reference is the same as the signer address.
+   * @param newRefs An array of OwnedObjectRef objects representing the new references to add to the pool.
+   */
+  private updatePool(newRefs: OwnedObjectRef[] | undefined) {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
-    if (!newRefs) return; // maybe unnecessary line
+    if (!newRefs) return;
     for (const ref in newRefs) {
       const objectOwner = (newRefs[ref].owner as { AddressOwner: string })
         .AddressOwner;
@@ -281,8 +340,23 @@ export class Pool {
   }
 
   /**
-   * Check that all objects in the transaction block
-   * are included in the pool.
+   * Removes the given object references from the pool.
+   * Called after a transaction block execution for wrapped or deleted objects.
+   * @param newRefs - The object references to remove from the pool.
+   */
+  private removeFromPool(newRefs: SuiObjectRef[] | undefined) {
+    if (!newRefs) return;
+    for (const ref of newRefs) {
+      const objectId = ref.objectId;
+      this._objects.delete(objectId);
+    }
+  }
+
+  /**
+   * Checks if all inputs in the transaction block are owned by the pool's creator or are immutable.
+   * @param txb - The transaction block to check.
+   * @param client - The SuiClient instance to use for checking immutability.
+   * @returns A Promise that resolves to a boolean indicating whether all inputs are owned by the pool's creator or are immutable.
    */
   public async checkTotalOwnership(
     txb: TransactionBlock,
@@ -313,9 +387,7 @@ export class Pool {
   }
 
   /**
-   * Check if the id of an object or coin is in the object pool.
-   * If it is in either the object pool or the coin pool, then it is
-   * owned by the pool's creator.
+   * Check if the id of an object is in the object pool.
    * @param id the object id to check
    * @returns true if the object is in the pool, false otherwise
    */
@@ -326,18 +398,29 @@ export class Pool {
   get objects(): PoolObjectsMap {
     return this._objects;
   }
+
+  get gasCoins(): PoolObjectsMap {
+    return this._gasCoins;
+  }
   public deleteObjects() {
     this._objects.clear();
   }
-  public getCoins(ofType = 'SUI') {
+
+  /**
+   * Filters all the coins from pool's objects.
+   * @param fromObjects - The pool of objects to extract coins from.
+   * @returns A new pool of objects containing only the coins.
+   * @throws An error if there are no coins in the pool.
+   */
+  static extractCoins(fromObjects: PoolObjectsMap) {
     const coinsMap: PoolObjectsMap = new Map();
-    for (const [key, value] of this._objects) {
-      if (isCoin(value.type, ofType)) {
+    for (const [key, value] of fromObjects) {
+      if (isCoin(value.type)) {
         coinsMap.set(key, value);
       }
     }
     if (!coinsMap) {
-      throw new Error(`No ${ofType} coins in the pool.`);
+      throw new Error('No gas coins in the pool.');
     }
     return coinsMap;
   }
@@ -351,29 +434,38 @@ export class Pool {
   }
 }
 
-/*
-Here are defined the predicate functions used to split the pool's objects and coins
-into a new pool.
-If the corresponding predicate:
-  1. returns `true`, then the object will be moved to the new Pool, if it
-  2. returns `false`, then the object will stay in `this` Pool, and if it
-  3. returns `null`, it skips all remaining objects and returns the split Pool immediately.
-*/
+/**
+ * A strategy containing the rules that determine how the split of the pool will be done.
+ *
+ * - pred: A predicate function used to split the pool's objects and coins into a new pool.
+ * This predicate is called for each object and depending on what it returns,
+ * the object will be moved to the new pool, stay in the current pool, or the split will be terminated.
+ * The predicate should return:
+ * 1. `true`, if the object will be moved to the new Pool
+ * 2. `false`, if the object will stay in `this` Pool
+ * 3. `null`, if the split should be terminated and the new Pool should be returned immediately,
+ * with the remaining unchecked objects being kept to the initial pool.
+ *
+ * [WARNING] If you want to implement a custom strategy, make sure that the predicate
+ * will select at least one coin to be moved to the new pool, otherwise the transaction block
+ * will not be able to determine the gas payment and will fail.
+ *
+ * - succeeded: A function that is called after the split is done to check if the split utilized the strategy as supposed to.
+ */
 export type SplitStrategy = {
   pred: (obj: PoolObject | undefined) => boolean | null;
 
-  /*
-  Call this function after the split is done to check if 
-  the split utilized the strategy as supposed to.
-  Used in order to decide if it should be retried by loading more objects
-  for the strategy to iterate over.
+  /**
+   * Call this function after the split is done to check if the split utilized the strategy as supposed to.
+   * Used in order to decide if it should be retried by loading more objects for the strategy to iterate over.
+   * @returns A boolean indicating if the split succeeded or not.
    */
   succeeded: () => boolean;
 };
 
-/*
-The default strategy only moves 1 object and 1 SUI coin to the new pool.
-The coin should be a SUI coin because it is used as gas payment.
+/**
+ * The DefaultSplitStrategy is used when no other strategy is provided.
+ * It moves to the new pool one object and one SUI (gas) coin.
  */
 class DefaultSplitStrategy implements SplitStrategy {
   private objectsToMove = 1;
@@ -384,7 +476,7 @@ class DefaultSplitStrategy implements SplitStrategy {
     if (this.objectsToMove <= 0 && this.coinsToMove <= 0) {
       return null;
     }
-    if (isCoin(obj.type, 'SUI')) {
+    if (isCoin(obj.type)) {
       return this.coinsToMove-- > 0;
     } else {
       return this.objectsToMove-- > 0;
@@ -402,15 +494,20 @@ class DefaultSplitStrategy implements SplitStrategy {
   }
 }
 
-/*
-Moves to the new pool 1 NFT object, 1 coin to use as gas,
-and an AdminCap object of the package.
-*/
+/**
+ * The IncludeAdminCapStrategy is used when the pool needs to contain an AdminCap object.
+ * It moves to the new pool one object, one SUI (gas) coin, and one AdminCap object of the package.
+ */
 export class IncludeAdminCapStrategy implements SplitStrategy {
   private objectsToMove = 1;
   private coinsToMove = 1;
   private readonly packageId: string;
   private adminCapIncluded = false;
+
+  /**
+   * Creates a new instance of the Pool class.
+   * @param packageId - The ID of the package containing the AdminCap.
+   */
   constructor(packageId: string) {
     this.packageId = packageId;
   }
@@ -425,9 +522,9 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     if (terminateWhen) {
       return null;
     }
-    if (isCoin(obj.type, 'SUI') && this.coinsToMove > 0) {
+    if (isCoin(obj.type) && this.coinsToMove > 0) {
       return this.coinsToMove-- > 0;
-    } else if (!isCoin(obj.type, 'SUI') && this.objectsToMove > 0) {
+    } else if (!isCoin(obj.type) && this.objectsToMove > 0) {
       return this.objectsToMove-- > 0;
     } else {
       return false;
