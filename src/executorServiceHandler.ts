@@ -19,7 +19,7 @@ type WorkerPool = {
 };
 
 /**
- * A class that orchistrates the execution of transaction blocks using multiple worker pools.
+ * A class that orchestrates the execution of transaction blocks using multiple worker pools.
  * The workers are created by splitting a main pool and are used to execute transaction blocks asynchronously without object equivocation.
  * [Note:] The mainPool is not a worker pool and is not used for transaction block execution. It is used only for splitting.
  * The number of workers is not fixed and can be increased by splitting the main pool if the workload requires it.
@@ -70,10 +70,13 @@ export class ExecutorServiceHandler {
     txb: TransactionBlock,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
-    retries = 3,
+    retries?: number,
   ) {
+    if (!retries) {
+      retries = 3;
+    }
     let res;
-    while (--retries > 0) {
+    do {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
@@ -84,7 +87,8 @@ export class ExecutorServiceHandler {
       if (res) {
         return res;
       }
-    }
+      console.log(`${retries} retries left...`);
+    } while (--retries > 0);
     throw new Error(
       'Internal server error - All retries failed: Could not execute the transaction block',
     );
@@ -112,6 +116,7 @@ export class ExecutorServiceHandler {
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
       await this.addWorker(client, splitStrategy);
+      console.log('No worker available. Added a new worker pool.');
       return;
     } else if (worker) {
       // An available worker is found! Assign to it the task of executing the txb.
@@ -130,6 +135,7 @@ export class ExecutorServiceHandler {
 
       if (result.effects && result.effects.status.status === 'failure') {
         this.removeWorker(worker);
+        console.log('Transaction block execution status: "failed"!');
         return;
       }
 
