@@ -1,4 +1,4 @@
-import pino from 'pino';
+import { Logger, pino } from 'pino';
 
 export enum LoggingLevel {
   fatal = 'fatal',
@@ -18,13 +18,13 @@ const levels: { [key: number]: string } = {
   50: 'error',
   60: 'fatal',
 };
-export function setupLogger(level: LoggingLevel = LoggingLevel.silent) {
+export function setupLogger(level: LoggingLevel = LoggingLevel.silent): Logger {
   const logger = pino(
     {
       base: null,
       level,
       timestamp: () => `,"time":"${new Date().toISOString()}"`,
-      workerId: (workerId: string) => workerId,
+      pool_id: (workerId: string) => workerId,
       formatters: {
         level(label, number) {
           return { level: levels[number] };

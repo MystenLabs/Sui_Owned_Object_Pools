@@ -138,7 +138,7 @@ export class ExecutorServiceHandler {
       } catch (e) {
         this._logger.warn({
           msg: `ESHandler: Error executing transaction block: ${e}`,
-          workerId: worker.id,
+          pool_id: worker.id,
         });
         this._mainPool.merge(worker);
         return;
@@ -147,7 +147,7 @@ export class ExecutorServiceHandler {
       if (result.effects && result.effects.status.status === 'failure') {
         this._logger.error({
           msg: 'ESHandler: Error executing transaction block: result status is "failure"',
-          workerId: worker.id,
+          pool_id: worker.id,
         });
         this._mainPool.merge(worker);
         return;
