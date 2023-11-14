@@ -69,6 +69,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       adminKeypair,
       client,
       env.GET_WORKER_TIMEOUT_MS,
+      LoggingLevel.debug,
     );
 
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
