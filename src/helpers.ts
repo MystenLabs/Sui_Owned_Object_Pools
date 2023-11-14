@@ -6,6 +6,8 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import dotenv from 'dotenv';
 import path from 'path';
 
+import { LoggingLevel, setupLogger } from './logger';
+
 /**
  * Returns an Ed25519Keypair object generated from the given private key.
  * @param privateKey - The private key to generate the keypair from.
@@ -158,6 +160,7 @@ export class SetupTestsHelper {
   private readonly env: EnvironmentVariables;
   private client: SuiClient;
   private adminKeypair: Ed25519Keypair;
+  private readonly logger = setupLogger(LoggingLevel.debug);
 
   public readonly objects: SuiObjectResponse[] = [];
   private suiCoins: SuiObjectResponse[] = [];
@@ -188,8 +191,8 @@ export class SetupTestsHelper {
     try {
       await setup();
     } catch (e) {
-      console.warn(e);
-      console.log('Retrying admin setup...');
+      this.logger.warn(`SetupTestsHelper: ${e}`);
+      this.logger.info('SetupTestsHelper: Retrying admin setup...');
       await setup();
     }
   }
