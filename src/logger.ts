@@ -1,11 +1,5 @@
 import pino from 'pino';
 
-/**
- * Attach a logger to the process.
- * @param level - The minimum level to log: will not log
- * messages with a lower level.
- */
-
 export enum LoggingLevel {
   fatal = 'fatal',
   error = 'error',
@@ -15,10 +9,32 @@ export enum LoggingLevel {
   trace = 'trace',
   silent = 'silent',
 }
+
+const levels: { [key: number]: string } = {
+  10: 'trace',
+  20: 'debug',
+  30: 'info',
+  40: 'warn',
+  50: 'error',
+  60: 'fatal',
+};
 export function setupLogger(level: LoggingLevel = LoggingLevel.silent) {
   const logger = pino(
     {
+      base: null,
       level,
+      timestamp: () => `,"time":"${new Date().toISOString()}"`,
+      workerId: (workerId: string) => workerId,
+      formatters: {
+        level(label, number) {
+          return { level: levels[number] };
+        },
+        log(object) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { hostname, ...rest } = object;
+          return rest;
+        },
+      },
       depthLimit: 10,
     },
     process.stdout,
