@@ -217,7 +217,7 @@ export class Pool {
       client,
     );
     this._logger.info({
-      msg: `Split completed: main pool = ${this._objects.size} objects, new pool = ${newPool._objects.size} objects`,
+      msg: `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
       workerId: this.id,
     });
     return newPool;
@@ -281,13 +281,17 @@ export class Pool {
    */
   public merge(poolToMerge: Pool) {
     this._logger.debug({
-      msg: `Merging this pool of ${this._objects.size} with pool of ${poolToMerge._objects.size} objects.`,
+      msg: `Merging with pool ${poolToMerge.id} of ${poolToMerge._objects.size} objects. Current pool has ${this._objects.size} objects.`,
       workerId: this.id,
     });
     poolToMerge.objects.forEach((value, key) => {
       this._objects.set(key, value);
     });
     poolToMerge.deleteObjects();
+    this._logger.debug({
+      msg: `Merge complete: pool ${this.id} now has ${this._objects.size} objects.`,
+      workerId: this.id,
+    });
   }
 
   /**
