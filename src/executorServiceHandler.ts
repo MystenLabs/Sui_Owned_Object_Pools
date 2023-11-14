@@ -114,12 +114,12 @@ export class ExecutorServiceHandler {
         });
       } catch (e) {
         console.error(`Error executing transaction block: ${e}`);
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
         return;
       }
 
       if (result.effects && result.effects.status.status === 'failure') {
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
         console.log('Transaction block execution status: "failed"!');
         return;
       }
@@ -148,7 +148,7 @@ export class ExecutorServiceHandler {
             resolve(worker);
           } else if (new Date().getTime() - startTime >= timeoutMs) {
             // Timeout reached - no available worker found
-            console.log(`Timeout reached - no available worker found`);
+            console.log('Timeout reached - no available worker found');
             resolve(undefined);
           } else {
             setTimeout(tryNext, 100);
@@ -162,7 +162,6 @@ export class ExecutorServiceHandler {
     return await tryGetWorker();
   }
 
-
   /**
    * Adds a new worker pool to the workers array.
    * @param client - The SuiClient instance to use for the execution of transactions by the new worker pool.
@@ -172,20 +171,5 @@ export class ExecutorServiceHandler {
     console.log('Splitting main pool to add new worker Pool...');
     const newPool = await this._mainPool.split(client, splitStrategy);
     this._workersQueue.push(newPool);
-  }
-
-  /**
-   * Remove the worker from the workers array and merge it back to the main pool.
-   * @param worker - The worker to remove.
-   * @throws {Error} If the worker is not found in the list of workers.
-   */
-  private removeWorker(worker: Pool) {
-    const index = this._workersQueue.indexOf(worker);
-    if (index > -1) {
-      this._workersQueue.splice(index, 1);
-      this._mainPool.merge(worker);
-    } else {
-      throw new Error('Worker not found in workers array.');
-    }
   }
 }
