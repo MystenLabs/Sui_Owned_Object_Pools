@@ -5,8 +5,6 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { firstValueFrom, from, interval } from 'rxjs';
-import { filter, map, take } from 'rxjs/operators';
 
 import { Pool, SplitStrategy } from './pool';
 
@@ -142,15 +140,28 @@ export class ExecutorServiceHandler {
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
-    const observable = from(interval(100)).pipe(
-      map(() => this._workersQueue.pop()),
-      filter(
-        (result) => !!result || new Date().getTime() - startTime >= timeoutMs,
-      ),
-      take(1),
-    );
-    return firstValueFrom(observable);
+    const tryGetWorker = (): Promise<Pool | undefined> => {
+      return new Promise((resolve) => {
+        const tryNext = () => {
+          const worker = this._workersQueue.pop();
+          if (worker) {
+            resolve(worker);
+          } else if (new Date().getTime() - startTime >= timeoutMs) {
+            // Timeout reached - no available worker found
+            console.log(`Timeout reached - no available worker found`);
+            resolve(undefined);
+          } else {
+            setTimeout(tryNext, 100);
+          }
+        };
+
+        tryNext();
+      });
+    };
+
+    return await tryGetWorker();
   }
+
 
   /**
    * Adds a new worker pool to the workers array.
