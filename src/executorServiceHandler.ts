@@ -125,7 +125,7 @@ export class ExecutorServiceHandler {
         });
       } catch (e) {
         this._logger.error(`Error executing transaction block: ${e}`);
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
         return;
       }
 
@@ -133,7 +133,7 @@ export class ExecutorServiceHandler {
         this._logger.error(
           'Error executing transaction block: result status is "failure"',
         );
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
         return;
       }
       this._logger.debug(
@@ -163,7 +163,7 @@ export class ExecutorServiceHandler {
             resolve(worker);
           } else if (new Date().getTime() - startTime >= timeoutMs) {
             // Timeout reached - no available worker found
-            console.log(`Timeout reached - no available worker found`);
+            console.log('Timeout reached - no available worker found');
             resolve(undefined);
           } else {
             setTimeout(tryNext, 100);
@@ -177,7 +177,6 @@ export class ExecutorServiceHandler {
     return await tryGetWorker();
   }
 
-
   /**
    * Adds a new worker pool to the workers array.
    * @param client - The SuiClient instance to use for the execution of transactions by the new worker pool.
@@ -188,24 +187,5 @@ export class ExecutorServiceHandler {
     const newPool = await this._mainPool.split(client, splitStrategy);
     this._logger.debug(`New worker added to the queue: ${newPool}`);
     this._workersQueue.push(newPool);
-  }
-
-  /**
-   * Remove the worker from the workers array and merge it back to the main pool.
-   * @param worker - The worker to remove.
-   * @throws {Error} If the worker is not found in the list of workers.
-   */
-  private removeWorker(worker: Pool) {
-    this._logger.debug(`Removing worker from the queue: ${worker}`);
-    const index = this._workersQueue.indexOf(worker);
-    if (index > -1) {
-      this._workersQueue.splice(index, 1);
-      this._mainPool.merge(worker);
-    } else {
-      this._logger.error(
-        `Worker not found in the workers queue: ${worker}\n Workers array: ${this._workersQueue}`,
-      );
-      throw new Error(`Worker not found in workers array: ${worker}`);
-    }
   }
 }
