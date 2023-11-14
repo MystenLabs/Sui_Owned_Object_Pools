@@ -7,7 +7,7 @@ export enum LoggingLevel {
   info = 'info',
   debug = 'debug',
   trace = 'trace',
-  silent = 'silent',
+  silent = 'silent', // use this to disable logging
 }
 
 const levels: { [key: number]: string } = {

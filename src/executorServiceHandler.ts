@@ -90,9 +90,12 @@ export class ExecutorServiceHandler {
         return res;
       }
       this._logger.debug(
-        `ESHandler: Could not execute flow! ${retries} retries left...`,
+        `ESHandler: Could not execute flow! ${retries - 1} retries left...`,
       );
     } while (--retries > 0);
+    this._logger.error(
+      'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
+    );
     throw new Error(
       'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
     );
@@ -123,6 +126,9 @@ export class ExecutorServiceHandler {
       await this.addWorker(client, splitStrategy);
       return;
     } else if (worker) {
+      this._logger.debug(
+        `ESHandler: Found an available worker: ${worker.id}. Executing transaction block...`,
+      );
       let result: SuiTransactionBlockResponse;
       try {
         result = await worker.signAndExecuteTransactionBlock({
@@ -130,7 +136,7 @@ export class ExecutorServiceHandler {
           client: client,
         });
       } catch (e) {
-        this._logger.error({
+        this._logger.warn({
           msg: `ESHandler: Error executing transaction block: ${e}`,
           workerId: worker.id,
         });
@@ -156,8 +162,8 @@ export class ExecutorServiceHandler {
   }
 
   /**
-   * Returns an available worker from the workers array, or undefined if none are available within the timeout period.
-   * @returns {Pool | undefined} - An available worker from the workers array,
+   * Returns an available worker from the worker queue, or undefined if none are available within the timeout period.
+   * @returns {Pool | undefined} - An available worker from the worker queue,
    * or undefined if none are available within the timeout period.
    */
   private async getAWorker(): Promise<Pool | undefined> {
@@ -173,7 +179,7 @@ export class ExecutorServiceHandler {
             resolve(worker);
           } else if (new Date().getTime() - startTime >= timeoutMs) {
             // Timeout reached - no available worker found
-            console.log(
+            this._logger.debug(
               'ESHandler: Timeout reached - no available worker found',
             );
             resolve(undefined);
