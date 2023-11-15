@@ -7,7 +7,7 @@ import {
   getKeyPair,
   SetupTestsHelper,
   sleep,
-} from '../../src/helpers';
+} from '@testHelpers/helpers';
 import { Level } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);

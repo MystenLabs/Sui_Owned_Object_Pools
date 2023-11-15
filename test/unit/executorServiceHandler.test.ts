@@ -1,15 +1,11 @@
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { getKeyPair, sleep } from '@testHelpers/helpers';
+import { getEnvironmentVariables } from '@testHelpers/setupEnvironmentVariables';
 
 import { Pool } from '../../src';
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
-import {
-  getEnvironmentVariables,
-  getKeyPair,
-  SetupTestsHelper,
-  sleep,
-} from '../../src/helpers';
-import { Level, logger } from '../../src/logger';
+import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
