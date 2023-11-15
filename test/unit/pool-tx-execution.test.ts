@@ -9,7 +9,7 @@ import {
   SetupTestsHelper,
   sleep,
 } from '../../src/helpers';
-import { LoggingLevel } from '../../src/logger';
+import { Level } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -80,13 +80,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
 
   it('checks truthy object ownership', async () => {
     // Create a pool
-    const pool: Pool = await Pool.full(
-      {
-        keypair: adminKeypair,
-        client: client,
-      },
-      LoggingLevel.debug,
-    );
+    const pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
     const objects = pool.objects;
 
     // Check that pool was created and contains at least 1 object
@@ -113,13 +110,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     'checks falsy object ownership',
     async (falsyObjectId) => {
       // Create a pool
-      const pool: Pool = await Pool.full(
-        {
-          keypair: adminKeypair,
-          client: client,
-        },
-        LoggingLevel.debug,
-      );
+      const pool: Pool = await Pool.full({
+        keypair: adminKeypair,
+        client: client,
+      });
       const objects = pool.objects;
 
       // Check that pool was created and contains at least 1 object
@@ -144,13 +138,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
   When a pool signs and executes a txb, it should use only its own coins for gas.
   */
   it("uses only the pool's coins for gas", async () => {
-    const mainPool: Pool = await Pool.full(
-      {
-        keypair: adminKeypair,
-        client: client,
-      },
-      LoggingLevel.debug,
-    );
+    const mainPool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
 
     const poolTwo: Pool = await mainPool.split(
       client,
@@ -218,13 +209,10 @@ describe('Transaction block execution directly from pool', () => {
   it('mints nft and transfers it to self', async () => {
     // Create a main pool and split it to use a different pool for the
     // transaction execution
-    const mainPool: Pool = await Pool.full(
-      {
-        keypair: adminKeypair,
-        client: client,
-      },
-      LoggingLevel.debug,
-    );
+    const mainPool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
     const pool = await mainPool.split(
       client,
       new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
@@ -258,13 +246,10 @@ describe('Transaction block execution directly from pool', () => {
   });
 
   it('mints nft, transfers it to a test user', async () => {
-    const mainPool: Pool = await Pool.full(
-      {
-        keypair: adminKeypair,
-        client: client,
-      },
-      LoggingLevel.debug,
-    );
+    const mainPool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
     const pool = await mainPool.split(
       client,
       new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),

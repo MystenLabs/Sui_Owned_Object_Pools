@@ -20,12 +20,12 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import crypto from 'crypto';
 
 import { isCoin, isImmutable } from './helpers';
-import { LoggingLevel, setupLogger } from './logger';
+import { Level, logger } from './logger';
 import { PoolObject, PoolObjectsMap } from './types';
 
 /**
  * A class representing a pool of Sui objects and gas coins.
- * Multiple pools are used by ExecutorServiceHandler in order to
+ * Multiple pools are used by ExecutorServiceHandler to
  * execute transactions asynchronously.
  */
 export class Pool {
@@ -35,14 +35,12 @@ export class Pool {
   private _keypair: Keypair;
   private _objects: PoolObjectsMap;
   private _gasCoins: PoolObjectsMap;
-  private _logger;
 
   private constructor(
     keypair: Keypair,
     objects: PoolObjectsMap,
     gasCoins: PoolObjectsMap,
     client: SuiClient,
-    loggingLevel?: LoggingLevel,
   ) {
     this._keypair = keypair;
     this._objects = objects;
@@ -52,7 +50,6 @@ export class Pool {
       owner: this._keypair.toSuiAddress(),
       client: client,
     });
-    this._logger = setupLogger(loggingLevel);
     this.id = this.generateShortGUID();
   }
   private generateShortGUID() {
@@ -69,18 +66,9 @@ export class Pool {
    * @param input - An object containing the keypair and client to use.
    * @returns A Promise that resolves with the newly created Pool instance.
    */
-  static async full(
-    input: { keypair: Keypair; client: SuiClient },
-    loggingLevel?: LoggingLevel,
-  ) {
+  static async full(input: { keypair: Keypair; client: SuiClient }) {
     const { keypair } = input;
-    const pool = new Pool(
-      keypair,
-      new Map(),
-      new Map(),
-      input.client,
-      loggingLevel,
-    );
+    const pool = new Pool(keypair, new Map(), new Map(), input.client);
     await pool.fetchObjects(); // fetch an initial batch of objects
     return pool;
   }
@@ -93,17 +81,15 @@ export class Pool {
   private async fetchObjects() {
     const ownedObjectsBatch = await this._objectGenerator.next();
     if (!ownedObjectsBatch.done && !ownedObjectsBatch.value) {
-      this._logger.error({
-        msg: 'Did not fetch any objects!',
-        pool_id: this.id,
-      });
+      logger.log(Level.error, 'Did not fetch any objects!', this.id);
       return false;
     }
     if (ownedObjectsBatch.done) {
-      this._logger.warn({
-        msg: 'End of cursor - No more objects to fetch.',
-        pool_id: this.id,
-      });
+      logger.log(
+        Level.warn,
+        'End of cursor - No more objects to fetch!',
+        this.id,
+      );
     }
     ownedObjectsBatch.value.forEach((value: PoolObject, key: string) => {
       this._objects.set(key, value);
@@ -111,10 +97,11 @@ export class Pool {
     Pool.extractCoins(ownedObjectsBatch.value).forEach((value, key) => {
       this._gasCoins.set(key, value);
     });
-    this._logger.debug({
-      msg: `Fetched ${ownedObjectsBatch.value.size} objects.`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Fetched ${ownedObjectsBatch.value.size} objects.`,
+      this.id,
+    );
     return true;
   }
 
@@ -177,10 +164,11 @@ export class Pool {
     client: SuiClient,
     splitStrategy: SplitStrategy = new DefaultSplitStrategy(),
   ) {
-    this._logger.debug({
-      msg: `Splitting pool with ${this._objects.size} objects.`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Splitting pool with ${this._objects.size} objects.`,
+      this.id,
+    );
     let fetchSuccess;
     if (this._objects.size === 0) {
       fetchSuccess = await this.fetchObjects();
@@ -216,10 +204,11 @@ export class Pool {
       gasCoinsToGiveToNewPool,
       client,
     );
-    this._logger.info({
-      msg: `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.info,
+      `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
+      this.id,
+    );
     return newPool;
   }
 
@@ -280,18 +269,20 @@ export class Pool {
    * @param poolToMerge The pool whose objects will be merged to this pool.
    */
   public merge(poolToMerge: Pool) {
-    this._logger.debug({
-      msg: `Merging with pool ${poolToMerge.id} of ${poolToMerge._objects.size} objects. Current pool has ${this._objects.size} objects.`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Merging with pool ${poolToMerge.id} of ${poolToMerge._objects.size} objects. Current pool has ${this._objects.size} objects.`,
+      this.id,
+    );
     poolToMerge.objects.forEach((value, key) => {
       this._objects.set(key, value);
     });
     poolToMerge.deleteObjects();
-    this._logger.debug({
-      msg: `Merge complete: pool ${this.id} now has ${this._objects.size} objects.`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Merge complete: pool ${this.id} now has ${this._objects.size} objects.`,
+      this.id,
+    );
   }
 
   /**
@@ -308,17 +299,15 @@ export class Pool {
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
-    this._logger.debug({
-      msg: 'Pool sign and execute flow...',
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Starting signAndExecuteTransactionBlock: current objects pool size: ${this._objects.size}`,
+      this.id,
+    );
     const { transactionBlock, options, requestType } = input;
 
     // (1). Check object ownership
-    this._logger.debug({
-      msg: 'Checking object ownership...',
-      pool_id: this.id,
-    });
+    logger.log(Level.debug, 'Checking object ownership...', this.id);
     transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
     if (!(await this.checkTotalOwnership(transactionBlock, input.client))) {
       throw new Error(
@@ -333,24 +322,22 @@ export class Pool {
     */
     const coinsArray = Array.from(this._gasCoins.values());
     const NoSuiCoinFound = coinsArray.length === 0;
-    this._logger.debug({
-      msg: `Coins used as gas payment: ${coinsArray}`,
-      pool_id: this.id,
-    });
+    logger.log(
+      Level.debug,
+      `Coins used as gas payment: ${coinsArray}`,
+      this.id,
+    );
     if (NoSuiCoinFound) {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
-    // Finally set the gas payment to be done by the selected coins
+    // Finally, set the gas payment to be done by the selected coins
     transactionBlock.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
-     resources to run the transaction and also to get required budget
+     resources to run the transaction and also to get the required budget
      */
-    this._logger.debug({
-      msg: 'Dry running the transaction block...',
-      pool_id: this.id,
-    });
+    logger.log(Level.debug, 'Dry running the transaction block...', this.id);
     const dryRunRes = await input.client.dryRunTransactionBlock({
       transactionBlock: await transactionBlock.build({ client: input.client }),
     });
@@ -371,19 +358,31 @@ export class Pool {
     const mutated = res.effects?.mutated;
     const wrapped = res.effects?.wrapped;
     const deleted = res.effects?.deleted;
-    this._logger.debug({ msg: `Created: ${created}`, pool_id: this.id });
-    this._logger.debug({ msg: `Unwrapped: ${unwrapped}`, pool_id: this.id });
-    this._logger.debug({ msg: `Mutated: ${mutated}`, pool_id: this.id });
-    this._logger.debug({ msg: `Wrapped: ${wrapped}`, pool_id: this.id });
-    this._logger.debug({ msg: `Deleted: ${deleted}`, pool_id: this.id });
+    logger.log(
+      Level.debug,
+      `Transaction block executed. Created: ${JSON.stringify(
+        created,
+      )}, Unwrapped: ${JSON.stringify(unwrapped)}, Mutated: ${JSON.stringify(
+        mutated,
+      )}, Wrapped: ${JSON.stringify(wrapped)}, Deleted: ${JSON.stringify(
+        deleted,
+      )}`,
+      this.id,
+    );
 
     // (4). Update the pool's objects and coins
-    this._logger.debug({ msg: 'Updating pool...', pool_id: this.id });
+    logger.log(Level.debug, 'Updating pool...', this.id);
     this.updatePool(created);
     this.updatePool(unwrapped);
     this.updatePool(mutated);
     this.removeFromPool(wrapped);
     this.removeFromPool(deleted);
+
+    logger.log(
+      Level.debug,
+      `Pool updated. Current pool has ${this._objects.size} objects.`,
+      this.id,
+    );
     return res;
   }
 

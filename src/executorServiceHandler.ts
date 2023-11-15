@@ -1,12 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiClient } from '@mysten/sui.js/client';
-import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { LoggingLevel, setupLogger } from './logger';
+import { Level, logger } from './logger';
 import { Pool, SplitStrategy } from './pool';
 
 /**
@@ -20,15 +19,9 @@ export class ExecutorServiceHandler {
   private _mainPool: Pool;
   private _workersQueue: Pool[] = [];
   private readonly _getWorkerTimeoutMs: number;
-  private readonly _logger;
-  private constructor(
-    mainPool: Pool,
-    getWorkerTimeoutMs: number,
-    loggingLevel?: LoggingLevel,
-  ) {
+  private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
     this._mainPool = mainPool;
     this._getWorkerTimeoutMs = getWorkerTimeoutMs;
-    this._logger = setupLogger(loggingLevel);
   }
 
   /**
@@ -37,16 +30,14 @@ export class ExecutorServiceHandler {
    * @param client - The SuiClient instance to use for communication with the Sui network.
    * @param getWorkerTimeoutMs - The maximum number of milliseconds to listen for an available
    * worker from the worker queue.
-   * @param loggingLevel - (Optional) The logging level to use for the logger.
    * @returns A new ExecutorServiceHandler instance.
    */
   public static async initialize(
     keypair: Keypair,
     client: SuiClient,
     getWorkerTimeoutMs = 10000,
-    loggingLevel?: LoggingLevel,
   ) {
-    const pool = await Pool.full({ keypair: keypair, client }, loggingLevel);
+    const pool = await Pool.full({ keypair: keypair, client });
     return new ExecutorServiceHandler(pool, getWorkerTimeoutMs);
   }
 
@@ -76,24 +67,28 @@ export class ExecutorServiceHandler {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
-        this._logger.error(
+        logger.log(
+          Level.error,
           `ESHandler: Error executing transaction block: ${e}`,
         );
         continue;
       }
       if (res) {
-        this._logger.info(
+        logger.log(
+          Level.info,
           `ESHandler: Transaction block execution completed: ${JSON.stringify(
             res,
           )}`,
         );
         return res;
       }
-      this._logger.debug(
+      logger.log(
+        Level.debug,
         `ESHandler: Could not execute flow! ${retries - 1} retries left...`,
       );
     } while (--retries > 0);
-    this._logger.error(
+    logger.log(
+      Level.error,
       'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
     );
     throw new Error(
@@ -122,11 +117,12 @@ export class ExecutorServiceHandler {
     }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
-      this._logger.debug('ESHandler: Could not find an available worker.');
+      logger.log(Level.debug, 'ESHandler: Could not find an available worker.');
       await this.addWorker(client, splitStrategy);
       return;
     } else if (worker) {
-      this._logger.debug(
+      logger.log(
+        Level.debug,
         `ESHandler: Found an available worker: ${worker.id}. Executing transaction block...`,
       );
       let result: SuiTransactionBlockResponse;
@@ -136,23 +132,24 @@ export class ExecutorServiceHandler {
           client: client,
         });
       } catch (e) {
-        this._logger.warn({
-          msg: `ESHandler: Error executing transaction block: ${e}`,
-          pool_id: worker.id,
-        });
+        logger.log(
+          Level.warn,
+          `ESHandler: Error executing transaction block: ${e}`,
+        );
         this._mainPool.merge(worker);
         return;
       }
 
       if (result.effects && result.effects.status.status === 'failure') {
-        this._logger.error({
-          msg: 'ESHandler: Error executing transaction block: result status is "failure"',
-          pool_id: worker.id,
-        });
+        logger.log(
+          Level.error,
+          'ESHandler: Error executing transaction block: result status is "failure"',
+        );
         this._mainPool.merge(worker);
         return;
       }
-      this._logger.debug(
+      logger.log(
+        Level.debug,
         `ESHandler: Transaction block execution completed! Pushing worker ${worker.id} back to the queue...`,
       );
       // Execution finished, the worker is now available again.
@@ -167,7 +164,7 @@ export class ExecutorServiceHandler {
    * or undefined if none are available within the timeout period.
    */
   private async getAWorker(): Promise<Pool | undefined> {
-    this._logger.debug('Getting a worker...');
+    logger.log(Level.debug, 'ESHandler: Getting a worker from the queue...');
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
@@ -178,8 +175,8 @@ export class ExecutorServiceHandler {
           if (worker) {
             resolve(worker);
           } else if (new Date().getTime() - startTime >= timeoutMs) {
-            // Timeout reached - no available worker found
-            this._logger.debug(
+            logger.log(
+              Level.debug,
               'ESHandler: Timeout reached - no available worker found',
             );
             resolve(undefined);
@@ -201,9 +198,12 @@ export class ExecutorServiceHandler {
    * @param splitStrategy - (Optional) The SplitStrategy to use for splitting the main pool and creating the new pool.
    */
   private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
-    this._logger.debug('ESHandler: Adding new worker to the queue...');
+    logger.log(Level.debug, 'ESHandler: Adding new worker to the queue...');
     const newPool = await this._mainPool.split(client, splitStrategy);
-    this._logger.debug(`ESHandler: New worker added to the queue: ${newPool}`);
+    logger.log(
+      Level.debug,
+      `ESHandler: New worker added to the queue: ${newPool}`,
+    );
     this._workersQueue.push(newPool);
   }
 }
