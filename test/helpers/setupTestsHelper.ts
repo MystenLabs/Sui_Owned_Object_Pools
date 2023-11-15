@@ -5,12 +5,13 @@ import {
 } from '@mysten/sui.js/client/';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { isCoin } from '@src/helpers';
-import { getKeyPair } from '@testHelpers/helpers';
+
+import { isCoin } from '../../src/helpers';
+import { getKeyPair } from './helpers';
 import {
   EnvironmentVariables,
   getEnvironmentVariables,
-} from '@testHelpers/setupEnvironmentVariables';
+} from './setupEnvironmentVariables';
 
 /**
  * A helper class for setting up tests. It provides methods for ensuring that

@@ -1,9 +1,4 @@
 import { SuiClient } from '@mysten/sui.js/client';
-import { SuiObjectRef, SuiObjectResponse } from '@mysten/sui.js/client/';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-
-import { Level, logger } from './logger';
 
 /**
  * Checks if an object is "Immutable" by looking up its data on the blockchain.

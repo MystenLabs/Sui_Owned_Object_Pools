@@ -2,14 +2,10 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { IncludeAdminCapStrategy, Pool } from '../../src';
-import {
-  getEnvironmentVariables,
-  getKeyPair,
-  SetupTestsHelper,
-  sleep,
-} from '../../src/helpers';
-import { Level } from '../../src/logger';
+import { IncludeAdminCapStrategy, Pool } from '../../src/pool';
+import { getKeyPair, sleep } from '../helpers/helpers';
+import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
+import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
