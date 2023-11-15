@@ -9,15 +9,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { Pool, SplitStrategy } from './pool';
 
 /**
- * Represents a worker pool with its current status and pool instance.
- */
-type WorkerPool = {
-  status: 'available' | 'busy';
-  pool: Pool;
-};
-
-/**
- * A class that orchistrates the execution of transaction blocks using multiple worker pools.
+ * A class that orchestrates the execution of transaction blocks using multiple worker pools.
  * The workers are created by splitting a main pool and are used to execute transaction blocks asynchronously without object equivocation.
  * [Note:] The mainPool is not a worker pool and is not used for transaction block execution. It is used only for splitting.
  * The number of workers is not fixed and can be increased by splitting the main pool if the workload requires it.
@@ -25,7 +17,7 @@ type WorkerPool = {
  */
 export class ExecutorServiceHandler {
   private _mainPool: Pool;
-  private _workers: WorkerPool[] = [];
+  private _workersQueue: Pool[] = [];
   private readonly _getWorkerTimeoutMs: number;
   private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
     this._mainPool = mainPool;
@@ -43,7 +35,7 @@ export class ExecutorServiceHandler {
   public static async initialize(
     keypair: Keypair,
     client: SuiClient,
-    getWorkerTimeoutMs = 1000,
+    getWorkerTimeoutMs = 10000,
   ) {
     const pool = await Pool.full({ keypair: keypair, client });
     return new ExecutorServiceHandler(pool, getWorkerTimeoutMs);
@@ -71,7 +63,7 @@ export class ExecutorServiceHandler {
     retries = 3,
   ) {
     let res;
-    while (--retries > 0) {
+    do {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
@@ -82,7 +74,8 @@ export class ExecutorServiceHandler {
       if (res) {
         return res;
       }
-    }
+      console.log(`${retries} retries left...`);
+    } while (--retries > 0);
     throw new Error(
       'Internal server error - All retries failed: Could not execute the transaction block',
     );
@@ -101,63 +94,72 @@ export class ExecutorServiceHandler {
     client: SuiClient,
     splitStrategy?: SplitStrategy,
   ) {
-    const worker: WorkerPool | undefined = this.getAWorker();
+    let worker: Pool | undefined;
+    try {
+      worker = await this.getAWorker();
+    } catch (e) {
+      worker = undefined;
+    }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
       await this.addWorker(client, splitStrategy);
+      console.log('No worker available. Added a new worker pool.');
       return;
-    } else {
-      // An available worker is found! Assign to it the task of executing the txb.
-      worker.status = 'busy'; // Worker is now busy
+    } else if (worker) {
       let result: SuiTransactionBlockResponse;
       try {
-        result = await worker.pool.signAndExecuteTransactionBlock({
+        result = await worker.signAndExecuteTransactionBlock({
           transactionBlock: txb,
           client: client,
         });
       } catch (e) {
         console.error(`Error executing transaction block: ${e}`);
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
         return;
       }
 
       if (result.effects && result.effects.status.status === 'failure') {
-        this.removeWorker(worker);
+        this._mainPool.merge(worker);
+        console.log('Transaction block execution status: "failed"!');
         return;
       }
 
       console.log('Transaction block execution completed!');
       // Execution finished, the worker is now available again.
-      worker.status = 'available';
+      this._workersQueue.push(worker);
       return result;
     }
   }
 
   /**
    * Returns an available worker from the workers array, or undefined if none are available within the timeout period.
-   * @returns {WorkerPool | undefined} - An available worker from the workers array,
+   * @returns {Pool | undefined} - An available worker from the workers array,
    * or undefined if none are available within the timeout period.
    */
-  private getAWorker(): WorkerPool | undefined {
+  private async getAWorker(): Promise<Pool | undefined> {
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
-    while (new Date().getTime() - startTime < timeoutMs) {
-      const result = this._workers.find(
-        (worker: WorkerPool) => worker.status === 'available',
-      );
-      if (result) {
-        console.log('Available worker found!');
-        return result;
-      }
-    }
-    if (new Date().getTime() - startTime >= timeoutMs) {
-      const numBusyWorkers = this._workers.filter(
-        (worker: WorkerPool) => worker.status === 'busy',
-      ).length;
-      console.log(
-        `Timeout reached - no available worker found - ${numBusyWorkers} busy workers`,
-      );
-    }
+
+    const tryGetWorker = (): Promise<Pool | undefined> => {
+      return new Promise((resolve) => {
+        const tryNext = () => {
+          const worker = this._workersQueue.pop();
+          if (worker) {
+            resolve(worker);
+          } else if (new Date().getTime() - startTime >= timeoutMs) {
+            // Timeout reached - no available worker found
+            console.log('Timeout reached - no available worker found');
+            resolve(undefined);
+          } else {
+            setTimeout(tryNext, 100);
+          }
+        };
+
+        tryNext();
+      });
+    };
+
+    return await tryGetWorker();
   }
 
   /**
@@ -168,21 +170,6 @@ export class ExecutorServiceHandler {
   private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
     console.log('Splitting main pool to add new worker Pool...');
     const newPool = await this._mainPool.split(client, splitStrategy);
-    this._workers.push({ status: 'available', pool: newPool });
-  }
-
-  /**
-   * Remove the worker from the workers array and merge it back to the main pool.
-   * @param worker - The worker to remove.
-   * @throws {Error} If the worker is not found in the list of workers.
-   */
-  private removeWorker(worker: WorkerPool) {
-    const index = this._workers.indexOf(worker);
-    if (index > -1) {
-      this._workers.splice(index, 1);
-      this._mainPool.merge(worker.pool);
-    } else {
-      throw new Error('Worker not found in workers array.');
-    }
+    this._workersQueue.push(newPool);
   }
 }
