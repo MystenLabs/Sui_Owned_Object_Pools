@@ -1,14 +1,10 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
-import { Pool, SplitStrategy } from '../../src';
-import {
-  getEnvironmentVariables,
-  getKeyPair,
-  SetupTestsHelper,
-  sleep,
-} from '../../src/helpers';
-import { Level } from '../../src/logger';
+import { Pool, SplitStrategy } from '../../src/pool';
+import { getKeyPair, sleep } from '../helpers/helpers';
+import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
+import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -20,7 +16,7 @@ const MINIMUM_NUMBER_OF_ADMIN_OBJECTS = 3;
 
 describe('Pool creation with factory', () => {
   beforeEach(() => {
-    // Reset the mock before each test
+    // Reset the mock before each test`
     jest.clearAllMocks();
   });
 
