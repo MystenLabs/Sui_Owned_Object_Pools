@@ -46,7 +46,7 @@
     "Theodore Chaikalis (https://github.com/teohaik)"
   ],
   "dependencies": {
-    "@mysten/sui.js": "^0.42.0",
+    "@mysten/sui.js": "^0.46.1",
     "@typescript-eslint/eslint-plugin": "5.59.11",
     "dotenv": "^16.3.1",
     "pino": "^8.16.1"
