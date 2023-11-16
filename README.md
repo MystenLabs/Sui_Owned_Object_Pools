@@ -1,4 +1,4 @@
-# Sui Owned Object Pools (SOOP)
+# Sui Owned Object Pools (SuiOOP)
 
 A library that provides a set of tools for managing multiple concurrent
 transactions on the Sui network to help avoiding object equivocation and locking.
@@ -7,7 +7,7 @@ transactions on the Sui network to help avoiding object equivocation and locking
 
 ### Installation
 ```bash
-npm i sui-execution-handler
+npm i suioop
 ```
 
 ### Usage
@@ -139,7 +139,7 @@ The overall processing flow is depicted in the following flowchart:
 Install dependencies with `npm install`
 
 ### Code consistency
-Before commiting your changes, run `npm run lint` to check for code style consistency.
+Before committing your changes, run `npm run lint` to check for code style consistency.
 
 ### Testing
 

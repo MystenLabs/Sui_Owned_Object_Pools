@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.0.0
+- Renamed library to `suioop` (Sui Owned Object Pools)
+- Refactor test logic to be isolated from the main library
+- Introduction of logging library to standardize logs 
+- Refactor logic in `getAWorker` function to remove busy wait
+
 
 ## v0.1.5
 - Fixed bug about Immutable object handling
