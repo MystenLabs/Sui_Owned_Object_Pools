@@ -1,5 +1,8 @@
 # Change Log
 
+## v2.0.1
+- minor fixes
+
 ## v2.0.0
 - Renamed library to `suioop` (Sui Owned Object Pools)
 - Refactor test logic to be isolated from the main library
