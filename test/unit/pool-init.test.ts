@@ -8,6 +8,7 @@ import {
   SetupTestsHelper,
   sleep,
 } from '../../src/helpers';
+import { Level } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);

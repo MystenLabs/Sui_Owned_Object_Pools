@@ -48,7 +48,8 @@
   "dependencies": {
     "@mysten/sui.js": "^0.42.0",
     "@typescript-eslint/eslint-plugin": "5.59.11",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "pino": "^8.16.1"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",

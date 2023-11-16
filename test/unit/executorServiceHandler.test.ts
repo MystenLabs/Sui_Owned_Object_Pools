@@ -9,6 +9,7 @@ import {
   SetupTestsHelper,
   sleep,
 } from '../../src/helpers';
+import { Level, logger } from '../../src/logger';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -58,11 +59,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       0, // doesn't play a role for this test since we only transfer coins
       COINS_NEEDED,
     );
-    console.log(
-      'Admin setup complete. Waiting a few seconds for effects to take place...',
-    );
     await sleep(5000);
-    console.log('Done! Proceeding with transactions execution...');
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(
@@ -74,7 +71,6 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
     let txb: TransactionBlock;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      console.log('Creating new Transaction...');
       txb = createPaymentTxb(env.TEST_USER_ADDRESS);
       promises.push(eshandler.execute(txb, client));
     }
@@ -82,7 +78,7 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     const results = await Promise.allSettled(promises);
     results.forEach((result) => {
       if (result.status === 'rejected') {
-        console.log(result.reason);
+        console.error(result.reason);
       }
       expect(result.status).toEqual('fulfilled');
     });

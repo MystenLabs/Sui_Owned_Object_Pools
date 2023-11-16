@@ -1,17 +1,17 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiClient } from '@mysten/sui.js/client';
-import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
+import { Level, logger } from './logger';
 import { Pool, SplitStrategy } from './pool';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.
  * The workers are created by splitting a main pool and are used to execute transaction blocks asynchronously without object equivocation.
- * [Note:] The mainPool is not a worker pool and is not used for transaction block execution. It is used only for splitting.
+ * [Note: ] The mainPool is not a worker pool and is not used for transaction block execution. It is used only for splitting.
  * The number of workers is not fixed and can be increased by splitting the main pool if the workload requires it.
  * The ExecutorServiceHandler retries the execution of the transaction block up to a specified number of times in case of errors.
  */
@@ -28,8 +28,8 @@ export class ExecutorServiceHandler {
    * Initializes an ExecutorServiceHandler instance.
    * @param keypair - The keypair to use for authentication.
    * @param client - The SuiClient instance to use for communication with the Sui network.
-   * @param getWorkerTimeoutMs - The maximum amount of milliseconds to listen for an available
-   * worker from the workers array.
+   * @param getWorkerTimeoutMs - The maximum number of milliseconds to listen for an available
+   * worker from the worker queue.
    * @returns A new ExecutorServiceHandler instance.
    */
   public static async initialize(
@@ -67,17 +67,32 @@ export class ExecutorServiceHandler {
       try {
         res = await this.executeFlow(txb, client, splitStrategy);
       } catch (e) {
-        console.log('Error executing transaction block');
-        console.log(e);
+        logger.log(
+          Level.error,
+          `ESHandler: Error executing transaction block: ${e}`,
+        );
         continue;
       }
       if (res) {
+        logger.log(
+          Level.info,
+          `ESHandler: Transaction block execution completed: ${JSON.stringify(
+            res,
+          )}`,
+        );
         return res;
       }
-      console.log(`${retries} retries left...`);
+      logger.log(
+        Level.debug,
+        `ESHandler: Could not execute flow! ${retries - 1} retries left...`,
+      );
     } while (--retries > 0);
+    logger.log(
+      Level.error,
+      'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
+    );
     throw new Error(
-      'Internal server error - All retries failed: Could not execute the transaction block',
+      'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
     );
   }
 
@@ -102,10 +117,14 @@ export class ExecutorServiceHandler {
     }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
+      logger.log(Level.debug, 'ESHandler: Could not find an available worker.');
       await this.addWorker(client, splitStrategy);
-      console.log('No worker available. Added a new worker pool.');
       return;
     } else if (worker) {
+      logger.log(
+        Level.debug,
+        `ESHandler: Found an available worker: ${worker.id}. Executing transaction block...`,
+      );
       let result: SuiTransactionBlockResponse;
       try {
         result = await worker.signAndExecuteTransactionBlock({
@@ -113,18 +132,26 @@ export class ExecutorServiceHandler {
           client: client,
         });
       } catch (e) {
-        console.error(`Error executing transaction block: ${e}`);
+        logger.log(
+          Level.warn,
+          `ESHandler: Error executing transaction block: ${e}`,
+        );
         this._mainPool.merge(worker);
         return;
       }
 
       if (result.effects && result.effects.status.status === 'failure') {
+        logger.log(
+          Level.error,
+          'ESHandler: Error executing transaction block: result status is "failure"',
+        );
         this._mainPool.merge(worker);
-        console.log('Transaction block execution status: "failed"!');
         return;
       }
-
-      console.log('Transaction block execution completed!');
+      logger.log(
+        Level.debug,
+        `ESHandler: Transaction block execution completed! Pushing worker ${worker.id} back to the queue...`,
+      );
       // Execution finished, the worker is now available again.
       this._workersQueue.push(worker);
       return result;
@@ -132,11 +159,12 @@ export class ExecutorServiceHandler {
   }
 
   /**
-   * Returns an available worker from the workers array, or undefined if none are available within the timeout period.
-   * @returns {Pool | undefined} - An available worker from the workers array,
+   * Returns an available worker from the worker queue, or undefined if none are available within the timeout period.
+   * @returns {Pool | undefined} - An available worker from the worker queue,
    * or undefined if none are available within the timeout period.
    */
   private async getAWorker(): Promise<Pool | undefined> {
+    logger.log(Level.debug, 'ESHandler: Getting a worker from the queue...');
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
@@ -147,8 +175,10 @@ export class ExecutorServiceHandler {
           if (worker) {
             resolve(worker);
           } else if (new Date().getTime() - startTime >= timeoutMs) {
-            // Timeout reached - no available worker found
-            console.log('Timeout reached - no available worker found');
+            logger.log(
+              Level.debug,
+              'ESHandler: Timeout reached - no available worker found',
+            );
             resolve(undefined);
           } else {
             setTimeout(tryNext, 100);
@@ -163,13 +193,17 @@ export class ExecutorServiceHandler {
   }
 
   /**
-   * Adds a new worker pool to the workers array.
-   * @param client - The SuiClient instance to use for the execution of transactions by the new worker pool.
+   * Adds a new worker pool to the worker queue.
+   * @param client - The SuiClient instance to use it for the execution of transactions by the new worker pool.
    * @param splitStrategy - (Optional) The SplitStrategy to use for splitting the main pool and creating the new pool.
    */
   private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
-    console.log('Splitting main pool to add new worker Pool...');
+    logger.log(Level.debug, 'ESHandler: Adding new worker to the queue...');
     const newPool = await this._mainPool.split(client, splitStrategy);
+    logger.log(
+      Level.debug,
+      `ESHandler: New worker added to the queue: ${newPool}`,
+    );
     this._workersQueue.push(newPool);
   }
 }

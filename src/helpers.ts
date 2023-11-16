@@ -6,6 +6,8 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import dotenv from 'dotenv';
 import path from 'path';
 
+import { Level, logger } from './logger';
+
 /**
  * Returns an Ed25519Keypair object generated from the given private key.
  * @param privateKey - The private key to generate the keypair from.
@@ -188,8 +190,10 @@ export class SetupTestsHelper {
     try {
       await setup();
     } catch (e) {
-      console.warn(e);
-      console.log('Retrying admin setup...');
+      logger.log(
+        Level.warn,
+        'SetupTestsHelper - Setup failed: Retrying admin setup...',
+      );
       await setup();
     }
   }
