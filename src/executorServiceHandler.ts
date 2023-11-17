@@ -6,7 +6,8 @@ import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Level, logger } from './logger';
-import { Pool, SplitStrategy } from './pool';
+import { Pool } from './pool';
+import { SplitStrategy } from './splitStrategies';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.
