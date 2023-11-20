@@ -55,8 +55,8 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
       0, // doesn't play a role for this test since we only transfer coins
       COINS_NEEDED,
     );
-    helper.smashCoins();
-    await sleep(5000);
+    await helper.smashCoins();
+    await sleep(3000);
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(
