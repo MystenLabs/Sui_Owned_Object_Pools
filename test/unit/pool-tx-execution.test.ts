@@ -2,7 +2,8 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { IncludeAdminCapStrategy, Pool } from '../../src/pool';
+import { Pool } from '../../src/pool';
+import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
 import { getKeyPair, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
@@ -12,6 +13,7 @@ const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
   url: env.SUI_NODE,
 });
+const helper = new SetupTestsHelper();
 
 async function getAllCoinsFromClient(client: SuiClient, owner: string) {
   const coinsFromClient = new Map();
@@ -64,12 +66,10 @@ function mintNFTTxb() {
   txb.setGasBudget(10000000);
   return txb;
 }
-let helper: SetupTestsHelper;
 describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    helper = new SetupTestsHelper();
     await helper.setupAdmin(2, 5);
     await sleep(5000);
   });
@@ -197,7 +197,6 @@ describe('Transaction block execution directly from pool', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    helper = new SetupTestsHelper();
     await helper.setupAdmin(0, 5);
     await sleep(2000);
   });

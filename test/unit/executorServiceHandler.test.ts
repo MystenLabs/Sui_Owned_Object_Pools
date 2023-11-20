@@ -13,6 +13,7 @@ const client = new SuiClient({
   url: env.SUI_NODE,
 });
 const MIST_TO_TRANSFER = 10;
+const helper = new SetupTestsHelper();
 
 // Create a transaction that transfers MIST from the admin to a test user address.
 function createPaymentTxb(recipient: string): TransactionBlock {
@@ -50,11 +51,11 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     const NUMBER_OF_TRANSACTION_TO_EXECUTE = 5;
     const COINS_NEEDED = NUMBER_OF_TRANSACTION_TO_EXECUTE * 2;
 
-    const helper = new SetupTestsHelper();
     await helper.setupAdmin(
       0, // doesn't play a role for this test since we only transfer coins
       COINS_NEEDED,
     );
+    helper.smashCoins();
     await sleep(5000);
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.

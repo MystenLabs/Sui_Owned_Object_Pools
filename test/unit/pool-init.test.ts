@@ -1,7 +1,8 @@
 import { SuiClient } from '@mysten/sui.js/client';
 import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
-import { Pool, SplitStrategy } from '../../src/pool';
+import { Pool } from '../../src/pool';
+import { SplitStrategy } from '../../src/splitStrategies';
 import { getKeyPair, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
@@ -13,6 +14,7 @@ const client = new SuiClient({
 });
 
 const MINIMUM_NUMBER_OF_ADMIN_OBJECTS = 3;
+const helper = new SetupTestsHelper();
 
 describe('Pool creation with factory', () => {
   beforeEach(() => {
@@ -34,7 +36,6 @@ describe('Pool creation with factory', () => {
 
 describe('✂️ Pool splitting', () => {
   beforeEach(async () => {
-    const helper = new SetupTestsHelper();
     await helper.setupAdmin(
       MINIMUM_NUMBER_OF_ADMIN_OBJECTS,
       MINIMUM_NUMBER_OF_ADMIN_OBJECTS * 2,

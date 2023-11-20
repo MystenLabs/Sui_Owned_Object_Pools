@@ -44,12 +44,6 @@ export class SetupTestsHelper {
     minimumObjectsNeeded: number,
     minimumCoinsNeeded: number,
   ) {
-    try {
-      await this.smashCoins();
-    } catch (e) {
-      console.warn('SetupTestsHelper - Smash coins failed!');
-    }
-
     const setup = async () => {
       await this.parseCurrentGasCoinsAndObjects();
       await this.assureAdminHasEnoughObjects(minimumObjectsNeeded);
@@ -213,23 +207,27 @@ export class SetupTestsHelper {
   /// Execute a fault TXB that smashes all coins into 1
   /// Used to reset the coins of the admin account.
   /// Very useful for testing to avoid having to remnant coins with low balance
-  private async smashCoins() {
-    const transactionBlock = new TransactionBlock();
-    transactionBlock.moveCall({
-      arguments: [
-        transactionBlock.object(this.env.NFT_APP_ADMIN_CAP),
-        transactionBlock.pure('zed'),
-        transactionBlock.pure('gold'),
-        transactionBlock.pure(3),
-        transactionBlock.pure('ipfs://example.com/'),
-      ],
-      target: `${this.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-    });
-    transactionBlock.setGasBudget(100000000);
-    await this.client.signAndExecuteTransactionBlock({
-      transactionBlock,
-      requestType: 'WaitForLocalExecution',
-      signer: this.adminKeypair,
-    });
+  public async smashCoins() {
+    try {
+      const transactionBlock = new TransactionBlock();
+      transactionBlock.moveCall({
+        arguments: [
+          transactionBlock.object(this.env.NFT_APP_ADMIN_CAP),
+          transactionBlock.pure('zed'),
+          transactionBlock.pure('gold'),
+          transactionBlock.pure(3),
+          transactionBlock.pure('ipfs://example.com/'),
+        ],
+        target: `${this.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+      });
+      transactionBlock.setGasBudget(100000000);
+      await this.client.signAndExecuteTransactionBlock({
+        transactionBlock,
+        requestType: 'WaitForLocalExecution',
+        signer: this.adminKeypair,
+      });
+    } catch (e) {
+      console.warn('SetupTestsHelper - Smash coins failed!');
+    }
   }
 }

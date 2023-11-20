@@ -81,6 +81,10 @@ export class Pool {
    */
   private async fetchObjects() {
     const ownedObjectsBatch = await this._objectGenerator.next();
+    if (!ownedObjectsBatch) {
+      logger.log(Level.error, 'Did not fetch any objects!', this.id);
+      return false;
+    }
     if (!ownedObjectsBatch.done && !ownedObjectsBatch.value) {
       logger.log(Level.error, 'Did not fetch any objects!', this.id);
       return false;
