@@ -221,13 +221,20 @@ export class SetupTestsHelper {
         target: `${this.env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
       });
       transactionBlock.setGasBudget(100000000);
-      await this.client.signAndExecuteTransactionBlock({
+      const res = await this.client.signAndExecuteTransactionBlock({
         transactionBlock,
         requestType: 'WaitForLocalExecution',
         signer: this.adminKeypair,
       });
+      if ((res?.effects?.status?.status ?? '') == 'success') {
+        console.log('SetupTestsHelper - Smash coins succeeded!');
+      } else {
+        console.warn(
+          'SetupTestsHelper - Smash coins failed! Could not get status.',
+        );
+      }
     } catch (e) {
-      console.warn('SetupTestsHelper - Smash coins failed!');
+      console.warn('SetupTestsHelper - Smash coins failed!', e);
     }
   }
 }
