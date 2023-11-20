@@ -4,7 +4,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Pool } from '../../src/pool';
 import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
-import { getKeyPair, sleep } from '../helpers/helpers';
+import { getAllCoinsFromClient, getKeyPair, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
@@ -15,22 +15,6 @@ const client = new SuiClient({
 });
 const helper = new SetupTestsHelper();
 
-async function getAllCoinsFromClient(client: SuiClient, owner: string) {
-  const coinsFromClient = new Map();
-  let coins_resp;
-  let cursor = null;
-  do {
-    coins_resp = await client.getAllCoins({
-      owner,
-      cursor,
-    });
-    coins_resp.data.forEach((coin) => {
-      coinsFromClient.set(coin.coinObjectId, coin);
-    });
-    cursor = coins_resp?.nextCursor;
-  } while (coins_resp.hasNextPage);
-  return coinsFromClient;
-}
 function calculatePoolBalance(
   pool: Pool,
   allCoinsFromClient: Map<string, CoinStruct>,

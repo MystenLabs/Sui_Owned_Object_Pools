@@ -1,3 +1,4 @@
+import { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 
@@ -19,4 +20,21 @@ export function getKeyPair(privateKey: string): Ed25519Keypair {
  */
 export async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function getAllCoinsFromClient(client: SuiClient, owner: string) {
+  const coinsFromClient = new Map();
+  let coins_resp;
+  let cursor = null;
+  do {
+    coins_resp = await client.getAllCoins({
+      owner,
+      cursor,
+    });
+    coins_resp.data.forEach((coin) => {
+      coinsFromClient.set(coin.coinObjectId, coin);
+    });
+    cursor = coins_resp?.nextCursor;
+  } while (coins_resp.hasNextPage);
+  return coinsFromClient;
 }

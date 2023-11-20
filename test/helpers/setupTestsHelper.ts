@@ -7,6 +7,7 @@ import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin } from '../../src/helpers';
+import { getAllCoinsFromClient } from './helpers';
 import { getKeyPair } from './helpers';
 import {
   EnvironmentVariables,
@@ -202,7 +203,19 @@ export class SetupTestsHelper {
   /// Execute a fault TXB that smashes all coins into 1
   /// Used to reset the coins of the admin account.
   /// Very useful for testing to avoid having to remnant coins with low balance
-  public async smashCoins() {
+  public async smashCoins(minNumCoins = 10) {
+    const coins = await getAllCoinsFromClient(
+      this.client,
+      this.adminKeypair.getPublicKey().toSuiAddress(),
+    );
+    const enoughCoins = coins.size >= minNumCoins;
+    const enoughBalancePerCoin = Array.from(coins.values()).every((value) => {
+      return parseInt(value.balance) >= 100000000;
+    });
+    if (enoughCoins && enoughBalancePerCoin) {
+      console.log('SetupTestsHelper - No need to smash coins.');
+      return;
+    }
     try {
       const transactionBlock = new TransactionBlock();
       transactionBlock.moveCall({
