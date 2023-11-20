@@ -1,6 +1,6 @@
 {
   "name": "suioop",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Sui Owned Object Pools is a library that provides a set of tools for managing multiple concurrent transactions on the Sui network to help avoiding object equivocation and locking",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
