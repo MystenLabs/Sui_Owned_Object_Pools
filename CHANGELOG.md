@@ -1,5 +1,21 @@
 # Change Log
 
+## v2.0.3
+- Update tsconfig.json to compile to js files too
+
+## v2.0.2
+- Merge pull request #96 from MystenLabs/tzalex/95-handle-gasbalancetoolow-edge-case (d194cdb)
+- Improve tests - minor fixes (ae5113b)
+- Revert to using two splitCoins instead of one (0837848)
+- Only smash coins when needed (37f061e)
+- Refactor: Use only one txb.splitCoins instead of two (ddbbb8a)
+- Fix: Use await when calling smashCoins (8e8d969)
+- SmashCoins: Add another try-catch block (50a6470)
+- Include more logs to debug tests (652cd77)
+- Move helper constructor to the top of tests (c1f8f8a)
+- Create splitStrategies.ts (760c347)
+- Create setupTestsHelper.smashCoins for gas coin reset (368571c)
+
 ## v2.0.1
 - minor fixes
 
