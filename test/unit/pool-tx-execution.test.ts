@@ -41,7 +41,7 @@ function calculatePoolBalance(
     if (!coin) {
       throw new Error("Could not find coin in client's account");
     }
-    balance += parseInt(coin.balance) ?? 0;
+    balance += parseInt(coin.balance);
   });
   return balance;
 }
@@ -177,6 +177,9 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       poolTwo,
       coinFromClientAfterTransaction,
     );
+    if (!res?.effects?.gasUsed) {
+      console.warn('Gas used by pool is undefined');
+    }
 
     const gasBill = {
       computationCost: res?.effects?.gasUsed?.computationCost ?? 0,
