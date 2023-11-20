@@ -3,4 +3,7 @@
 
 export * from './executorServiceHandler';
 export * from './helpers';
+export { Level } from './logger';
 export * from './pool';
+export * from './splitStrategies';
+export * from './types';

@@ -2,8 +2,10 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { IncludeAdminCapStrategy, Pool } from '../../src/pool';
-import { getKeyPair, sleep } from '../helpers/helpers';
+import { isCoin } from '../../src/helpers';
+import { Pool } from '../../src/pool';
+import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
+import { getAllCoinsFromClient, getKeyPair, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
@@ -13,22 +15,6 @@ const client = new SuiClient({
   url: env.SUI_NODE,
 });
 
-async function getAllCoinsFromClient(client: SuiClient, owner: string) {
-  const coinsFromClient = new Map();
-  let coins_resp;
-  let cursor = null;
-  do {
-    coins_resp = await client.getAllCoins({
-      owner,
-      cursor,
-    });
-    coins_resp.data.forEach((coin) => {
-      coinsFromClient.set(coin.coinObjectId, coin);
-    });
-    cursor = coins_resp?.nextCursor;
-  } while (coins_resp.hasNextPage);
-  return coinsFromClient;
-}
 function calculatePoolBalance(
   pool: Pool,
   allCoinsFromClient: Map<string, CoinStruct>,
@@ -39,7 +25,7 @@ function calculatePoolBalance(
     if (!coin) {
       throw new Error("Could not find coin in client's account");
     }
-    balance += parseInt(coin.balance) ?? 0;
+    balance += parseInt(coin.balance);
   });
   return balance;
 }
@@ -64,12 +50,11 @@ function mintNFTTxb() {
   txb.setGasBudget(10000000);
   return txb;
 }
-let helper: SetupTestsHelper;
 describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    helper = new SetupTestsHelper();
+    const helper = new SetupTestsHelper();
     await helper.setupAdmin(2, 5);
     await sleep(5000);
   });
@@ -88,9 +73,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    // Include a transfer nft object transaction in the transaction block
-    const testObjectId: string = helper.objects[0].data?.objectId ?? '';
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress));
+    txb.transferObjects(
+      [txb.object(env.NFT_APP_ADMIN_CAP)],
+      txb.pure(adminAddress),
+    );
 
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
@@ -177,6 +163,9 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       poolTwo,
       coinFromClientAfterTransaction,
     );
+    if (!res?.effects?.gasUsed) {
+      console.warn('Gas used by pool is undefined');
+    }
 
     const gasBill = {
       computationCost: res?.effects?.gasUsed?.computationCost ?? 0,
@@ -197,7 +186,7 @@ describe('Transaction block execution directly from pool', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
-    helper = new SetupTestsHelper();
+    const helper = new SetupTestsHelper();
     await helper.setupAdmin(0, 5);
     await sleep(2000);
   });
