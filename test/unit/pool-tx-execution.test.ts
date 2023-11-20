@@ -2,6 +2,7 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
+import { isCoin } from '../../src/helpers';
 import { Pool } from '../../src/pool';
 import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
 import { getAllCoinsFromClient, getKeyPair, sleep } from '../helpers/helpers';
@@ -13,7 +14,6 @@ const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
 const client = new SuiClient({
   url: env.SUI_NODE,
 });
-const helper = new SetupTestsHelper();
 
 function calculatePoolBalance(
   pool: Pool,
@@ -54,6 +54,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
+    const helper = new SetupTestsHelper();
     await helper.setupAdmin(2, 5);
     await sleep(5000);
   });
@@ -72,9 +73,10 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     // Admin transfers an object that belongs to him back to himself.
     const txb = new TransactionBlock();
     const adminAddress = adminKeypair.getPublicKey().toSuiAddress();
-    // Include a transfer nft object transaction in the transaction block
-    const testObjectId: string = helper.objects[0].data?.objectId ?? '';
-    txb.transferObjects([txb.object(testObjectId)], txb.pure(adminAddress));
+    txb.transferObjects(
+      [txb.object(env.NFT_APP_ADMIN_CAP)],
+      txb.pure(adminAddress),
+    );
 
     // Include a transfer coin transaction in the transaction block
     const [coin] = txb.splitCoins(txb.gas, [txb.pure(1)]);
@@ -184,6 +186,7 @@ describe('Transaction block execution directly from pool', () => {
   beforeEach(async () => {
     // Reset the mock before each test
     jest.clearAllMocks();
+    const helper = new SetupTestsHelper();
     await helper.setupAdmin(0, 5);
     await sleep(2000);
   });
