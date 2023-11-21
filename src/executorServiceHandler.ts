@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import {
+  ExecuteTransactionRequestType,
+  SuiClient,
+  SuiTransactionBlockResponse,
+  SuiTransactionBlockResponseOptions,
+} from '@mysten/sui.js/client';
 import { Keypair } from '@mysten/sui.js/cryptography';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
@@ -50,9 +55,11 @@ export class ExecutorServiceHandler {
    * This means that you can execute multiple transaction blocks in parallel **without**
    * equivocating objects, as long as the splitStrategy permits it.
    * @param txb The transaction block to execute.
-   * @param client The SuiClient instance to use for execution.
+   * @param client The SuiClient instance is to use it for execution.
    * @param splitStrategy The SplitStrategy used to determine how a new worker pool will be split
    * from the main pool in case a new worker is needed to execute the transaction.
+   * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
+   * @param requestType (Optional) The ExecuteTransactionRequestType to use for executing the transaction block.
    * @param retries The maximum number of retries in case of errors (default: 3).
    * @returns A Promise that resolves to the result of the transaction block execution.
    * @throws An error if all retries fail.
@@ -61,12 +68,20 @@ export class ExecutorServiceHandler {
     txb: TransactionBlock,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
+    options?: SuiTransactionBlockResponseOptions,
+    requestType?: ExecuteTransactionRequestType,
     retries = 3,
   ) {
     let res;
     do {
       try {
-        res = await this.executeFlow(txb, client, splitStrategy);
+        res = await this.executeFlow(
+          txb,
+          client,
+          splitStrategy,
+          options,
+          requestType,
+        );
       } catch (e) {
         logger.log(
           Level.error,
@@ -77,8 +92,8 @@ export class ExecutorServiceHandler {
       if (res) {
         logger.log(
           Level.info,
-          `ESHandler: Transaction block execution completed: ${JSON.stringify(
-            res,
+          `ESHandler: Transaction block execution completed - digest: ${JSON.stringify(
+            res.digest,
           )}`,
         );
         return res;
@@ -102,6 +117,8 @@ export class ExecutorServiceHandler {
    * including getting an available worker from the workers array, updating the workerPool status, etc.
    * @param txb The transaction block to execute.
    * @param client The SuiClient to use for executing the transaction block.
+   * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
+   * @param requestType (Optional) The ExecuteTransactionRequestType to use for executing the transaction block.
    * @param splitStrategy (Optional) The SplitStrategy to use for splitting the main pool and getting a new worker pool.
    * @returns A Promise that resolves to the SuiTransactionBlockResponse object returned by executing the transaction block.
    */
@@ -109,6 +126,8 @@ export class ExecutorServiceHandler {
     txb: TransactionBlock,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
+    options?: SuiTransactionBlockResponseOptions,
+    requestType?: ExecuteTransactionRequestType,
   ) {
     let worker: Pool | undefined;
     try {
@@ -131,6 +150,8 @@ export class ExecutorServiceHandler {
         result = await worker.signAndExecuteTransactionBlock({
           transactionBlock: txb,
           client: client,
+          options,
+          requestType,
         });
       } catch (e) {
         logger.log(
@@ -203,7 +224,7 @@ export class ExecutorServiceHandler {
     const newPool = await this._mainPool.split(client, splitStrategy);
     logger.log(
       Level.debug,
-      `ESHandler: New worker added to the queue: ${newPool}`,
+      `ESHandler: New worker added to the queue: ${newPool.id}`,
     );
     this._workersQueue.push(newPool);
   }

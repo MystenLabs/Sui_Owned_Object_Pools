@@ -2,7 +2,6 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { isCoin } from '../../src/helpers';
 import { Pool } from '../../src/pool';
 import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
 import { getAllCoinsFromClient, getKeyPair, sleep } from '../helpers/helpers';
