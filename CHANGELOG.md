@@ -1,5 +1,8 @@
 # Change Log
 
+## v2.0.4 - 2.0.5
+- Packaging configuration fixes 
+
 ## v2.0.3
 - Update tsconfig.json to compile to js files too
 
