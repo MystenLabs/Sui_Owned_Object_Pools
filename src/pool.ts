@@ -354,7 +354,11 @@ export class Pool {
     const res = await input.client.signAndExecuteTransactionBlock({
       transactionBlock,
       requestType,
-      options: { ...options, showEffects: true },
+      options: {
+        ...options,
+        showEffects: true,
+        showObjectChanges: true,
+      },
       signer: this._keypair,
     });
 
@@ -377,11 +381,17 @@ export class Pool {
 
     // (4). Update the pool's objects and coins
     logger.log(Level.debug, 'Updating pool...', this.id);
+
     this.updatePool(created);
     this.updatePool(unwrapped);
     this.updatePool(mutated);
+
     this.removeFromPool(wrapped);
     this.removeFromPool(deleted);
+
+    if (mutated) {
+      this.updateCoins(mutated);
+    }
 
     logger.log(
       Level.debug,
@@ -426,6 +436,17 @@ export class Pool {
       const objectId = ref.objectId;
       this._objects.delete(objectId);
     }
+  }
+
+  private updateCoins(mutatedCoins: OwnedObjectRef[]) {
+    mutatedCoins.forEach((mutatedCoin) => {
+      const coin = this._gasCoins.get(mutatedCoin.reference.objectId);
+      if (coin) {
+        coin.version = mutatedCoin.reference.version;
+        coin.digest = mutatedCoin.reference.digest;
+        this._gasCoins.set(coin.objectId, coin);
+      }
+    });
   }
 
   /**
