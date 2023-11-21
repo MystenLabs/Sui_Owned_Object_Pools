@@ -92,8 +92,8 @@ export class ExecutorServiceHandler {
       if (res) {
         logger.log(
           Level.info,
-          `ESHandler: Transaction block execution completed: ${JSON.stringify(
-            res,
+          `ESHandler: Transaction block execution completed - digest: ${JSON.stringify(
+            res.digest,
           )}`,
         );
         return res;
@@ -224,7 +224,7 @@ export class ExecutorServiceHandler {
     const newPool = await this._mainPool.split(client, splitStrategy);
     logger.log(
       Level.debug,
-      `ESHandler: New worker added to the queue: ${newPool}`,
+      `ESHandler: New worker added to the queue: ${newPool.id}`,
     );
     this._workersQueue.push(newPool);
   }

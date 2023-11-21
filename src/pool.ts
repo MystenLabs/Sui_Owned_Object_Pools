@@ -329,7 +329,7 @@ export class Pool {
     const NoSuiCoinFound = coinsArray.length === 0;
     logger.log(
       Level.debug,
-      `Coins used as gas payment: ${coinsArray}`,
+      `Coins used as gas payment: ${JSON.stringify(coinsArray)}`,
       this.id,
     );
     if (NoSuiCoinFound) {
