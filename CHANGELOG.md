@@ -1,6 +1,6 @@
 # Change Log
 
-## v2.0.6
+## v2.0.6 - 2.0.7
 - Update coins after transaction completes
 - Improve some log messages
 - ESHandler: Add options and requestType
