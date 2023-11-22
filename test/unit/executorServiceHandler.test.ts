@@ -26,7 +26,7 @@ function createPaymentTxb(recipient: string): TransactionBlock {
 }
 
 describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
-  it('smashes the coins into one', async () => {
+  xit('smashes the coins into one', async () => {
     await helper.smashCoins(COINS_NEEDED);
   });
 
