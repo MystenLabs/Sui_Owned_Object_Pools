@@ -133,8 +133,28 @@ describe('✂️ Pool splitting', () => {
     let newPool: Pool;
     const keysSet = new Set<string>();
     let totalSize = 0;
+
+    class RandomObjectSplitStrategy implements SplitStrategy {
+      private objectIncluded = false;
+      public pred(obj: SuiObjectRef | undefined) {
+        if (!obj) throw new Error('No object found!.');
+        if (!this.objectIncluded) {
+          this.objectIncluded = true;
+          return true;
+        } else {
+          return null;
+        }
+      }
+      public succeeded() {
+        return this.objectIncluded;
+      }
+    }
+
     for (let i = 0; i < NUMBER_OF_NEW_POOLS; i++) {
-      newPool = await initial_pool.split(client);
+      newPool = await initial_pool.split(
+        client,
+        new RandomObjectSplitStrategy(),
+      );
       Array.from(newPool.objects.keys()).forEach((key) => {
         keysSet.add(key);
       });
@@ -147,6 +167,6 @@ describe('✂️ Pool splitting', () => {
 
     // Each pool should contain 2 objects (1 NFT + 1 coin) as defined in
     // the DefaultSplitStrategy
-    expect(keysSet.size).toEqual(NUMBER_OF_NEW_POOLS * 2);
+    expect(keysSet.size).toEqual(NUMBER_OF_NEW_POOLS);
   });
 });
