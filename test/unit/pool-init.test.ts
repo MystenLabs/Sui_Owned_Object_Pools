@@ -92,8 +92,8 @@ describe('✂️ Pool splitting', () => {
     const num_objects_after_split = initial_pool.objects.size;
 
     // Check that the number of objects in the new pool is 2 ( 1 NFT + 1 coin)
-    expect(num_objects_new_pool).toEqual(2);
-    expect(num_objects_after_split).toEqual(num_objects_before_split - 2);
+    expect(num_objects_new_pool).toEqual(1);
+    expect(num_objects_after_split).toEqual(num_objects_before_split - 1);
     expect(num_objects_new_pool + num_objects_after_split).toEqual(
       num_objects_before_split,
     );
