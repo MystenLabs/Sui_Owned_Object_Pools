@@ -97,7 +97,7 @@ import { fromB64 } from '@mysten/sui.js/utils';
 function createPaymentTxb(recipient: string): TransactionBlock {
   const txb = new TransactionBlock();
   const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
-  txb.transferObjects([coin], txb.pure("<recipient-address>"));
+  txb.transferObjects([coin], txb.pure(recipient));
   return txb;
 }
 // Define your admin keypair and client
@@ -129,7 +129,7 @@ const eshandler = await ExecutorServiceHandler.initialize(
 const promises = [];
 let txb: TransactionBlock;
 for (let i = 0; i < 10; i++) {
-  txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);  // Use your test user address to receive the txbs
+  txb = createPaymentTxb("<recipient-address>");  // Use your test user address to receive the txbs
   promises.push(eshandler.execute(txb, client));
 }
 
