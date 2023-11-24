@@ -1,4 +1,6 @@
-import { SuiClient } from '@mysten/sui.js/client';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+import type { SuiClient } from '@mysten/sui.js/client';
 
 /**
  * Checks if an object is "Immutable" by looking up its data on the blockchain.

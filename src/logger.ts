@@ -1,3 +1,5 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
 import dotenv from 'dotenv';
 import path from 'path';
 import { pino } from 'pino';
@@ -40,7 +42,7 @@ class Logger {
           },
           log(object) {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { hostname, ...rest } = object;
+            const { ...rest } = object;
             return rest;
           },
         },

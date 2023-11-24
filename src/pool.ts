@@ -1,28 +1,29 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
+import type {
   OwnedObjectRef,
   SuiClient,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js/client';
-import {
+import type {
   PaginatedObjectsResponse,
   SuiObjectRef,
   SuiObjectResponse,
 } from '@mysten/sui.js/client';
-import {
+import type {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/client';
-import { Keypair } from '@mysten/sui.js/cryptography';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import type { Keypair } from '@mysten/sui.js/cryptography';
+import type { TransactionBlock } from '@mysten/sui.js/transactions';
 import crypto from 'crypto';
 
 import { isCoin, isImmutable } from './helpers';
 import { Level, logger } from './logger';
-import { DefaultSplitStrategy, SplitStrategy } from './splitStrategies';
-import { PoolObject, PoolObjectsMap } from './types';
+import type { SplitStrategy } from './splitStrategies';
+import { DefaultSplitStrategy } from './splitStrategies';
+import type { PoolObject, PoolObjectsMap } from './types';
 
 /**
  * A class representing a pool of Sui objects and gas coins.

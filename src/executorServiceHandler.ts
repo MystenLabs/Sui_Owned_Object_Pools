@@ -1,18 +1,18 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
+import type {
   ExecuteTransactionRequestType,
   SuiClient,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/client';
-import { Keypair } from '@mysten/sui.js/cryptography';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import type { Keypair } from '@mysten/sui.js/cryptography';
+import type { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Level, logger } from './logger';
 import { Pool } from './pool';
-import { SplitStrategy } from './splitStrategies';
+import type { SplitStrategy } from './splitStrategies';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.

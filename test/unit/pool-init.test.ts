@@ -1,8 +1,10 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
 import { SuiClient } from '@mysten/sui.js/client';
-import { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
+import type { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool } from '../../src/pool';
-import { SplitStrategy } from '../../src/splitStrategies';
+import type { SplitStrategy } from '../../src/splitStrategies';
 import { getKeyPair, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';

@@ -1,18 +1,15 @@
-import {
-  SuiClient,
-  SuiObjectRef,
-  SuiObjectResponse,
-} from '@mysten/sui.js/client/';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+import type { SuiObjectRef, SuiObjectResponse } from '@mysten/sui.js/client/';
+import { SuiClient } from '@mysten/sui.js/client/';
+import type { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { isCoin } from '../../src/helpers';
 import { getAllCoinsFromClient } from './helpers';
 import { getKeyPair } from './helpers';
-import {
-  EnvironmentVariables,
-  getEnvironmentVariables,
-} from './setupEnvironmentVariables';
+import type { EnvironmentVariables } from './setupEnvironmentVariables';
+import { getEnvironmentVariables } from './setupEnvironmentVariables';
 
 /**
  * A helper class for setting up tests. It provides methods for ensuring that
