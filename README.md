@@ -62,31 +62,42 @@ that it acts like a load balancer, distributing the transactions to the worker p
 
 As a user of the library you will only need to use the `executorServiceHandler.ts` module.
 
-The basic idea of our solution is to use multiple **worker pools**
-where each one of them will execute one of the transactions. 
+The basic idea of our solution is the `ExecutorServiceHandler` to use multiple **worker pools**
+contained in a `workersQueue` where each one of them will execute one of the transactions 
+provided by the user when calling the `execute(...)` function. 
 
 The flow goes as follows:
 
-1. First we initialize the ExecutorServiceHandler containing only one mainPool.
-Then whenever a transaction is submitted to the ExecutorServiceHandler, it will
-try to find if there is an available worker pool to sign and execute the transaction. 
-Note that the main pool is not a worker pool.
+1. First we initialize the `ExecutorServiceHandler` containing only one `mainPool`.
+Then whenever a transaction is submitted to the `ExecutorServiceHandler`, it will
+try to find if there is an available **worker pool** to sign and execute the transaction. 
+_Note that the **main pool** is not a **worker pool**, meaning that it does not execute transactions._
 
-2. If a worker pool is not found, the executor handler will create one by splitting
-the mainPool - i.e. taking a part of the mainPool's objects and coins and creating a new worker pool.  
+2. If a worker pool is not found, _the executor handler will create one by splitting
+the mainPool_ - i.e. taking a part of the **mainPool**'s objects and coins and creating a new worker pool.  
 This is how the executor handler scales up. You can define the split logic by providing
-a SplitStrategy object to the ExecutorServiceHandler on initialization.
+a `SplitStrategy` object to the `ExecutorServiceHandler` on initialization. If you don't provide a splitStrategy,
+the `DefaultSplitStrategy` will be used.
 
 ### Example code
 
 Let's define an example to make things clearer: Assume that we need to execute 10 transactions that transfer 100 MIST each to a fixed recipient.
+
 ```typescript
+import { 
+  SuiClient, 
+  SuiTransactionBlockResponse
+} from '@mysten/sui.js/client';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+import { fromB64 } from '@mysten/sui.js/utils';
+
 /* HERE ARE DEFINED THE PREPARATORY STEPS IF YOU WANT TO CODE ALONG*/
 // Define the transaction block
 function createPaymentTxb(recipient: string): TransactionBlock {
   const txb = new TransactionBlock();
   const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
-  txb.transferObjects([coin], txb.pure("<recipient-address>"));
+  txb.transferObjects([coin], txb.pure(recipient));
   return txb;
 }
 // Define your admin keypair and client
@@ -107,6 +118,8 @@ const client = new SuiClient({
 Now we setup the service handler and to execute the transactions we defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
 
 ```typescript
+import { ExecutorServiceHandler } from 'suioop';
+
 // Setup the executor service
 const eshandler = await ExecutorServiceHandler.initialize(
   adminKeypair,
@@ -116,8 +129,8 @@ const eshandler = await ExecutorServiceHandler.initialize(
 const promises = [];
 let txb: TransactionBlock;
 for (let i = 0; i < 10; i++) {
-  txb = createPaymentTxb(process.env.TEST_USER_ADDRESS!);
-  promises.push(eshandler.execute(txb, client, splitStrategy));
+  txb = createPaymentTxb("<recipient-address>");  // Use your test user address to receive the txbs
+  promises.push(eshandler.execute(txb, client));
 }
 
 // Collect the promise results
@@ -126,11 +139,68 @@ const results = await Promise.allSettled(promises);
 
 It's that simple! 
 
+### Defining a custom SplitStrategy
+
+In the above example, given that we have not defined a split strategy explicitly, we have
+used the `DefaultSplitStrategy`. 
+
+This default split strategy only picks a gas coin (i.e. a coin of type `0x2::coin::Coin<0x2::sui::SUI>`) 
+from the `mainPool` and creates a new worker pool only containing this single gas coin.
+
+It fulfils the minimum requirement needed for a transaction block to be executed: _the client 
+should always need to be able to pay for the gas of the transaction_.
+
+However, in more complex scenarios, you might want to define your own split strategy.
+
+Let's assume that you would like to execute multiple transactions that transfer an object 
+of type `CapyNFT` each to a different recipient. 
+
+In order for this to work, the `ExecutorServiceHandler` would need to split 
+the `mainPool` in a way such that every worker:
+1. Contains at least one `CapyNFT` object
+2. Contains at least a coin (or set of coins) with a total balance enough to pay
+for the gas of the transaction.
+
+To do this you have to implement the `SplitStrategy` interface. In detail:
+
+```typescript
+class MyCustomSplitStrategy implements SplitStrategy {
+  private coinsToMove = 1;
+  private capyIncluded = false;
+  
+  public pred(obj: PoolObject | undefined) {
+    if (!obj) throw new Error('No object found!.');
+    // If we have fulfilled each requirement then terminate the split by returning null
+    // This will stop the split process and the worker pool will be created
+    const terminateWhen = this.coinsToMove <= 0 && this.capyIncluded;
+    if (terminateWhen) {
+      return null;
+    }
+    // If we have not already included a CapyNFT object, and the object is a CapyNFT, then include it
+    if (!capyIncluded && obj.type.includes('CapyNFT')) {
+      this.capyIncluded = true;
+      return true;
+    }
+    // If the object is a coin and we still need to get coins, then we include it to the new pool
+    if (isCoin(obj.type) && this.coinsToMove > 0) {
+      return this.coinsToMove-- > 0;
+    } else {
+      return false;
+    }
+  }
+  // This function is called during the split process to check if the split was successful
+  public succeeded() {
+    return coinsToMove <= 0 && capyIncluded;
+  }
+}
+```
+
+You can find more examples of split strategies in the `splitStrategies.ts` file.
+
 ## Processing Flow
 The overall processing flow is depicted in the following flowchart:
 
 ![](https://github.com/MystenLabs/sui_execution_handler/blob/main/sui-exec-handler-flowchart.png)
-
 
 ## Local Development
 

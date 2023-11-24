@@ -32,25 +32,25 @@ export type SplitStrategy = {
 
 /**
  * The DefaultSplitStrategy is used when no other strategy is provided.
- * It moves to the new pool one object and one SUI (gas) coin.
+ * It moves to the new pool one SUI (gas) coin.
  */
 export class DefaultSplitStrategy implements SplitStrategy {
-  private objectsToMove = 1;
   private coinsToMove = 1;
 
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
-    if (this.objectsToMove <= 0 && this.coinsToMove <= 0) {
+    if (this.coinsToMove <= 0) {
       return null;
     }
     if (isCoin(obj.type)) {
       return this.coinsToMove-- > 0;
     } else {
-      return this.objectsToMove-- > 0;
+      return false;
     }
   }
+
   public succeeded() {
-    const check = this.coinsToMove <= 0 && this.objectsToMove <= 0;
+    const check = this.coinsToMove <= 0;
     return check;
   }
 }
