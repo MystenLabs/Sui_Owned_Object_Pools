@@ -66,43 +66,55 @@ export class DefaultSplitStrategy implements SplitStrategy {
 
 /**
  * The IncludeAdminCapStrategy is used when the pool needs to contain an AdminCap object.
- * It moves to the new pool one object, one SUI (gas) coin, and one AdminCap object of the package.
+ * It moves to the new pool enough gas coins to fulfill the needed balance,
+ * and one AdminCap object of the specified package.
  */
 export class IncludeAdminCapStrategy implements SplitStrategy {
-  private objectsToMove = 1;
-  private coinsToMove = 1;
+  private readonly adminCapIdentifier: string;
   private readonly packageId: string;
+
+  private readonly minimumBalance;
+  private balanceSoFar = 0;
   private adminCapIncluded = false;
 
   /**
    * Creates a new instance of the Pool class.
    * @param packageId - The ID of the package containing the AdminCap.
+   * @param minimumBalance - The minimum balance of the pool
+   * @param adminCapIdentifier - A name used to identify the AdminCap object.
+   * (pool balance = sum of its' gas coin balances).
    */
-  constructor(packageId: string) {
+  constructor(
+    packageId: string,
+    minimumBalance = DefaultSplitStrategy.defaultMinimumBalance,
+    adminCapIdentifier = 'AdminCap',
+  ) {
     this.packageId = packageId;
+    this.minimumBalance = minimumBalance;
+    this.adminCapIdentifier = adminCapIdentifier;
   }
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
-    if (obj.type.includes('AdminCap') && obj.type.includes(this.packageId)) {
-      this.adminCapIncluded = true;
-      return true;
-    }
     const terminateWhen =
-      this.objectsToMove <= 0 && this.coinsToMove <= 0 && this.adminCapIncluded;
+      this.balanceSoFar >= this.minimumBalance && this.adminCapIncluded;
     if (terminateWhen) {
       return null;
     }
-    if (isCoin(obj.type) && this.coinsToMove > 0) {
-      return this.coinsToMove-- > 0;
-    } else if (!isCoin(obj.type) && this.objectsToMove > 0) {
-      return this.objectsToMove-- > 0;
+    if (
+      obj.type.includes(this.adminCapIdentifier) &&
+      obj.type.includes(this.packageId)
+    ) {
+      this.adminCapIncluded = true;
+      return true;
+    }
+    if (isCoin(obj.type)) {
+      this.balanceSoFar += obj.balance ?? 0;
+      return true;
     } else {
       return false;
     }
   }
   public succeeded() {
-    const check =
-      this.objectsToMove <= 0 && this.coinsToMove <= 0 && this.adminCapIncluded;
-    return check;
+    return this.balanceSoFar >= this.minimumBalance && this.adminCapIncluded;
   }
 }
