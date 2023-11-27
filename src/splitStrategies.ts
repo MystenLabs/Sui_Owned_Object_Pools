@@ -1,5 +1,7 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
 import { isCoin } from './helpers';
-import { PoolObject } from './types';
+import type { PoolObject } from './types';
 
 /**
  * A strategy containing the rules that determine how the split of the pool will be done.

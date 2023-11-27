@@ -1,6 +1,5 @@
-/**
- * Represents an object in a pool.
- */
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
 export type PoolObject = {
   objectId: string;
   digest: string;
