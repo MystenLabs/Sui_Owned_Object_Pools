@@ -34,26 +34,33 @@ export type SplitStrategy = {
 
 /**
  * The DefaultSplitStrategy is used when no other strategy is provided.
- * It moves to the new pool one SUI (gas) coin.
+ * It moves to the new pool enough gas (SUI) coins so that the sum of their
+ * balances is greater or equal a specific threshold.
  */
 export class DefaultSplitStrategy implements SplitStrategy {
-  private coinsToMove = 1;
+  static readonly defaultMinimumBalance = 400000000;
+  private readonly minimumBalance;
+  private balanceSoFar = 0;
+
+  constructor(minimumBalance = DefaultSplitStrategy.defaultMinimumBalance) {
+    this.minimumBalance = minimumBalance;
+  }
 
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
-    if (this.coinsToMove <= 0) {
+    if (this.balanceSoFar >= this.minimumBalance) {
       return null;
     }
     if (isCoin(obj.type)) {
-      return this.coinsToMove-- > 0;
+      this.balanceSoFar += obj.balance ?? 0;
+      return true;
     } else {
       return false;
     }
   }
 
   public succeeded() {
-    const check = this.coinsToMove <= 0;
-    return check;
+    return this.balanceSoFar >= this.minimumBalance;
   }
 }
 

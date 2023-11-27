@@ -3,6 +3,7 @@
 import type { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
+import type { Pool } from '../../src/pool';
 
 /**
  * Returns an Ed25519Keypair object generated from the given private key.
@@ -39,4 +40,16 @@ export async function getAllCoinsFromClient(client: SuiClient, owner: string) {
     cursor = coins_resp?.nextCursor;
   } while (coins_resp.hasNextPage);
   return coinsFromClient;
+}
+
+/**
+ * Calculates the total balance of a pool.
+ * @param pool - The pool to calculate the balance of.
+ */
+export function totalBalance(pool: Pool) {
+  let balance = 0;
+  pool.gasCoins.forEach((c) => {
+    balance += c.balance ?? 0;
+  });
+  return balance;
 }
