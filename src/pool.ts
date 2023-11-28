@@ -459,12 +459,13 @@ export class Pool {
   }
 
   private async updateCoins(mutated: OwnedObjectRef[], client: SuiClient) {
-    const mutatedCoins = mutated.filter((mutatedCoin) => {
-      return this._gasCoins.has(mutatedCoin.reference.objectId);
-    });
-    const mutatedCoinsObjectIds = mutatedCoins.map((mutatedCoin) => {
-      return mutatedCoin.reference.objectId;
-    });
+    const mutatedCoinsObjectIds = mutated
+      .filter((mutatedCoin) => {
+        return this._gasCoins.has(mutatedCoin.reference.objectId);
+      })
+      .map((mutatedCoin) => {
+        return mutatedCoin.reference.objectId;
+      });
     const mutatedCoinsOnChainContents = await client.multiGetObjects({
       ids: mutatedCoinsObjectIds,
       options: { showContent: true },
@@ -488,7 +489,6 @@ export class Pool {
         coin.version = mutatedCoinObject.data.version;
         coin.digest = mutatedCoinObject.data.digest;
         this._gasCoins.set(coin.objectId, coin);
-        this._gasCoins.set(objectId, coin);
       }
     });
   }
