@@ -26,7 +26,7 @@ export class SetupTestsHelper {
 
   constructor() {
     this.env = getEnvironmentVariables('../test/.env');
-    this.MINIMUM_COIN_BALANCE = 700000000;
+    this.MINIMUM_COIN_BALANCE = 300000000;
     this.client = new SuiClient({
       url: this.env.SUI_NODE,
     });
@@ -83,30 +83,31 @@ export class SetupTestsHelper {
    */
   private async assureAdminHasMoreThanEnoughCoins(minimumCoinsNeeded: number) {
     let coinToSplit: SuiObjectResponse | undefined;
-    if (this.suiCoins.length < minimumCoinsNeeded) {
-      for (let i = 0; i < minimumCoinsNeeded - this.suiCoins.length; i++) {
-        coinToSplit = this.suiCoins.find((coin) => {
-          const content = coin.data?.content;
-          if (content && 'fields' in content && 'balance' in content.fields) {
-            return (
-              Number(content.fields?.balance ?? '0') >
-              2 * this.MINIMUM_COIN_BALANCE
-            );
-          } else {
-            return false;
-          }
-        });
-        if (!coinToSplit) {
-          throw new Error(
-            `No coin with enough balance found. \
+    if (this.suiCoins.length >= minimumCoinsNeeded) {
+      return;
+    }
+    for (let i = 0; i < minimumCoinsNeeded - this.suiCoins.length; i++) {
+      coinToSplit = this.suiCoins.find((coin) => {
+        const content = coin.data?.content;
+        if (content && 'fields' in content && 'balance' in content.fields) {
+          return (
+            Number(content.fields?.balance ?? '0') >
+            2 * this.MINIMUM_COIN_BALANCE
+          );
+        } else {
+          return false;
+        }
+      });
+      if (!coinToSplit) {
+        throw new Error(
+          `No coin with enough balance found. \
             To add new coins to account by splitting \
             you need at least ${2 * this.MINIMUM_COIN_BALANCE}`,
-          );
-        }
-        const coinToSplitId = coinToSplit.data?.objectId;
-        if (coinToSplitId) {
-          await this.addNewCoinToAccount(coinToSplitId);
-        }
+        );
+      }
+      const coinToSplitId = coinToSplit.data?.objectId;
+      if (coinToSplitId) {
+        await this.addNewCoinToAccount(coinToSplitId);
       }
     }
   }
@@ -153,19 +154,13 @@ export class SetupTestsHelper {
   private async addNewCoinToAccount(cointToSplit: string) {
     const txb = new TransactionBlock();
     const coinToPay = await this.client.getObject({ id: cointToSplit });
-    const newcoins1 = txb.splitCoins(txb.gas, [
+    const newCoin = txb.splitCoins(txb.gas, [
       txb.pure(this.MINIMUM_COIN_BALANCE),
     ]);
-    const newcoins2 = txb.splitCoins(txb.gas, [
-      txb.pure(this.MINIMUM_COIN_BALANCE),
-    ]);
-    txb.transferObjects(
-      [newcoins1, newcoins2],
-      txb.pure(this.adminKeypair.toSuiAddress()),
-    );
+    txb.transferObjects([newCoin], txb.pure(this.adminKeypair.toSuiAddress()));
     txb.setGasBudget(100000000);
     txb.setGasPayment([this.toSuiObjectRef(coinToPay)]);
-    this.client
+    await this.client
       .signAndExecuteTransactionBlock({
         signer: this.adminKeypair,
         transactionBlock: txb,

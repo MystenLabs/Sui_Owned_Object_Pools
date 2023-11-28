@@ -1,4 +1,7 @@
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+import type { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
+import { SuiClient } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';

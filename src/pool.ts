@@ -14,6 +14,7 @@ import type {
 import type {
   ExecuteTransactionRequestType,
   SuiTransactionBlockResponseOptions,
+  MoveStruct,
 } from '@mysten/sui.js/client';
 import type { Keypair } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
@@ -141,11 +142,25 @@ export class Pool {
         if (!obj.data) {
           throw new Error(`Object data is undefined: ${obj.error}`);
         }
+        let balance;
+        const content = obj.data.content;
+        if (
+          typeof content === 'object' &&
+          content !== null &&
+          'fields' in content &&
+          'type' in content
+        ) {
+          const fields: MoveStruct = content.fields;
+          if ('balance' in fields) {
+            balance = Number(fields.balance);
+          }
+        }
         const objectReference = {
           objectId: obj.data.objectId,
           digest: obj.data.digest,
           version: obj.data.version,
           type: obj.data.type ?? '',
+          balance,
         };
         if (objectReference) {
           tempObjects.set(objectReference.objectId, objectReference);
@@ -215,6 +230,10 @@ export class Pool {
       `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
       this.id,
     );
+    // Update the pool's coins
+    Pool.extractCoins(newPool.gasCoins).forEach((_value, key) => {
+      this._gasCoins.delete(key);
+    });
     return newPool;
   }
 
@@ -391,7 +410,7 @@ export class Pool {
     this.removeFromPool(deleted);
 
     if (mutated) {
-      this.updateCoins(mutated);
+      await this.updateCoins(mutated, input.client);
     }
 
     logger.log(
@@ -439,12 +458,36 @@ export class Pool {
     }
   }
 
-  private updateCoins(mutatedCoins: OwnedObjectRef[]) {
-    mutatedCoins.forEach((mutatedCoin) => {
-      const coin = this._gasCoins.get(mutatedCoin.reference.objectId);
-      if (coin) {
-        coin.version = mutatedCoin.reference.version;
-        coin.digest = mutatedCoin.reference.digest;
+  private async updateCoins(mutated: OwnedObjectRef[], client: SuiClient) {
+    const mutatedCoinsObjectIds = mutated
+      .filter((mutatedCoin) => {
+        return this._gasCoins.has(mutatedCoin.reference.objectId);
+      })
+      .map((mutatedCoin) => {
+        return mutatedCoin.reference.objectId;
+      });
+    const mutatedCoinsOnChainContents = await client.multiGetObjects({
+      ids: mutatedCoinsObjectIds,
+      options: { showContent: true },
+    });
+    mutatedCoinsOnChainContents.forEach((mutatedCoinObject) => {
+      if (
+        'data' in mutatedCoinObject &&
+        'content' in mutatedCoinObject.data! &&
+        'fields' in mutatedCoinObject.data.content! &&
+        'balance' in mutatedCoinObject.data.content.fields
+      ) {
+        const objectId = mutatedCoinObject.data.objectId;
+        const balance = Number(mutatedCoinObject.data.content.fields.balance);
+        const coin = this._gasCoins.get(objectId);
+        if (!coin) {
+          const err = `Coin ${objectId} not found in the pool.`;
+          logger.log(Level.error, err);
+          throw new Error(err);
+        }
+        coin.balance = balance;
+        coin.version = mutatedCoinObject.data.version;
+        coin.digest = mutatedCoinObject.data.digest;
         this._gasCoins.set(coin.objectId, coin);
       }
     });

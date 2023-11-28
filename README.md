@@ -144,8 +144,9 @@ It's that simple!
 In the above example, given that we have not defined a split strategy explicitly, we have
 used the `DefaultSplitStrategy`. 
 
-This default split strategy only picks a gas coin (i.e. a coin of type `0x2::coin::Coin<0x2::sui::SUI>`) 
-from the `mainPool` and creates a new worker pool only containing this single gas coin.
+This default split strategy only picks enough gas coins (i.e., coins of type `0x2::coin::Coin<0x2::sui::SUI>`) 
+from the `mainPool` that their sum of balances surpasses a minimum threshold, and creates a new
+worker pool only containing these gas coins.
 
 It fulfils the minimum requirement needed for a transaction block to be executed: _the client 
 should always need to be able to pay for the gas of the transaction_.
@@ -161,7 +162,7 @@ the `mainPool` in a way such that every worker:
 2. Contains at least a coin (or set of coins) with a total balance enough to pay
 for the gas of the transaction.
 
-To do this you have to implement the `SplitStrategy` interface. In detail:
+To do this, you have to implement the `SplitStrategy` interface. In detail:
 
 ```typescript
 class MyCustomSplitStrategy implements SplitStrategy {

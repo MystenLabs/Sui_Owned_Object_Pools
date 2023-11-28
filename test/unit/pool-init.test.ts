@@ -5,9 +5,10 @@ import type { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool } from '../../src/pool';
 import type { SplitStrategy } from '../../src/splitStrategies';
-import { getKeyPair, sleep } from '../helpers/helpers';
+import { getKeyPair, sleep, totalBalance } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
+import { DefaultSplitStrategy } from '../../src/splitStrategies';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -87,17 +88,24 @@ describe('✂️ Pool splitting', () => {
       keypair: adminKeypair,
       client: client,
     });
+    const initialPoolBalanceBeforeSplit = totalBalance(initial_pool);
 
     const num_objects_before_split = initial_pool.objects.size;
     const new_pool: Pool = await initial_pool.split(client);
+    const initialPoolBalanceAfterSplit = totalBalance(initial_pool);
+
     const num_objects_new_pool = new_pool.objects.size;
     const num_objects_after_split = initial_pool.objects.size;
-
-    // Check that the number of objects in the new pool is 2 ( 1 NFT + 1 coin)
-    expect(num_objects_new_pool).toEqual(1);
-    expect(num_objects_after_split).toEqual(num_objects_before_split - 1);
+    expect(num_objects_new_pool).toBeGreaterThanOrEqual(1);
     expect(num_objects_new_pool + num_objects_after_split).toEqual(
       num_objects_before_split,
+    );
+    const newPoolBalance = totalBalance(new_pool);
+    expect(initialPoolBalanceBeforeSplit - newPoolBalance).toEqual(
+      initialPoolBalanceAfterSplit,
+    );
+    expect(newPoolBalance).toBeGreaterThanOrEqual(
+      DefaultSplitStrategy.defaultMinimumBalance,
     );
   });
 

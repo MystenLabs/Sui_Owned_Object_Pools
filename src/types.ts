@@ -5,6 +5,7 @@ export type PoolObject = {
   digest: string;
   version: string;
   type: string;
+  balance?: number;
 };
 
 /**
