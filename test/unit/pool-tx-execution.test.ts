@@ -1,10 +1,16 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
 import { SuiClient } from '@mysten/sui.js/client';
-import { CoinStruct } from '@mysten/sui.js/src/client/types';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { Pool } from '../../src/pool';
 import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
-import { getAllCoinsFromClient, getKeyPair, sleep } from '../helpers/helpers';
+import {
+  getKeyPair,
+  sleep,
+  totalBalance,
+  mintNFTTxb,
+} from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 
@@ -14,41 +20,6 @@ const client = new SuiClient({
   url: env.SUI_NODE,
 });
 
-function calculatePoolBalance(
-  pool: Pool,
-  allCoinsFromClient: Map<string, CoinStruct>,
-) {
-  let balance = 0;
-  pool.gasCoins.forEach((c) => {
-    const coin = allCoinsFromClient.get(c.objectId);
-    if (!coin) {
-      throw new Error("Could not find coin in client's account");
-    }
-    balance += parseInt(coin.balance);
-  });
-  return balance;
-}
-
-function mintNFTTxb() {
-  const txb = new TransactionBlock();
-  const hero = txb.moveCall({
-    arguments: [
-      txb.object(env.NFT_APP_ADMIN_CAP),
-      txb.pure('zed'),
-      txb.pure('gold'),
-      txb.pure(3),
-      txb.pure('ipfs://example.com/'),
-    ],
-    target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-  });
-
-  txb.transferObjects(
-    [hero],
-    txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
-  );
-  txb.setGasBudget(10000000);
-  return txb;
-}
 describe('🌊 Basic flow of sign & execute tx block', () => {
   beforeEach(async () => {
     // Reset the mock before each test
@@ -133,15 +104,8 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     Create a nft object using the first pool and
     transfer it to yourself (admin
     */
-    const coinsFromClient = await getAllCoinsFromClient(
-      client,
-      adminKeypair.getPublicKey().toSuiAddress(),
-    );
-    const poolTwoBalanceBeforeTransaction = calculatePoolBalance(
-      poolTwo,
-      coinsFromClient,
-    );
-    const txb = mintNFTTxb();
+    const poolTwoBalanceBeforeTransaction = totalBalance(poolTwo);
+    const txb = mintNFTTxb(env, adminKeypair);
     const res = await poolTwo.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,
@@ -154,14 +118,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     });
     expect(res?.effects?.status.status).toEqual('success');
 
-    const coinFromClientAfterTransaction = await getAllCoinsFromClient(
-      client,
-      adminKeypair.getPublicKey().toSuiAddress(),
-    );
-    const poolTwoBalanceAfterTransaction = calculatePoolBalance(
-      poolTwo,
-      coinFromClientAfterTransaction,
-    );
+    const poolTwoBalanceAfterTransaction = totalBalance(poolTwo);
     if (!res?.effects?.gasUsed) {
       console.warn('Gas used by pool is undefined');
     }
@@ -206,7 +163,7 @@ describe('Transaction block execution directly from pool', () => {
     // Check that pool was created and contains at least 1 object
     expect(objects.size).toBeGreaterThan(0);
 
-    const txb = mintNFTTxb();
+    const txb = mintNFTTxb(env, adminKeypair);
     const res = await pool.signAndExecuteTransactionBlock({
       client,
       transactionBlock: txb,

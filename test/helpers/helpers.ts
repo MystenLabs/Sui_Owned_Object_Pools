@@ -4,6 +4,8 @@ import type { SuiClient } from '@mysten/sui.js/client';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
 import type { Pool } from '../../src/pool';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+import type { EnvironmentVariables } from './setupEnvironmentVariables';
 
 /**
  * Returns an Ed25519Keypair object generated from the given private key.
@@ -52,4 +54,28 @@ export function totalBalance(pool: Pool) {
     balance += c.balance ?? 0;
   });
   return balance;
+}
+
+export function mintNFTTxb(
+  env: EnvironmentVariables,
+  adminKeypair: Ed25519Keypair,
+): TransactionBlock {
+  const txb = new TransactionBlock();
+  const hero = txb.moveCall({
+    arguments: [
+      txb.object(env.NFT_APP_ADMIN_CAP),
+      txb.pure('zed'),
+      txb.pure('gold'),
+      txb.pure(3),
+      txb.pure('ipfs://example.com/'),
+    ],
+    target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+  });
+
+  txb.transferObjects(
+    [hero],
+    txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+  );
+  txb.setGasBudget(10000000);
+  return txb;
 }
