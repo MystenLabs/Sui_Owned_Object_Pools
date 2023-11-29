@@ -1,7 +1,7 @@
 # Sui Owned Object Pools (SuiOOP)
 
 A library that provides a set of tools for managing multiple concurrent
-transactions on the Sui network to help avoiding object equivocation and locking.
+transactions on the Sui network to help avoid object equivocation and locking.
 
 ## Quickstart
 
@@ -10,8 +10,10 @@ transactions on the Sui network to help avoiding object equivocation and locking
 npm i suioop
 ```
 
-### Usage
-Note: _You can find a more detailed example in the [section below](#Example-code)._
+### High-level usage
+**Note**: _This is not a working example - it just shows a high-level overview of how 
+the library is used.
+You can find a more detailed example in the [section below](#Example-code)._
 ```typescript
 // Initialize the ExecutorServiceHandler.
 const eshandler = await ExecutorServiceHandler.initialize(
@@ -43,7 +45,7 @@ Finally, the situation is exacerbated by **gas smashing** (which combines automa
 all transaction’s gas coins into one) and our SDK’s default **coin selection** logic
 which uses all the `Coin<SUI>`s owned by an address for every transaction’s 
 gas payment. These defaults make sending transactions from an individual’s wallet 
-simple (doing so automatically cleans up Coin dust), but mean that developers 
+simple (doing so automatically cleans up coin dust), but mean that developers 
 writing services need to work against the defaults to maintain distinct gas 
 coins to run transactions in parallel.
 
@@ -71,7 +73,9 @@ The flow goes as follows:
 1. First we initialize the `ExecutorServiceHandler` containing only one `mainPool`.
 Then whenever a transaction is submitted to the `ExecutorServiceHandler`, it will
 try to find if there is an available **worker pool** to sign and execute the transaction. 
-_Note that the **main pool** is not a **worker pool**, meaning that it does not execute transactions._
+>**Note** that the **main pool** is not a **worker pool**, meaning that it does not
+> execute transactions. It is only used to store the objects and coins of the account,
+> and to provide them to the worker pools when needed.
 
 2. If a worker pool is not found, _the executor handler will create one by splitting
 the mainPool_ - i.e. taking a part of the **mainPool**'s objects and coins and creating a new worker pool.  
@@ -83,10 +87,14 @@ the `DefaultSplitStrategy` will be used.
 
 Let's define an example to make things clearer: Assume that we need to execute 10 transactions that transfer 100 MIST each to a fixed recipient.
 
+Prerequisites for the code of this section to run:
+- You need to already have at least one `Coin<SUI>` in your wallet for each
+transaction that you need to execute in parallel (in our case 10 coins).
+- Each `Coin<SUI>` should have enough balance to execute each transaction.
+
 ```typescript
 import { 
-  SuiClient, 
-  SuiTransactionBlockResponse
+  SuiClient,
 } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
@@ -96,7 +104,10 @@ import { fromB64 } from '@mysten/sui.js/utils';
 // Define the transaction block
 function createPaymentTxb(recipient: string): TransactionBlock {
   const txb = new TransactionBlock();
-  const [coin] = txb.splitCoins(txb.gas, [txb.pure(MIST_TO_TRANSFER)]);
+  const [coin] = txb.splitCoins(
+    txb.gas, 
+    [txb.pure(1000000)] // Amount to be transferred to the recipient
+  );
   txb.transferObjects([coin], txb.pure(recipient));
   return txb;
 }
@@ -115,7 +126,7 @@ const client = new SuiClient({
 
 ```
 
-Now we setup the service handler and to execute the transactions we defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
+Now we set up the service handler and to execute the transactions we defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
 
 ```typescript
 import { ExecutorServiceHandler } from 'suioop';
@@ -137,7 +148,7 @@ for (let i = 0; i < 10; i++) {
 const results = await Promise.allSettled(promises);
 ```
 
-It's that simple! 
+It's that simple! 🚀
 
 ### Defining a custom SplitStrategy
 
@@ -198,6 +209,38 @@ class MyCustomSplitStrategy implements SplitStrategy {
 
 You can find more examples of split strategies in the `splitStrategies.ts` file.
 
+## Tying it all together: real world use cases
+
+### Use case 1: Parallel coin transfers service—Multiple Coins
+Assume that we have a service that needs to transfer coins to multiple recipients in parallel.
+The service is running on a server, and it is receiving requests from multiple users.
+
+Before creating an `ExecutorServiceHandler` instance that will execute each incoming transaction,
+we first need to have a set of coins that will be used to do the coin transferring and pay for the gas of each transaction.
+
+> **Note**: `ExecutorServiceHandler` creates worker pools that handle the execution of the transactions.
+> The maximum number of worker pools that can be created is tightly coupled with the number 
+> of your account's coins.
+
+```typescript
+
+```
+
+
+### Use case 2: NFT minting service—Multiple AdminCaps
+
+Assume that we have a service that needs to mint NFTs in parallel. To mint an NFT,
+each transaction requires an `AdminCap` object.
+
+Similarly to _use case 1_ before initializing our handler,
+we need to have a set of `AdminCap` objects that will be included in each transaction **plus**
+a set of coins that will be used to pay for the gas of each transaction.
+
+> **Note**: Since each transaction requires an `AdminCap` object, the maximum number of worker pools
+> is limited by the number of `AdminCap` objects of your account plus the number of `coins`.
+
+
+
 ## Processing Flow
 The overall processing flow is depicted in the following flowchart:
 
@@ -214,10 +257,10 @@ Before committing your changes, run `npm run lint` to check for code style consi
 
 ### Testing
 
-Tests are a great way to get familiar with the library. For each test scenario
-there is a small description of the test's purpose and the library's commands to achieve that.
+Tests are a great way to get familiar with the library.
+For each test scenario, there is a small description of the test's purpose and the library's commands to achieve that.
 
-To **setup** the tests environment use `./test/initial_setup.sh`
+To **set up** the tests environment use `./test/initial_setup.sh`
 
 The script will create a `.test.env` file in the test folder.
 When the script is complete you only need to add a `ADMIN_SECRET_KEY` and a `TEST_USER_SECRET` to the `.env`.
