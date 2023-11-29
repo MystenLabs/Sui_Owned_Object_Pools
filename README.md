@@ -310,16 +310,115 @@ const results = await Promise.allSettled(promises);
 
 ### Use case 2: NFT minting service—Multiple AdminCaps
 
-Assume that we have a service that needs to mint NFTs in parallel. To mint an NFT,
-each transaction requires an `AdminCap` object.
+This is a more complex scenario that the previous one, but it contains the same logic.
 
-Similarly to _use case 1_ before initializing our handler,
+Assume that we have a service that needs to mint NFTs in parallel. To mint an NFT,
+each transaction requires an `AdminCap` object. Assume that we would like to serve
+_up to 20 concurrent requests_.
+
+As we did with _use case 1_, before initializing our handler
 we need to have a set of `AdminCap` objects that will be included in each transaction **plus**
 a set of coins that will be used to pay for the gas of each transaction.
 
 > **Note**: Since each transaction requires an `AdminCap` object, the maximum number of worker pools
 > is limited by the number of `AdminCap` objects of your account plus the number of `coins`.
 
+There are multiple ways to create `AdminCap` objects. 
+A simple (but not flexible) way is to create your admin caps a-priori on smart contract publication.
+
+Go on to our [move_examples](https://github.com/MystenLabs/Sui_Owned_Object_Pools/tree/main/move_examples) hero_nft app.
+And modify the [genesis.move](https://github.com/MystenLabs/Sui_Owned_Object_Pools/blob/main/move_examples/nft_app/sources/genesis.move) 
+file at the `AdminCap` creation part (lines 31–41).
+
+```move
+let mut i = 0;
+let number_of_admin_caps_to_create = 20;
+while (i < number_of_admin_caps_to_create) {
+    let admin_cap = AdminCap {
+        id: tx_context::new_id(ctx),
+    };
+    transfer::public_transfer(AdminCap {
+        id: object::new(ctx)
+        }, sender(ctx));
+    i = i + 1;
+}
+```
+
+We also need to create the coins that will be used to pay for the gas of each transaction.
+Since we need to serve up to **20 concurrent requests**, we will create **20 coins**.
+
+> Notice that we need exactly 20 AdminCaps and **at least** 20 gas coins. That
+> is because pools deduce their _balance from multiple coins_, but they will always
+> need one AdminCap object.
+
+Using the code from [Case 1](#Use-case-1):
+```typescript
+// ...
+const numberOfCoinsToCreate = 20;
+for (let i = 0; i < numberOfCoinsToCreate; i++) {
+await splitCoinAndTransferToSelf(client, objectId, yourAddressSecretKey);
+}
+// ...
+```
+
+Now that we have the coins and the AdminCaps, 
+we can create the `ExecutorServiceHandler` instance and execute the transactions.
+
+```typescript
+import { ExecutorServiceHandler } from 'suioop';
+import { IncludeAdminCapStrategy } from 'suioop';
+
+// Setup the executor service
+const eshandler = await ExecutorServiceHandler.initialize(
+  adminKeypair,
+  client,
+  new IncludeAdminCapStrategy(
+    300000000, // Each pool will contain coins with a total balance of 300000000 MIST
+    'AdminCap' // The type of the admin cap object. In this case it is 'AdminCap', but it can be any other type depending on your use case
+  ), 
+);
+// Define the number of transactions to execute
+const promises = [];
+let txb: TransactionBlock;
+for (let i = 0; i < 20; i++) {
+  txb = mintNFTTxb(
+    "<recipient-address>", 
+    "<package-id>",
+    "<admin-cap-id>"
+  );
+  promises.push(eshandler.execute(txb, client));
+}
+
+// Collect the promise results
+const results = await Promise.allSettled(promises);
+```
+In detail, here is the code for the `mintNFTTxb` function:
+```typescript
+export function mintNFTTxb(
+  recipientAddress: string,
+  packageId: string,
+  adminCapId: string,
+): TransactionBlock {
+  const txb = new TransactionBlock();
+  const hero = txb.moveCall({
+    arguments: [
+      txb.object(adminCapId),
+      txb.pure('name'),
+      txb.pure('gold'),
+      txb.pure(3),
+      txb.pure('ipfs://example.com/'),
+    ],
+    target: `${packageId}::hero_nft::mint_hero`,
+  });
+
+  txb.transferObjects(
+    [hero],
+    txb.pure(recipientAddress),
+  );
+  txb.setGasBudget(10000000);
+  return txb;
+}
+```
 
 
 ## Processing Flow
