@@ -58,7 +58,10 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
 
   it('creates multiple transactions and executes them in parallel', async () => {
     await helper.setupAdmin(0, COINS_NEEDED);
-    await sleep(3000);
+    console.log(
+      'Admin setup complete 🚀 - waiting for 5 seconds for effects to take place...',
+    );
+    await sleep(5000);
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(
