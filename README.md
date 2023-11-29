@@ -43,7 +43,7 @@ transaction’s gas coin must be owned.
 
 Finally, the situation is exacerbated by **gas smashing** (which combines automatically
 all transaction’s gas coins into one) and our SDK’s default **coin selection** logic
-which uses all the `Coin<SUI>`s owned by an address for every transaction’s 
+which uses all the `0x2::coin::Coin<0x2::sui::SUI>`s owned by an address for every transaction’s 
 gas payment. These defaults make sending transactions from an individual’s wallet 
 simple (doing so automatically cleans up coin dust), but mean that developers 
 writing services need to work against the defaults to maintain distinct gas 
@@ -88,7 +88,7 @@ the `DefaultSplitStrategy` will be used.
 Let's define an example to make things clearer: Assume that we need to execute 10 transactions that transfer 100 MIST each to a fixed recipient.
 
 Prerequisites for the code of this section to run:
-- You need to already have at least one `Coin<SUI>` in your wallet for each
+- You need to already have **at least** one coin of type `0x2::coin::Coin<0x2::sui::SUI>` in your wallet **for each**
 transaction that you need to execute in parallel (in our case 10 coins).
 - Each `Coin<SUI>` should have enough balance to execute each transaction.
 
@@ -209,11 +209,10 @@ class MyCustomSplitStrategy implements SplitStrategy {
 
 You can find more examples of split strategies in the `splitStrategies.ts` file.
 
-## Tying it all together: real world use cases
+## Tying it all together: end-to-end examples
 
 ### Use case 1: Parallel coin transfers service—Multiple Coins
-Assume that we have a service that needs to transfer coins to multiple recipients in parallel.
-The service is running on a server, and it is receiving requests from multiple users.
+Assume that we have a service that needs to do payments of size `50000000` MIST to multiple recipients in parallel.
 
 Before creating an `ExecutorServiceHandler` instance that will execute each incoming transaction,
 we first need to have a set of coins that will be used to do the coin transferring and pay for the gas of each transaction.
@@ -222,10 +221,92 @@ we first need to have a set of coins that will be used to do the coin transferri
 > The maximum number of worker pools that can be created is tightly coupled with the number 
 > of your account's coins.
 
-```typescript
+Here is the code that creates the coins by splitting a single coin 20
+times and transferring the new coins to your address:
 
+```typescript
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient } from '@mysten/sui.js/client/';
+import type { SuiObjectRef, SuiObjectResponse } from '@mysten/sui.js/client/';
+
+const client = new SuiClient({
+      url: 'https://fullnode.testnet.sui.io:443',
+    });
+
+const objectId: string = "<your-coin-object-id>"; // A 
+const yourAddressSecretKey: string = "<your-address-secret-key>";
+
+const numberOfCoinsToCreate = 5;
+// Split the coin repeatedly (20 times) and transfer the new coins to your address
+for (let i = 0; i < numberOfCoinsToCreate; i++) {
+  await splitCoinAndTransferToSelf(client, objectId, yourAddressSecretKey);
+}
+
+async function splitCoinAndTransferToSelf(
+  client: SuiClient,
+  coinObjectId: string,
+  yourAddressSecretKey: string,
+) {
+  const txb = new TransactionBlock();
+  const coinToPay = await client.getObject({ id: coinObjectId });
+  const newCoin = txb.splitCoins(txb.gas, [txb.pure(300000000)]);  // Each new coin will have a balance of 300000000 MIST
+  txb.transferObjects([newCoin], txb.pure(coinObjectId));
+  txb.setGasBudget(100000000);
+  txb.setGasPayment([toSuiObjectRef(coinToPay)]);
+  await client
+    .signAndExecuteTransactionBlock({
+      signer: getKeyPair(yourAddressSecretKey),
+      transactionBlock: txb,
+      requestType: 'WaitForLocalExecution',
+      options: {
+        showEffects: true,
+        showObjectChanges: true,
+      },
+    })
+    .then((txRes) => {
+      const status = txRes.effects?.status?.status;
+      if (status !== 'success') {
+        throw new Error(
+          `Could not split coin! ${txRes.effects?.status?.error}`,
+        );
+      }
+    })
+    .catch((err) => {
+      throw new Error(`Could not split coin!: ${err}`);
+    });
+}
 ```
 
+Now that we have the coins, we can create the `ExecutorServiceHandler` instance and execute the transactions.
+
+Note that we provide the `DefaultSplitStrategy` as a parameter to the `ExecutorServiceHandler` constructor
+setting the `minimumBalance` equal to `300000000`, meaning that the worker pool that will be created will need
+to have a set of coins that the sum of their balances is greater or equal to this. 
+```typescript
+import { ExecutorServiceHandler } from 'suioop';
+import { DefaultSplitStrategy } from 'suioop';
+
+// Setup the executor service
+const eshandler = await ExecutorServiceHandler.initialize(
+  adminKeypair,
+  client,
+  new DefaultSplitStrategy(300000000), // Each pool will contain coins with a total balance of 300000000 MIST
+);
+// Define the number of transactions to execute
+const promises = [];
+let txb: TransactionBlock;
+for (let i = 0; i < 10; i++) {
+  txb = createPaymentTxb("<recipient-address>");  // Use a test user address to receive the txbs
+  promises.push(eshandler.execute(txb, client));
+}
+
+// Collect the promise results
+const results = await Promise.allSettled(promises);
+```
+
+> **Note**: Providing a `SplitStrategy` is optional. If you don't provide one, the `DefaultSplitStrategy` will be used,
+> which also has a default minimum balance.
+> But for demonstration purposes, we provide here a minimum pool balance of 300000000.
 
 ### Use case 2: NFT minting service—Multiple AdminCaps
 
