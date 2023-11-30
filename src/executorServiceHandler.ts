@@ -13,6 +13,7 @@ import type { TransactionBlock } from '@mysten/sui.js/transactions';
 import { Level, logger } from './logger';
 import { Pool } from './pool';
 import type { SplitStrategy } from './splitStrategies';
+import type { AdminCapTransactionBlockFacade } from './transactionBlockFacades';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.
@@ -65,7 +66,7 @@ export class ExecutorServiceHandler {
    * @throws An error if all retries fail.
    */
   public async execute(
-    txb: TransactionBlock,
+    txb: TransactionBlock | AdminCapTransactionBlockFacade,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
     options?: SuiTransactionBlockResponseOptions,
@@ -123,7 +124,7 @@ export class ExecutorServiceHandler {
    * @returns A Promise that resolves to the SuiTransactionBlockResponse object returned by executing the transaction block.
    */
   private async executeFlow(
-    txb: TransactionBlock,
+    txb: TransactionBlock | AdminCapTransactionBlockFacade,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
     options?: SuiTransactionBlockResponseOptions,
