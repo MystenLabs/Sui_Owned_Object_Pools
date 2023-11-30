@@ -25,6 +25,7 @@ import { Level, logger } from './logger';
 import type { SplitStrategy } from './splitStrategies';
 import { DefaultSplitStrategy } from './splitStrategies';
 import type { PoolObject, PoolObjectsMap } from './types';
+import type { AdminCapTransactionBlockFacade } from './transactionBlockFacades';
 
 /**
  * A class representing a pool of Sui objects and gas coins.
@@ -320,7 +321,7 @@ export class Pool {
    */
   async signAndExecuteTransactionBlock(input: {
     client: SuiClient;
-    transactionBlock: TransactionBlock;
+    transactionBlock: TransactionBlock | AdminCapTransactionBlockFacade;
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
@@ -329,7 +330,35 @@ export class Pool {
       `Starting signAndExecuteTransactionBlock: current objects pool size: ${this._objects.size}`,
       this.id,
     );
-    const { transactionBlock, options, requestType } = input;
+    let { transactionBlock, options, requestType } = input;
+
+    // If this is not a transaction block, but an AdminCapTransactionBlockFacade, (composed object)
+    if ('adminCapIdentifier' in transactionBlock) {
+      // Process the transaction block so that it contains the admin cap
+
+      // Find the admin cap object id in the pool
+      const adminCapEntry = Array.from(this._objects.entries()).find(
+        ([key, value]) => {
+          if (
+            'adminCapIdentifier' in transactionBlock &&
+            value.type.includes(transactionBlock.adminCapIdentifier)
+          ) {
+            return key;
+          }
+        },
+      );
+      const adminCapId = adminCapEntry?.[0];
+      if (!adminCapId) {
+        throw new Error(
+          `No ${transactionBlock.adminCapIdentifier} found in the pool.`,
+        );
+      }
+      // Inject the admin cap id of the pool into the transaction block
+      transactionBlock.runMoveCall(adminCapId);
+
+      // Pass the processed transaction block
+      transactionBlock = transactionBlock.transactionBlock;
+    }
 
     // (1). Check object ownership
     logger.log(Level.debug, 'Checking object ownership...', this.id);

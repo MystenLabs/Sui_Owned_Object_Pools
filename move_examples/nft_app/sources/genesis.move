@@ -35,9 +35,14 @@ module cms::genesis {
       id: object::new(ctx)
     });
 
-    // Transfer Admin Cap to sender
-    transfer::public_transfer(AdminCap { 
-      id: object::new(ctx)
-    }, sender(ctx));
+    // Generate 20 Admin Caps, for parallelization of transactions
+    let i = 0;
+    while (i <= 20) {
+      // Transfer Admin Cap to sender
+      transfer::public_transfer(AdminCap {
+        id: object::new(ctx)
+      }, sender(ctx));
+      i = i + 1;
+    }
   }
 }
