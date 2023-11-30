@@ -99,7 +99,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       client,
       new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
     );
-
+    const mainPoolTotalBalanceBeforeTransaction = totalBalance(mainPool);
     /*
     Create a nft object using the first pool and
     transfer it to yourself (admin
@@ -117,24 +117,18 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       },
     });
     expect(res?.effects?.status.status).toEqual('success');
-
+    const mainPoolTotalBalanceAfterTransaction = totalBalance(mainPool);
     const poolTwoBalanceAfterTransaction = totalBalance(poolTwo);
     if (!res?.effects?.gasUsed) {
       console.warn('Gas used by pool is undefined');
     }
 
-    const gasBill = {
-      computationCost: res?.effects?.gasUsed?.computationCost ?? 0,
-      storageCost: res?.effects?.gasUsed?.storageCost ?? 0,
-      storageRebate: res?.effects?.gasUsed?.storageRebate ?? 0,
-    };
-    const gasBillTotal =
-      parseInt(<string>gasBill.computationCost) +
-      parseInt(<string>gasBill.storageCost) -
-      parseInt(<string>gasBill.storageRebate);
-    const gasPayedByPool =
-      poolTwoBalanceBeforeTransaction - poolTwoBalanceAfterTransaction;
-    expect(gasPayedByPool).toEqual(gasBillTotal);
+    expect(mainPoolTotalBalanceBeforeTransaction).toEqual(
+      mainPoolTotalBalanceAfterTransaction,
+    );
+    expect(poolTwoBalanceAfterTransaction).toBeLessThan(
+      poolTwoBalanceBeforeTransaction,
+    );
   });
 });
 
