@@ -237,7 +237,7 @@ const objectId: string = "<your-coin-object-id>"; // A
 const yourAddressSecretKey: string = "<your-address-secret-key>";
 
 const numberOfCoinsToCreate = 5;
-// Split the coin repeatedly (20 times) and transfer the new coins to your address
+/// Splits a specific coin and then transfer the new coins to the same address.
 for (let i = 0; i < numberOfCoinsToCreate; i++) {
   await splitCoinAndTransferToSelf(client, objectId, yourAddressSecretKey);
 }
@@ -249,10 +249,17 @@ async function splitCoinAndTransferToSelf(
 ) {
   const txb = new TransactionBlock();
   const coinToPay = await client.getObject({ id: coinObjectId });
-  const newCoin = txb.splitCoins(txb.gas, [txb.pure(300000000)]);  // Each new coin will have a balance of 300000000 MIST
-  txb.transferObjects([newCoin], txb.pure(coinObjectId));
-  txb.setGasBudget(100000000);
+  const newcoins1 = txb.splitCoins(txb.gas, [txb.pure(300000000)]);
+  // const newcoins2 = txb.splitCoins(txb.gas, [txb.pure(300000000)]);
+  txb.transferObjects(
+    [
+      newcoins1,
+      // newcoins2
+    ],
+    txb.pure(getKeyPair(yourAddressSecretKey).getPublicKey().toSuiAddress()),
+  );
   txb.setGasPayment([toSuiObjectRef(coinToPay)]);
+  txb.setGasBudget(100000000);
   await client
     .signAndExecuteTransactionBlock({
       signer: getKeyPair(yourAddressSecretKey),
@@ -260,7 +267,6 @@ async function splitCoinAndTransferToSelf(
       requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
-        showObjectChanges: true,
       },
     })
     .then((txRes) => {
@@ -270,9 +276,10 @@ async function splitCoinAndTransferToSelf(
           `Could not split coin! ${txRes.effects?.status?.error}`,
         );
       }
+      return txRes;
     })
     .catch((err) => {
-      throw new Error(`Could not split coin!: ${err}`);
+      throw new Error(`Error thrown: Could not split coin!: ${err}`);
     });
 }
 ```
