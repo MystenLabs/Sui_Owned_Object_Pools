@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  ExecuteTransactionRequestType,
+  MoveStruct,
   OwnedObjectRef,
-  SuiClient,
-  SuiTransactionBlockResponse,
-} from '@mysten/sui.js/client';
-import type {
   PaginatedObjectsResponse,
+  SuiClient,
   SuiObjectRef,
   SuiObjectResponse,
-} from '@mysten/sui.js/client';
-import type {
-  ExecuteTransactionRequestType,
+  SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-  MoveStruct,
 } from '@mysten/sui.js/client';
 import type { Keypair } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
@@ -25,7 +21,7 @@ import { Level, logger } from './logger';
 import type { SplitStrategy } from './splitStrategies';
 import { DefaultSplitStrategy } from './splitStrategies';
 import type { PoolObject, PoolObjectsMap } from './types';
-import type { AdminCapTransactionBlockFacade } from './transactionBlockFacades';
+import type { TransactionBlockWithLambda } from './transactions';
 
 /**
  * A class representing a pool of Sui objects and gas coins.
@@ -321,7 +317,7 @@ export class Pool {
    */
   async signAndExecuteTransactionBlock(input: {
     client: SuiClient;
-    transactionBlock: TransactionBlock | AdminCapTransactionBlockFacade;
+    transactionBlockLambda: TransactionBlockWithLambda;
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
@@ -330,40 +326,32 @@ export class Pool {
       `Starting signAndExecuteTransactionBlock: current objects pool size: ${this._objects.size}`,
       this.id,
     );
-    let { transactionBlock, options, requestType } = input;
+    let { transactionBlockLambda, options, requestType } = input;
 
-    // If this is not a transaction block, but an AdminCapTransactionBlockFacade, (composed object)
-    if ('adminCapIdentifier' in transactionBlock) {
-      // Process the transaction block so that it contains the admin cap
-
-      // Find the admin cap object id in the pool
-      const adminCapEntry = Array.from(this._objects.entries()).find(
-        ([key, value]) => {
-          if (
-            'adminCapIdentifier' in transactionBlock &&
-            value.type.includes(transactionBlock.adminCapIdentifier)
-          ) {
-            return key;
-          }
-        },
+    // (0). Get the complete transaction block by building it using moveCalls
+    // from inside its lambda.
+    let transactionBlockComplete: TransactionBlock;
+    if (transactionBlockLambda.lambdaArgs) {
+      // Execute the lambda by looking up the object of the given type
+      // in the lambdaArgs array, and pass the object id that was found
+      // in the lambda.
+      transactionBlockComplete = transactionBlockLambda.lambda(
+        ...transactionBlockLambda.lambdaArgs.map((arg) => {
+          return this.getObjectOfType(arg);
+        }),
       );
-      const adminCapId = adminCapEntry?.[0];
-      if (!adminCapId) {
-        throw new Error(
-          `No ${transactionBlock.adminCapIdentifier} found in the pool.`,
-        );
-      }
-      // Inject the admin cap id of the pool into the transaction block
-      transactionBlock.runMoveCall(adminCapId);
-
-      // Pass the processed transaction block
-      transactionBlock = transactionBlock.transactionBlock;
+    } else {
+      transactionBlockComplete = transactionBlockLambda.lambda();
     }
 
     // (1). Check object ownership
     logger.log(Level.debug, 'Checking object ownership...', this.id);
-    transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
-    if (!(await this.checkTotalOwnership(transactionBlock, input.client))) {
+    transactionBlockComplete.setSender(
+      this.keypair.getPublicKey().toSuiAddress(),
+    );
+    if (
+      !(await this.checkTotalOwnership(transactionBlockComplete, input.client))
+    ) {
       throw new Error(
         "All objects of the transaction block must be owned by the pool's creator.",
       );
@@ -385,7 +373,7 @@ export class Pool {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
     // Finally, set the gas payment to be done by the selected coins
-    transactionBlock.setGasPayment(coinsArray);
+    transactionBlockComplete.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
@@ -393,7 +381,9 @@ export class Pool {
      */
     logger.log(Level.debug, 'Dry running the transaction block...', this.id);
     const dryRunRes = await input.client.dryRunTransactionBlock({
-      transactionBlock: await transactionBlock.build({ client: input.client }),
+      transactionBlock: await transactionBlockComplete.build({
+        client: input.client,
+      }),
     });
     if (dryRunRes.effects.status.status !== 'success') {
       throw new Error(`Dry run failed. ${dryRunRes.effects.status.error}`);
@@ -401,7 +391,7 @@ export class Pool {
 
     // (3). Run the transaction
     const res = await input.client.signAndExecuteTransactionBlock({
-      transactionBlock,
+      transactionBlock: transactionBlockComplete,
       requestType,
       options: {
         ...options,
@@ -593,6 +583,27 @@ export class Pool {
       throw new Error('No gas coins in the pool.');
     }
     return coinsMap;
+  }
+
+  /**
+   * Looks up the pool for an object of the given type
+   * and returns its object id.
+   * @param type
+   * @private
+   */
+  private getObjectOfType(type: string): string {
+    const objectEntry = Array.from(this._objects.entries()).find(
+      ([key, value]) => {
+        if (value.type.includes(type)) {
+          return key;
+        }
+      },
+    );
+    const objectId = objectEntry?.[0];
+    if (!objectId) {
+      throw new Error(`No ${type} found in the pool.`);
+    }
+    return objectId;
   }
 
   get keypair(): Keypair {
