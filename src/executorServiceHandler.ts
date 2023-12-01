@@ -224,7 +224,9 @@ export class ExecutorServiceHandler {
     const newPool = await this._mainPool.split(client, splitStrategy);
     logger.log(
       Level.debug,
-      `ESHandler: New worker added to the queue: ${newPool.id}`,
+      `ESHandler: New worker added to the queue: ${newPool.id} - ${Array.from(
+        newPool.objects.keys(),
+      )}`,
     );
     this._workersQueue.push(newPool);
   }
