@@ -223,7 +223,8 @@ export class Pool {
       client,
     );
     if (newPool.objects.size === 0) {
-      throw new Error(
+      logger.log(
+        Level.warn,
         `Pool (id: ${this.id}): Failed to split. newPool does not contain any objects.`,
       );
     }
