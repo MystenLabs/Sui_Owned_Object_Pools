@@ -222,6 +222,11 @@ export class Pool {
       gasCoinsToGiveToNewPool,
       client,
     );
+    if (newPool.objects.size === 0) {
+      throw new Error(
+        `Pool (id: ${this.id}): Failed to split. newPool does not contain any objects.`,
+      );
+    }
     logger.log(
       Level.info,
       `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,

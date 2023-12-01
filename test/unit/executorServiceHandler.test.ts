@@ -96,12 +96,17 @@ describe('Execute multiple transactions with ExecutorServiceHandler', () => {
       client,
       env.GET_WORKER_TIMEOUT_MS,
     );
-    const strategy = new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID);
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
     let txb: TransactionBlockWithLambda;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
       txb = mintNFTTxb(env, adminKeypair);
-      promises.push(eshandler.execute(txb, client, strategy));
+      promises.push(
+        eshandler.execute(
+          txb,
+          client,
+          new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+        ),
+      );
     }
 
     const results = await Promise.allSettled(promises);
