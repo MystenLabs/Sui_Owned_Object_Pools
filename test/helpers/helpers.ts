@@ -6,6 +6,7 @@ import { fromB64 } from '@mysten/sui.js/utils';
 import type { Pool } from '../../src/pool';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import type { EnvironmentVariables } from './setupEnvironmentVariables';
+import { TransactionBlockWithLambda } from '../../src/transactions';
 
 /**
  * Returns an Ed25519Keypair object generated from the given private key.
@@ -59,23 +60,26 @@ export function totalBalance(pool: Pool) {
 export function mintNFTTxb(
   env: EnvironmentVariables,
   adminKeypair: Ed25519Keypair,
-): TransactionBlock {
-  const txb = new TransactionBlock();
-  const hero = txb.moveCall({
-    arguments: [
-      txb.object(env.NFT_APP_ADMIN_CAP),
-      txb.pure('zed'),
-      txb.pure('gold'),
-      txb.pure(3),
-      txb.pure('ipfs://example.com/'),
-    ],
-    target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-  });
+): TransactionBlockWithLambda {
+  const txbLambda = (adminCapId: string) => {
+    const txb = new TransactionBlock();
+    const hero = txb.moveCall({
+      arguments: [
+        txb.object(adminCapId),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
 
-  txb.transferObjects(
-    [hero],
-    txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
-  );
-  txb.setGasBudget(10000000);
-  return txb;
+    txb.transferObjects(
+      [hero],
+      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
+    txb.setGasBudget(10000000);
+    return txb;
+  };
+  return new TransactionBlockWithLambda(txbLambda, ['AdminCap']);
 }

@@ -4,13 +4,13 @@ import type { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { SuiClient } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
-import { AdminCapTransactionBlockFacade } from '../../src/transactionBlockFacades';
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import { Pool } from '../../src/pool';
-import { getKeyPair, sleep } from '../helpers/helpers';
+import { getKeyPair, mintNFTTxb, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
+import { TransactionBlockWithLambda } from '../../src/transactions';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -73,9 +73,11 @@ describe('Execute multiple transactions with ExecutorServiceHandler', () => {
     );
 
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
-    let txb: TransactionBlock;
+    let txb: TransactionBlockWithLambda;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      txb = createPaymentTxb(env.TEST_USER_ADDRESS);
+      txb = new TransactionBlockWithLambda(() =>
+        createPaymentTxb(env.TEST_USER_ADDRESS),
+      );
       promises.push(eshandler.execute(txb, client));
     }
 
@@ -94,27 +96,7 @@ describe('Execute multiple transactions with ExecutorServiceHandler', () => {
       client,
       env.GET_WORKER_TIMEOUT_MS,
     );
-    let txb = new AdminCapTransactionBlockFacade();
-
-    /*
-    FIXME: This is not working. The error is:
-      `Dry run failed, could not automatically determine a budget: UnusedValueWithoutDrop { result_idx: 0, secondary_idx: 0 }`
-      It makes sense, because the resulting nft is created but not consumed (e.g. transferred or dropped).
-      How can we consume it though? the AdminCapTransactionBlockFacade is not a child of TransactionBlock,
-      but a composite object, which means that with the current implementation we cannot
-      get the result of the moveCall and chain it with other moveCalls.
-      AdminCapTransactionBlockFacade.moveCall saves the arguments and runs the actual
-      TransactionBlock.moveCall from inside the pool.
-    */
-    txb.moveCall({
-      arguments: [
-        txb.pure('zed'),
-        txb.pure('gold'),
-        txb.pure(3),
-        txb.pure('ipfs://example.com/'),
-      ],
-      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-    });
+    const txb = mintNFTTxb(env, adminKeypair);
     const strategy = new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID);
     const res = await eshandler.execute(txb, client, strategy);
     expect(res).toBeDefined(); // TODO - check the response status
