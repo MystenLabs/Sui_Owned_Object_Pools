@@ -139,7 +139,7 @@ const eshandler = await ExecutorServiceHandler.initialize(
 );
 // Define the number of transactions to execute
 const promises = [];
-let txb: TransactionBlock;
+let txb: TransactionBlockWithLambda;
 for (let i = 0; i < 10; i++) {
   txb = new TransactionBlockWithLambda(() =>
     ceatePaymentTxb("<recipient-address>"),
