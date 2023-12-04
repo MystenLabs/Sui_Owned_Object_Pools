@@ -7,3 +7,4 @@ export { Level } from './logger';
 export * from './pool';
 export * from './splitStrategies';
 export * from './types';
+export * from './transactions';

@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
+  ExecuteTransactionRequestType,
+  MoveStruct,
   OwnedObjectRef,
-  SuiClient,
-  SuiTransactionBlockResponse,
-} from '@mysten/sui.js/client';
-import type {
   PaginatedObjectsResponse,
+  SuiClient,
   SuiObjectRef,
   SuiObjectResponse,
-} from '@mysten/sui.js/client';
-import type {
-  ExecuteTransactionRequestType,
+  SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-  MoveStruct,
 } from '@mysten/sui.js/client';
 import type { Keypair } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
@@ -25,6 +21,7 @@ import { Level, logger } from './logger';
 import type { SplitStrategy } from './splitStrategies';
 import { DefaultSplitStrategy } from './splitStrategies';
 import type { PoolObject, PoolObjectsMap } from './types';
+import type { TransactionBlockWithLambda } from './transactions';
 
 /**
  * A class representing a pool of Sui objects and gas coins.
@@ -225,6 +222,12 @@ export class Pool {
       gasCoinsToGiveToNewPool,
       client,
     );
+    if (newPool.objects.size === 0) {
+      logger.log(
+        Level.warn,
+        `Pool (id: ${this.id}): Failed to split. newPool does not contain any objects.`,
+      );
+    }
     logger.log(
       Level.info,
       `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
@@ -320,7 +323,7 @@ export class Pool {
    */
   async signAndExecuteTransactionBlock(input: {
     client: SuiClient;
-    transactionBlock: TransactionBlock;
+    transactionBlockLambda: TransactionBlockWithLambda;
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
   }): Promise<SuiTransactionBlockResponse> {
@@ -329,12 +332,32 @@ export class Pool {
       `Starting signAndExecuteTransactionBlock: current objects pool size: ${this._objects.size}`,
       this.id,
     );
-    const { transactionBlock, options, requestType } = input;
+    let { transactionBlockLambda, options, requestType } = input;
+
+    // (0). Get the complete transaction block by building it using moveCalls
+    // from inside its lambda.
+    let transactionBlockComplete: TransactionBlock;
+    if (transactionBlockLambda.lambdaArgs) {
+      // Execute the lambda by looking up the object of the given type
+      // in the lambdaArgs array, and pass the object id that was found
+      // in the lambda.
+      transactionBlockComplete = transactionBlockLambda.lambda(
+        ...transactionBlockLambda.lambdaArgs.map((arg) => {
+          return this.getObjectOfType(arg);
+        }),
+      );
+    } else {
+      transactionBlockComplete = transactionBlockLambda.lambda();
+    }
 
     // (1). Check object ownership
     logger.log(Level.debug, 'Checking object ownership...', this.id);
-    transactionBlock.setSender(this.keypair.getPublicKey().toSuiAddress());
-    if (!(await this.checkTotalOwnership(transactionBlock, input.client))) {
+    transactionBlockComplete.setSender(
+      this.keypair.getPublicKey().toSuiAddress(),
+    );
+    if (
+      !(await this.checkTotalOwnership(transactionBlockComplete, input.client))
+    ) {
       throw new Error(
         "All objects of the transaction block must be owned by the pool's creator.",
       );
@@ -356,7 +379,7 @@ export class Pool {
       throw new Error('No SUI coins in the pool to use as gas payment.');
     }
     // Finally, set the gas payment to be done by the selected coins
-    transactionBlock.setGasPayment(coinsArray);
+    transactionBlockComplete.setGasPayment(coinsArray);
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough
@@ -364,7 +387,9 @@ export class Pool {
      */
     logger.log(Level.debug, 'Dry running the transaction block...', this.id);
     const dryRunRes = await input.client.dryRunTransactionBlock({
-      transactionBlock: await transactionBlock.build({ client: input.client }),
+      transactionBlock: await transactionBlockComplete.build({
+        client: input.client,
+      }),
     });
     if (dryRunRes.effects.status.status !== 'success') {
       throw new Error(`Dry run failed. ${dryRunRes.effects.status.error}`);
@@ -372,7 +397,7 @@ export class Pool {
 
     // (3). Run the transaction
     const res = await input.client.signAndExecuteTransactionBlock({
-      transactionBlock,
+      transactionBlock: transactionBlockComplete,
       requestType,
       options: {
         ...options,
@@ -564,6 +589,27 @@ export class Pool {
       throw new Error('No gas coins in the pool.');
     }
     return coinsMap;
+  }
+
+  /**
+   * Looks up the pool for an object of the given type
+   * and returns its object id.
+   * @param type
+   * @private
+   */
+  private getObjectOfType(type: string): string {
+    const objectEntry = Array.from(this._objects.entries()).find(
+      ([key, value]) => {
+        if (value.type.includes(type)) {
+          return key;
+        }
+      },
+    );
+    const objectId = objectEntry?.[0];
+    if (!objectId) {
+      throw new Error(`No ${type} found in the pool.`);
+    }
+    return objectId;
   }
 
   get keypair(): Keypair {

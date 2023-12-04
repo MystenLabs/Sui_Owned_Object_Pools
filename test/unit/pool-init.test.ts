@@ -53,6 +53,7 @@ describe('✂️ Pool splitting', () => {
     });
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
+      // eslint-disable-next-line no-unused-vars
       pred: (_: SuiObjectRef | undefined) => false,
       succeeded: () => true,
     };
@@ -71,6 +72,7 @@ describe('✂️ Pool splitting', () => {
     });
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
+      // eslint-disable-next-line no-unused-vars
       pred: (_: SuiObjectRef | undefined) => null,
       succeeded: () => true,
     };

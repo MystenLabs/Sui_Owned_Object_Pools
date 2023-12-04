@@ -6,9 +6,11 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import { Pool } from '../../src/pool';
-import { getKeyPair, sleep } from '../helpers/helpers';
+import { getKeyPair, mintNFTTxb, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
+import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
+import { TransactionBlockWithLambda } from '../../src/transactions';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -28,7 +30,7 @@ function createPaymentTxb(recipient: string): TransactionBlock {
   return txb;
 }
 
-describe('Test pool adaptability to requests with ExecutorServiceHandler', () => {
+describe('Execute multiple transactions with ExecutorServiceHandler', () => {
   xit('smashes the coins into one', async () => {
     await helper.smashCoins(COINS_NEEDED);
   });
@@ -56,9 +58,12 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     ).toBeTruthy();
   });
 
-  it('creates multiple transactions and executes them in parallel', async () => {
+  it('executes multiple coin transfer (payment) transactions - case 1', async () => {
     await helper.setupAdmin(0, COINS_NEEDED);
-    await sleep(3000);
+    console.log(
+      'Admin setup complete 🚀 - waiting for 5 seconds for effects to take place...',
+    );
+    await sleep(5000);
     // Pass this transaction to the ExecutorServiceHandler. The ExecutorServiceHandler will
     // forward the transaction to a worker pool, which will sign and execute the transaction.
     const eshandler = await ExecutorServiceHandler.initialize(
@@ -68,10 +73,40 @@ describe('Test pool adaptability to requests with ExecutorServiceHandler', () =>
     );
 
     const promises: Promise<SuiTransactionBlockResponse>[] = [];
-    let txb: TransactionBlock;
+    let txb: TransactionBlockWithLambda;
     for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
-      txb = createPaymentTxb(env.TEST_USER_ADDRESS);
+      txb = new TransactionBlockWithLambda(() =>
+        createPaymentTxb(env.TEST_USER_ADDRESS),
+      );
       promises.push(eshandler.execute(txb, client));
+    }
+
+    const results = await Promise.allSettled(promises);
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        console.error(result.reason);
+      }
+      expect(result.status).toEqual('fulfilled');
+    });
+  });
+
+  it('executes multiple mint nft transactions using admin caps - case 2', async () => {
+    const eshandler = await ExecutorServiceHandler.initialize(
+      adminKeypair,
+      client,
+      env.GET_WORKER_TIMEOUT_MS,
+    );
+    const promises: Promise<SuiTransactionBlockResponse>[] = [];
+    let txb: TransactionBlockWithLambda;
+    for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
+      txb = mintNFTTxb(env, adminKeypair);
+      promises.push(
+        eshandler.execute(
+          txb,
+          client,
+          new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+        ),
+      );
     }
 
     const results = await Promise.allSettled(promises);

@@ -101,13 +101,14 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
       return null;
     }
     if (
+      !this.adminCapIncluded &&
       obj.type.includes(this.adminCapIdentifier) &&
       obj.type.includes(this.packageId)
     ) {
       this.adminCapIncluded = true;
       return true;
     }
-    if (isCoin(obj.type)) {
+    if (!(this.balanceSoFar >= this.minimumBalance) && isCoin(obj.type)) {
       this.balanceSoFar += obj.balance ?? 0;
       return true;
     } else {

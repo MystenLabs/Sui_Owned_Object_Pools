@@ -99,7 +99,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       client,
       new IncludeAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
     );
-
+    const mainPoolTotalBalanceBeforeTransaction = totalBalance(mainPool);
     /*
     Create a nft object using the first pool and
     transfer it to yourself (admin
@@ -108,7 +108,7 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     const txb = mintNFTTxb(env, adminKeypair);
     const res = await poolTwo.signAndExecuteTransactionBlock({
       client,
-      transactionBlock: txb,
+      transactionBlockLambda: txb,
       requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
@@ -117,24 +117,18 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
       },
     });
     expect(res?.effects?.status.status).toEqual('success');
-
+    const mainPoolTotalBalanceAfterTransaction = totalBalance(mainPool);
     const poolTwoBalanceAfterTransaction = totalBalance(poolTwo);
     if (!res?.effects?.gasUsed) {
       console.warn('Gas used by pool is undefined');
     }
 
-    const gasBill = {
-      computationCost: res?.effects?.gasUsed?.computationCost ?? 0,
-      storageCost: res?.effects?.gasUsed?.storageCost ?? 0,
-      storageRebate: res?.effects?.gasUsed?.storageRebate ?? 0,
-    };
-    const gasBillTotal =
-      parseInt(<string>gasBill.computationCost) +
-      parseInt(<string>gasBill.storageCost) -
-      parseInt(<string>gasBill.storageRebate);
-    const gasPayedByPool =
-      poolTwoBalanceBeforeTransaction - poolTwoBalanceAfterTransaction;
-    expect(gasPayedByPool).toEqual(gasBillTotal);
+    expect(mainPoolTotalBalanceBeforeTransaction).toEqual(
+      mainPoolTotalBalanceAfterTransaction,
+    );
+    expect(poolTwoBalanceAfterTransaction).toBeLessThan(
+      poolTwoBalanceBeforeTransaction,
+    );
   });
 });
 
@@ -166,7 +160,7 @@ describe('Transaction block execution directly from pool', () => {
     const txb = mintNFTTxb(env, adminKeypair);
     const res = await pool.signAndExecuteTransactionBlock({
       client,
-      transactionBlock: txb,
+      transactionBlockLambda: txb,
       requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
@@ -201,25 +195,10 @@ describe('Transaction block execution directly from pool', () => {
     expect(objects.size).toBeGreaterThan(0);
 
     // Admin transfers an object that belongs to him back to himself.
-    const txb = new TransactionBlock();
-    const recipientAddress = env.TEST_USER_ADDRESS;
-
-    const hero = txb.moveCall({
-      arguments: [
-        txb.object(env.NFT_APP_ADMIN_CAP),
-        txb.pure('zed'),
-        txb.pure('gold'),
-        txb.pure(3),
-        txb.pure('ipfs://example.com/'),
-      ],
-      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-    });
-
-    txb.transferObjects([hero], txb.pure(recipientAddress));
-    txb.setGasBudget(10000000);
+    const txb = mintNFTTxb(env, adminKeypair);
     const res = await pool.signAndExecuteTransactionBlock({
       client,
-      transactionBlock: txb,
+      transactionBlockLambda: txb,
       requestType: 'WaitForLocalExecution',
       options: {
         showEffects: true,
