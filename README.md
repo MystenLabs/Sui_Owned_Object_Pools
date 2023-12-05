@@ -126,7 +126,8 @@ const client = new SuiClient({
 
 ```
 
-Now we set up the service handler and to execute the transactions we defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
+Now we set up the service handler and to execute the transactions we
+ defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
 
 ```typescript
 import { ExecutorServiceHandler } from 'suioop';
@@ -138,15 +139,22 @@ const eshandler = await ExecutorServiceHandler.initialize(
 );
 // Define the number of transactions to execute
 const promises = [];
-let txb: TransactionBlock;
+let txb: TransactionBlockWithLambda;
 for (let i = 0; i < 10; i++) {
-  txb = createPaymentTxb("<recipient-address>");  // Use your test user address to receive the txbs
+  txb = new TransactionBlockWithLambda(() =>
+    ceatePaymentTxb("<recipient-address>"),
+  );
   promises.push(eshandler.execute(txb, client));
 }
 
 // Collect the promise results
 const results = await Promise.allSettled(promises);
 ```
+
+> Notice that we are using a `TransactionBlockWithLambda()` and not `TransactionBlock()`.
+`TransactionBlockWithLambda` is a more flexible way of defining transaction blocks.
+What differs is that the transaction block will be created later, 
+just before the transaction execution is done by a worker pool. 
 
 It's that simple! 🚀
 
@@ -177,14 +185,15 @@ To do this, you have to implement the `SplitStrategy` interface. In detail:
 
 ```typescript
 class MyCustomSplitStrategy implements SplitStrategy {
-  private coinsToMove = 1;
   private capyIncluded = false;
+  private balanceSoFar = 0;
+  private readonly minimumBalance;
   
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
     // If we have fulfilled each requirement then terminate the split by returning null
     // This will stop the split process and the worker pool will be created
-    const terminateWhen = this.coinsToMove <= 0 && this.capyIncluded;
+    const terminateWhen = this.balanceSoFar >= this.minimumBalance && this.capyIncluded;
     if (terminateWhen) {
       return null;
     }
@@ -194,20 +203,22 @@ class MyCustomSplitStrategy implements SplitStrategy {
       return true;
     }
     // If the object is a coin and we still need to get coins, then we include it to the new pool
-    if (isCoin(obj.type) && this.coinsToMove > 0) {
-      return this.coinsToMove-- > 0;
+    if (this.balanceSoFar >= this.minimumBalance && isCoin(obj.type)) {
+      this.balanceSoFar += obj.balance ?? 0;
+      return true;
     } else {
       return false;
     }
   }
   // This function is called during the split process to check if the split was successful
   public succeeded() {
-    return coinsToMove <= 0 && capyIncluded;
+    return this.balanceSoFar >= this.minimumBalance && this.adminCapIncluded;
   }
 }
 ```
 
-You can find more examples of split strategies in the `splitStrategies.ts` file.
+You can find more examples of split strategies (including an admin cap inclusion case)
+in the `splitStrategies.ts` file.
 
 ## Tying it all together: end-to-end examples
 
@@ -297,136 +308,117 @@ import { DefaultSplitStrategy } from 'suioop';
 const eshandler = await ExecutorServiceHandler.initialize(
   adminKeypair,
   client,
-  new DefaultSplitStrategy(300000000), // Each pool will contain coins with a total balance of 300000000 MIST
 );
 // Define the number of transactions to execute
 const promises = [];
-let txb: TransactionBlock;
+let txb: TransactionBlockWithLambda;
 for (let i = 0; i < 10; i++) {
-  txb = createPaymentTxb("<recipient-address>");  // Use a test user address to receive the txbs
-  promises.push(eshandler.execute(txb, client));
+  txb = new TransactionBlockWithLambda(
+    () => createPaymentTxb("<recipient-address>") // Use a test user address to receive the txbs
+  );  
+  promises.push(
+    eshandler.execute(
+      txb, client, new DefaultSplitStrategy(300000000) // Each pool will contain coins with a total balance of 300000000 MIST
+    ));
 }
 
 // Collect the promise results
 const results = await Promise.allSettled(promises);
 ```
 
-> **Note**: Providing a `SplitStrategy` is optional. If you don't provide one, the `DefaultSplitStrategy` will be used,
-> which also has a default minimum balance.
+> **Note**: Providing a `SplitStrategy` is optional. 
+> If you don't provide one, the `DefaultSplitStrategy` will be used, which also has a default minimum balance.
 > But for demonstration purposes, we provide here a minimum pool balance of 300000000.
 
-### Use case 2: NFT minting service—Multiple AdminCaps
+### Use case 2: mint & transfer NFTs concurrently using multiple Admin Caps
 
-This is a more complex scenario that the previous one, but it contains the same logic.
+Assume that we have a service that needs to mint and transfer NFTs concurrently to multiple recipients.
+Similar to the previous example,
+we first need to have a set of coins that will be used to pay for the gas of each transaction.
+In addition, we need to have a set of admin caps that will be used to mint the NFTs.
 
-Assume that we have a service that needs to mint NFTs in parallel. To mint an NFT,
-each transaction requires an `AdminCap` object. Assume that we would like to serve
-_up to 20 concurrent requests_.
+Apart from the coin creation that we did earlier, 
+you need to create multiple admin caps for your account.
 
-As we did with _use case 1_, before initializing our handler
-we need to have a set of `AdminCap` objects that will be included in each transaction **plus**
-a set of coins that will be used to pay for the gas of each transaction.
-
-> **Note**: Since each transaction requires an `AdminCap` object, the maximum number of worker pools
-> is limited by the number of `AdminCap` objects of your account plus the number of `coins`.
-
-There are multiple ways to create `AdminCap` objects. 
-A simple (but not flexible) way is to create your admin caps a-priori on smart contract publication.
-
-Go on to our [move_examples](https://github.com/MystenLabs/Sui_Owned_Object_Pools/tree/main/move_examples) hero_nft app.
-And modify the [genesis.move](https://github.com/MystenLabs/Sui_Owned_Object_Pools/blob/main/move_examples/nft_app/sources/genesis.move) 
-file at the `AdminCap` creation part (lines 31–41).
-
+To do this, you can either use the `createAdminCap` function in your 
+smart contract, or generate multiple admin caps on package publishing.
+You can test this by using the `move_examples/nft_app` example.
+Notice how we create multiple admin caps in `genesis.move`:
 ```move
-let mut i = 0;
-let number_of_admin_caps_to_create = 20;
-while (i < number_of_admin_caps_to_create) {
-    let admin_cap = AdminCap {
-        id: tx_context::new_id(ctx),
-    };
-    transfer::public_transfer(AdminCap {
-        id: object::new(ctx)
-        }, sender(ctx));
-    i = i + 1;
-}
-```
-
-We also need to create the coins that will be used to pay for the gas of each transaction.
-Since we need to serve up to **20 concurrent requests**, we will create **20 coins**.
-
-> Notice that we need exactly 20 AdminCaps and **at least** 20 gas coins. That
-> is because pools deduce their _balance from multiple coins_, but they will always
-> need one AdminCap object.
-
-Using the code from [Case 1](#Use-case-1):
-```typescript
 // ...
-const numberOfCoinsToCreate = 20;
-for (let i = 0; i < numberOfCoinsToCreate; i++) {
-await splitCoinAndTransferToSelf(client, objectId, yourAddressSecretKey);
+// Generate 20 Admin Caps, for parallelization of transactions
+let i = 0;
+while (i <= 20) {
+// Transfer Admin Cap to sender
+transfer::public_transfer(AdminCap {
+id: object::new(ctx)
+}, sender(ctx));
+i = i + 1;
 }
 // ...
 ```
 
-Now that we have the coins and the AdminCaps, 
-we can create the `ExecutorServiceHandler` instance and execute the transactions.
+Now that we have the coins and the admin caps, we can define the
+`mintNFTTxb` function that will create and return the transaction block 
+of type `TransactionBlockWithLambda`.
 
 ```typescript
-import { ExecutorServiceHandler } from 'suioop';
-import { IncludeAdminCapStrategy } from 'suioop';
-
-// Setup the executor service
-const eshandler = await ExecutorServiceHandler.initialize(
-  adminKeypair,
-  client,
-  new IncludeAdminCapStrategy(
-    300000000, // Each pool will contain coins with a total balance of 300000000 MIST
-    'AdminCap' // The type of the admin cap object. In this case it is 'AdminCap', but it can be any other type depending on your use case
-  ), 
-);
-// Define the number of transactions to execute
-const promises = [];
-let txb: TransactionBlock;
-for (let i = 0; i < 20; i++) {
-  txb = mintNFTTxb(
-    "<recipient-address>", 
-    "<package-id>",
-    "<admin-cap-id>"
-  );
-  promises.push(eshandler.execute(txb, client));
-}
-
-// Collect the promise results
-const results = await Promise.allSettled(promises);
-```
-In detail, here is the code for the `mintNFTTxb` function:
-```typescript
-export function mintNFTTxb(
-  recipientAddress: string,
-  packageId: string,
-  adminCapId: string,
-): TransactionBlock {
+function mintNFTTxb(
+        env: EnvironmentVariables,
+        adminKeypair: Ed25519Keypair,
+): TransactionBlockWithLambda {
+ const txbLambda = (adminCapId: string) => {
   const txb = new TransactionBlock();
   const hero = txb.moveCall({
-    arguments: [
-      txb.object(adminCapId),
-      txb.pure('name'),
-      txb.pure('gold'),
-      txb.pure(3),
-      txb.pure('ipfs://example.com/'),
-    ],
-    target: `${packageId}::hero_nft::mint_hero`,
+   arguments: [
+    txb.object(adminCapId),
+    txb.pure('zed'),
+    txb.pure('gold'),
+    txb.pure(3),
+    txb.pure('ipfs://example.com/'),
+   ],
+   target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
   });
 
   txb.transferObjects(
-    [hero],
-    txb.pure(recipientAddress),
+          [hero],
+          txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
   );
   txb.setGasBudget(10000000);
   return txb;
+ };
+ return new TransactionBlockWithLambda(txbLambda, ['AdminCap']);
 }
 ```
 
+Having done the preparatory steps above, it's time to create the
+`ExecutorServiceHandler` instance and execute the transactions.
+
+```typescript
+const eshandler = await ExecutorServiceHandler.initialize(
+        adminKeypair,
+        client,
+);
+const promises: Promise<SuiTransactionBlockResponse>[] = [];
+let txb: TransactionBlockWithLambda;
+for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
+ txb = mintNFTTxb(env, adminKeypair);
+ promises.push(
+         eshandler.execute(
+                 txb,
+                 client,
+                 new IncludeAdminCapStrategy("<your-nft-package-id>"),
+         ),
+ );
+}
+
+const results = await Promise.allSettled(promises);
+results.forEach((result) => {
+ if (result.status === 'rejected') {
+  console.error(result.reason);
+ }
+});
+```
 
 ## Processing Flow
 The overall processing flow is depicted in the following flowchart:
