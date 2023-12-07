@@ -1,5 +1,10 @@
 # Change Log
 
+## v2.1.1
+* Fix initial_setup - call this when you need to publish (496154a)
+* Improve EShandler log messages and increment NUMBER_OF_TRANSACTIONS_TO_EXECUTE in tests (929aa17)
+
+
 ## v2.1.0
 Small change - Fix txb declaration (d86ee99)
 * Bring back case 2 - multiple admin caps (6f35b0e)
