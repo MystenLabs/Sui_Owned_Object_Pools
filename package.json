@@ -23,7 +23,7 @@
     "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "lint": "eslint --ext .ts --fix --max-warnings 0 src",
     "test": "jest test/unit/executorServiceHandler.test.ts && jest test/unit/pool-tx-execution.test.ts && jest test/unit/pool-init.test.ts",
-    "release": "release-it",
+    "release": "pnpm build:types && pnpm build:tsup && release-it",
     "build:types": "tsc --build",
     "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build": "pnpm build:types && pnpm build:tsup"

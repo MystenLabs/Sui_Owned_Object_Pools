@@ -1,5 +1,8 @@
 # Change Log
 
+## v2.1.2
+* Enhance release script
+
 ## v2.1.1
 * Fix initial_setup - call this when you need to publish (496154a)
 * Improve EShandler log messages and increment NUMBER_OF_TRANSACTIONS_TO_EXECUTE in tests (929aa17)
