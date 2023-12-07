@@ -50,9 +50,9 @@ export class Pool {
       owner: this._keypair.toSuiAddress(),
       client: client,
     });
-    this.id = this.generateShortGUID();
+    this.id = Pool.generateShortGUID();
   }
-  private generateShortGUID() {
+  public static generateShortGUID() {
     // Create a random value and hash it
     const randomValue = crypto.randomBytes(8).toString('hex');
     const hash = crypto.createHash('md5').update(randomValue).digest('hex');

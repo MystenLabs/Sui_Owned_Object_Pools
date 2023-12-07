@@ -18,7 +18,7 @@ const client = new SuiClient({
   url: env.SUI_NODE,
 });
 const MIST_TO_TRANSFER = 10;
-const NUMBER_OF_TRANSACTION_TO_EXECUTE = 5;
+const NUMBER_OF_TRANSACTION_TO_EXECUTE = 15;
 const COINS_NEEDED = NUMBER_OF_TRANSACTION_TO_EXECUTE * 2;
 const helper = new SetupTestsHelper();
 

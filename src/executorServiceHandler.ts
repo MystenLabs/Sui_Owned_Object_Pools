@@ -73,9 +73,11 @@ export class ExecutorServiceHandler {
     retries = 3,
   ) {
     let res;
+    const flowId = Pool.generateShortGUID();
     do {
       try {
         res = await this.executeFlow(
+          flowId,
           txb,
           client,
           splitStrategy,
@@ -85,14 +87,14 @@ export class ExecutorServiceHandler {
       } catch (e) {
         logger.log(
           Level.error,
-          `ESHandler: Error executing transaction block: ${e}`,
+          `${flowId} - ESHandler: Error executing transaction block: ${e}`,
         );
         continue;
       }
       if (res) {
         logger.log(
           Level.info,
-          `ESHandler: Transaction block execution completed - digest: ${JSON.stringify(
+          `${flowId} - ESHandler: Transaction block execution completed - digest: ${JSON.stringify(
             res.digest,
           )}`,
         );
@@ -100,21 +102,24 @@ export class ExecutorServiceHandler {
       }
       logger.log(
         Level.debug,
-        `ESHandler: Could not execute flow! ${retries - 1} retries left...`,
+        `${flowId} - ESHandler: Could not execute flow, "undefined" result - ${
+          retries - 1
+        } retries left...`,
       );
     } while (--retries > 0);
     logger.log(
       Level.error,
-      'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
+      `${flowId} - ESHandler: executeFlowError - All retries failed: Could not execute the transaction block`,
     );
     throw new Error(
-      'ESHandler: Internal server error - All retries failed: Could not execute the transaction block',
+      `${flowId} - ESHandler: executeFlowError - All retries failed: Could not execute the transaction block`,
     );
   }
 
   /**
    * Helper function of execute(). Contains the main logic for executing a transaction block,
    * including getting an available worker from the workers array, updating the workerPool status, etc.
+   * @param flowId - flowId for logging purposes
    * @param txb The transaction block to execute.
    * @param client The SuiClient to use for executing the transaction block.
    * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
@@ -123,6 +128,7 @@ export class ExecutorServiceHandler {
    * @returns A Promise that resolves to the SuiTransactionBlockResponse object returned by executing the transaction block.
    */
   private async executeFlow(
+    flowId: string,
     txb: TransactionBlockWithLambda,
     client: SuiClient,
     splitStrategy?: SplitStrategy,
@@ -131,19 +137,22 @@ export class ExecutorServiceHandler {
   ) {
     let worker: Pool | undefined;
     try {
-      worker = await this.getAWorker();
+      worker = await this.getAWorker(flowId);
     } catch (e) {
       worker = undefined;
     }
     const noWorkerAvailable = worker === undefined;
     if (noWorkerAvailable) {
-      logger.log(Level.debug, 'ESHandler: Could not find an available worker.');
-      await this.addWorker(client, splitStrategy);
+      logger.log(
+        Level.debug,
+        `${flowId} - ESHandler: Could not find an available worker.`,
+      );
+      await this.addWorker(flowId, client, splitStrategy);
       return;
     } else if (worker) {
       logger.log(
         Level.debug,
-        `ESHandler: Found an available worker: ${worker.id}. Executing transaction block...`,
+        `${flowId} - ESHandler: Found an available worker: ${worker.id}. Executing transaction block...`,
       );
       let result: SuiTransactionBlockResponse;
       try {
@@ -156,7 +165,7 @@ export class ExecutorServiceHandler {
       } catch (e) {
         logger.log(
           Level.warn,
-          `ESHandler: Error executing transaction block: ${e}`,
+          `${flowId} - ESHandler: Error executing transaction block: ${e}`,
         );
         this._mainPool.merge(worker);
         return;
@@ -165,14 +174,14 @@ export class ExecutorServiceHandler {
       if (result.effects && result.effects.status.status === 'failure') {
         logger.log(
           Level.error,
-          'ESHandler: Error executing transaction block: result status is "failure"',
+          `${flowId} - ESHandler: Error executing transaction block: result status is "failure"`,
         );
         this._mainPool.merge(worker);
         return;
       }
       logger.log(
         Level.debug,
-        `ESHandler: Transaction block execution completed! Pushing worker ${worker.id} back to the queue...`,
+        `${flowId} - ESHandler: Transaction block execution completed! Pushing worker ${worker.id} back to the queue...`,
       );
       // Execution finished, the worker is now available again.
       this._workersQueue.push(worker);
@@ -185,8 +194,11 @@ export class ExecutorServiceHandler {
    * @returns {Pool | undefined} - An available worker from the worker queue,
    * or undefined if none are available within the timeout period.
    */
-  private async getAWorker(): Promise<Pool | undefined> {
-    logger.log(Level.debug, 'ESHandler: Getting a worker from the queue...');
+  private async getAWorker(flowId: string): Promise<Pool | undefined> {
+    logger.log(
+      Level.debug,
+      `${flowId} - ESHandler: Getting a worker from the queue...`,
+    );
     const timeoutMs = this._getWorkerTimeoutMs;
     const startTime = new Date().getTime();
 
@@ -199,7 +211,7 @@ export class ExecutorServiceHandler {
           } else if (new Date().getTime() - startTime >= timeoutMs) {
             logger.log(
               Level.debug,
-              'ESHandler: Timeout reached - no available worker found',
+              `${flowId} - ESHandler: Timeout reached - no available worker found`,
             );
             resolve(undefined);
           } else {
@@ -216,17 +228,25 @@ export class ExecutorServiceHandler {
 
   /**
    * Adds a new worker pool to the worker queue.
+   * @param flowId - flowId for logging purposes
    * @param client - The SuiClient instance to use it for the execution of transactions by the new worker pool.
    * @param splitStrategy - (Optional) The SplitStrategy to use for splitting the main pool and creating the new pool.
    */
-  private async addWorker(client: SuiClient, splitStrategy?: SplitStrategy) {
-    logger.log(Level.debug, 'ESHandler: Adding new worker to the queue...');
+  private async addWorker(
+    flowId: string,
+    client: SuiClient,
+    splitStrategy?: SplitStrategy,
+  ) {
+    logger.log(
+      Level.debug,
+      `${flowId} - ESHandler: Adding new worker to the queue...`,
+    );
     const newPool = await this._mainPool.split(client, splitStrategy);
     logger.log(
       Level.debug,
-      `ESHandler: New worker added to the queue: ${newPool.id} - ${Array.from(
-        newPool.objects.keys(),
-      )}`,
+      `${flowId} - ESHandler: New worker added to the queue: ${
+        newPool.id
+      } - ${Array.from(newPool.objects.keys())}`,
     );
     this._workersQueue.push(newPool);
   }
