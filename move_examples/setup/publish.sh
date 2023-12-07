@@ -31,7 +31,7 @@ for i in jq sui; do
   fi
 done
 
-publish_res=$(sui client publish --gas-budget 200000000 --json ../nft_app --skip-dependency-verification)
+publish_res=$(sui client publish --gas-budget 200000000 --json ../move_examples/nft_app --skip-dependency-verification)
 
 echo ${publish_res} >.publish.res.json
 
@@ -44,13 +44,14 @@ echo "Contract Deployment finished!"
 echo "Setting up environmental variables..."
 
 newObjs=$(echo "$publish_res" | jq -r '.objectChanges[] | select(.type == "created")')
-ADMIN_CAP_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::genesis::AdminCap")).objectId')
+ADMIN_CAP_ID=$(echo "$newObjs" | jq -r 'select (.objectType | contains("::genesis::AdminCap")).objectId' | head -n 1)
 ADMIN_ADDRESS=$(echo "$publish_res" | jq -r '.transaction.data.sender')
 PACKAGE_ID=$(echo "${publish_res}" | jq -r '.effects.created[] | select(.owner == "Immutable").reference.objectId')
 
-cat >../../test/.test.env <<-API_ENV
+cat >.test.env <<-API_ENV
 NFT_APP_PACKAGE_ID=$PACKAGE_ID
 NFT_APP_ADMIN_CAP=$ADMIN_CAP_ID
 SUI_NODE=$NETWORK
 ADMIN_ADDRESS=$ADMIN_ADDRESS
+ADMIN_SECRET_KEY=
 API_ENV
