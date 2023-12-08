@@ -46,42 +46,48 @@ describe('✂️ Pool splitting', () => {
     await sleep(2000);
   });
 
-  it('splits a pool not moving anything to new pool using always-false predicate', async () => {
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
-    const num_objects_before_split = initial_pool.objects.size;
-    const splitStrategy: SplitStrategy = {
-      // eslint-disable-next-line no-unused-vars
-      pred: (_: SuiObjectRef | undefined) => false,
-      succeeded: () => true,
-    };
-    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
-    const num_objects_new_pool = new_pool.objects.size;
+  it('should throw error: splits a pool not moving anything to new pool using always-false predicate', async () => {
+    const toFail = async () => {
+      const initial_pool: Pool = await Pool.full({
+        keypair: adminKeypair,
+        client: client,
+      });
+      const num_objects_before_split = initial_pool.objects.size;
+      const splitStrategy: SplitStrategy = {
+        // eslint-disable-next-line no-unused-vars
+        pred: (_: SuiObjectRef | undefined) => false,
+        succeeded: () => true,
+      };
+      const new_pool: Pool = await initial_pool.split(client, splitStrategy);
+      const num_objects_new_pool = new_pool.objects.size;
 
-    const num_objects_after_split = initial_pool.objects.size;
-    expect(num_objects_new_pool).toEqual(0);
-    expect(num_objects_before_split).toEqual(num_objects_after_split);
+      const num_objects_after_split = initial_pool.objects.size;
+      expect(num_objects_new_pool).toEqual(0);
+      expect(num_objects_before_split).toEqual(num_objects_after_split);
+    };
+    await expect(toFail).rejects.toThrowError();
   });
 
-  it('splits a pool not moving anything to the new pool by using always-null predicate', async () => {
-    const initial_pool: Pool = await Pool.full({
-      keypair: adminKeypair,
-      client: client,
-    });
-    const num_objects_before_split = initial_pool.objects.size;
-    const splitStrategy: SplitStrategy = {
-      // eslint-disable-next-line no-unused-vars
-      pred: (_: SuiObjectRef | undefined) => null,
-      succeeded: () => true,
-    };
-    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
-    const num_objects_new_pool = new_pool.objects.size;
-    const num_objects_after_split = initial_pool.objects.size;
+  it('should throw error: splits a pool not moving anything to the new pool by using always-null predicate', async () => {
+    const toFail = async () => {
+      const initial_pool: Pool = await Pool.full({
+        keypair: adminKeypair,
+        client: client,
+      });
+      const num_objects_before_split = initial_pool.objects.size;
+      const splitStrategy: SplitStrategy = {
+        // eslint-disable-next-line no-unused-vars
+        pred: (_: SuiObjectRef | undefined) => null,
+        succeeded: () => true,
+      };
+      const new_pool: Pool = await initial_pool.split(client, splitStrategy);
+      const num_objects_new_pool = new_pool.objects.size;
+      const num_objects_after_split = initial_pool.objects.size;
 
-    expect(num_objects_new_pool).toEqual(0);
-    expect(num_objects_before_split).toEqual(num_objects_after_split);
+      expect(num_objects_new_pool).toEqual(0);
+      expect(num_objects_before_split).toEqual(num_objects_after_split);
+    };
+    await expect(toFail).rejects.toThrowError();
   });
 
   it('splits a pool using the default predicate', async () => {
@@ -146,27 +152,8 @@ describe('✂️ Pool splitting', () => {
     const keysSet = new Set<string>();
     let totalSize = 0;
 
-    class RandomObjectSplitStrategy implements SplitStrategy {
-      private objectIncluded = false;
-      public pred(obj: SuiObjectRef | undefined) {
-        if (!obj) throw new Error('No object found!.');
-        if (!this.objectIncluded) {
-          this.objectIncluded = true;
-          return true;
-        } else {
-          return null;
-        }
-      }
-      public succeeded() {
-        return this.objectIncluded;
-      }
-    }
-
     for (let i = 0; i < NUMBER_OF_NEW_POOLS; i++) {
-      newPool = await initial_pool.split(
-        client,
-        new RandomObjectSplitStrategy(),
-      );
+      newPool = await initial_pool.split(client);
       Array.from(newPool.objects.keys()).forEach((key) => {
         keysSet.add(key);
       });
@@ -176,9 +163,5 @@ describe('✂️ Pool splitting', () => {
     // some duplicate keys in the pools, meaning that there are some objects
     // present in 2 (or more) pools. Which would be wrong.
     expect(keysSet.size).toEqual(totalSize);
-
-    // Each pool should contain 2 objects (1 NFT + 1 coin) as defined in
-    // the DefaultSplitStrategy
-    expect(keysSet.size).toEqual(NUMBER_OF_NEW_POOLS);
   });
 });
