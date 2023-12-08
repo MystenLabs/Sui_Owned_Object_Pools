@@ -171,7 +171,7 @@ export class Pool {
   /**
    * Lazily splits off a new Pool using the split strategy provided.
    * By lazy, we mean that the objects are fetched by the blockchain only when needed.
-   * Initially we try to split the pool using the objects that are already in the pool.
+   * Initially, we try to split the pool using the objects that are already in the pool.
    * If the split strategy does not succeed/complete, then we fetch more objects and
    * try to split those as well. We repeat this process until the split strategy
    * succeeds, or we run out of objects to fetch.
@@ -228,6 +228,15 @@ export class Pool {
         `Pool (id: ${this.id}): Failed to split. newPool does not contain any objects.`,
       );
     }
+    if (newPool.gasCoins.size === 0) {
+      logger.log(
+        Level.warn,
+        `Pool (id: ${this.id}): Failed to split. newPool does not contain any gas coins.`,
+      );
+      throw new Error(
+        `Pool (id: ${this.id}): Failed to split. newPool does not contain any gas coins.`,
+      );
+    }
     logger.log(
       Level.info,
       `Split completed: main pool (${this.id}) = ${this._objects.size} objects, new pool (${newPool.id}) = ${newPool._objects.size} objects`,
@@ -258,25 +267,29 @@ export class Pool {
       object,
     }));
     outside: while (objects_array.length !== 0) {
-      const last_object_in_array = objects_array.at(-1)?.object;
-      switch (splitStrategy.pred(last_object_in_array)) {
+      const last_object_in_array = objects_array.pop();
+      if (last_object_in_array === undefined) {
+        logger.log(
+          Level.warn,
+          'No more main pool objects. Terminating split.',
+          this.id,
+        );
+        break;
+      }
+      switch (splitStrategy.pred(last_object_in_array.object)) {
         case true: {
           // Predicate returned true, so we move the object to the new pool
-          const obj_give = objects_array.pop();
-          if (obj_give === undefined) {
-            break;
-          }
-          objects_to_give.set(obj_give.objectId, obj_give.object);
+          objects_to_give.set(
+            last_object_in_array.objectId,
+            last_object_in_array.object,
+          );
           break;
         }
         case false: {
           // Predicate returned false, so we keep the object in the current pool
-          const obj_keep = objects_array.pop();
-          if (obj_keep === undefined) {
-            break;
-          }
+          const obj_keep = last_object_in_array;
           objects_to_keep.set(obj_keep.objectId, obj_keep.object);
-          continue;
+          break;
         }
         case null: {
           // The predicate returned null, so we stop the split, and keep
@@ -284,6 +297,10 @@ export class Pool {
           objects_array.forEach((obj) => {
             objects_to_keep.set(obj.objectId, obj.object);
           });
+          objects_to_keep.set(
+            last_object_in_array.objectId,
+            last_object_in_array.object,
+          );
           break outside;
         }
       }
