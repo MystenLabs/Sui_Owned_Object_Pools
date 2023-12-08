@@ -1,5 +1,8 @@
 # Change Log
 
+## v2.1.3
+* Improve Main Pool split and update tests (bf025a9)
+
 ## v2.1.2
 * Enhance release script
 
