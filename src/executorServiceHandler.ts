@@ -22,8 +22,9 @@ import type { TransactionBlockWithLambda } from './transactions';
  * The ExecutorServiceHandler retries the execution of the transaction block up to a specified number of times in case of errors.
  */
 export class ExecutorServiceHandler {
-  private _mainPool: Pool;
-  private _workersQueue: Pool[] = [];
+  private _mainPool: Pool; // shared resource between threads
+  private _workersQueue: Pool[] = []; // shared resource between threads
+  private _accessQueue = Promise.resolve(); // mutex for thread safety of mainPool access
   private readonly _getWorkerTimeoutMs: number;
   private constructor(mainPool: Pool, getWorkerTimeoutMs: number) {
     this._mainPool = mainPool;
@@ -87,7 +88,9 @@ export class ExecutorServiceHandler {
       } catch (e) {
         logger.log(
           Level.error,
-          `${flowId} - ESHandler: Error executing transaction block: ${e}`,
+          `${flowId} - ESHandler: Error executing transaction block: ${e} - ${
+            retries - 1
+          } retries left...`,
         );
         continue;
       }
@@ -102,7 +105,7 @@ export class ExecutorServiceHandler {
       }
       logger.log(
         Level.debug,
-        `${flowId} - ESHandler: Could not execute flow, "undefined" result - ${
+        `${flowId} - ESHandler: Could not execute flow: unavailable worker - ${
           retries - 1
         } retries left...`,
       );
@@ -147,7 +150,9 @@ export class ExecutorServiceHandler {
         Level.debug,
         `${flowId} - ESHandler: Could not find an available worker.`,
       );
-      await this.addWorker(flowId, client, splitStrategy);
+      await this.passToAccessQueue(async () => {
+        await this.addWorker(flowId, client, splitStrategy);
+      });
       return;
     } else if (worker) {
       logger.log(
@@ -167,7 +172,11 @@ export class ExecutorServiceHandler {
           Level.warn,
           `${flowId} - ESHandler: Error executing transaction block: ${e}`,
         );
-        this._mainPool.merge(worker);
+        await this.passToAccessQueue(async () => {
+          if (worker) {
+            this._mainPool.merge(worker);
+          }
+        });
         return;
       }
 
@@ -176,7 +185,11 @@ export class ExecutorServiceHandler {
           Level.error,
           `${flowId} - ESHandler: Error executing transaction block: result status is "failure"`,
         );
-        this._mainPool.merge(worker);
+        await this.passToAccessQueue(async () => {
+          if (worker) {
+            this._mainPool.merge(worker);
+          }
+        });
         return;
       }
       logger.log(
@@ -249,5 +262,15 @@ export class ExecutorServiceHandler {
       } - ${Array.from(newPool.objects.keys())}`,
     );
     this._workersQueue.push(newPool);
+  }
+
+  /**
+   * Passes the given function to the access queue to ensure thread safety of mainPool.
+   * @param fn - The function to pass to the access queue.e.g., this._mainPool.addWorker(...)
+   * @private
+   */
+  private async passToAccessQueue(fn: () => Promise<void>) {
+    this._accessQueue = this._accessQueue.then(fn);
+    await this._accessQueue;
   }
 }
