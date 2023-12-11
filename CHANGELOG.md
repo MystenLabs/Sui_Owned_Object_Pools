@@ -1,5 +1,8 @@
 # Change Log
 
+## 2.2.0
+* Fix race condition when modifying mainpool (e6a5b6a)
+
 ## v2.1.3
 * Improve Main Pool split and update tests (bf025a9)
 
