@@ -11,6 +11,7 @@ import type {
   SuiObjectResponse,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
+  TransactionEffects,
 } from '@mysten/sui.js/client';
 import type { Keypair } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
@@ -424,11 +425,16 @@ export class Pool {
       signer: this._keypair,
     });
 
-    const created = res.effects?.created;
-    const unwrapped = res.effects?.unwrapped;
-    const mutated = res.effects?.mutated;
-    const wrapped = res.effects?.wrapped;
-    const deleted = res.effects?.deleted;
+    await this.updatePool(res.effects, input.client);
+
+    return res;
+  }
+
+  private async updatePool(
+    effects: TransactionEffects | null | undefined,
+    client: SuiClient,
+  ) {
+    const { created, unwrapped, mutated, wrapped, deleted } = effects ?? {};
     logger.log(
       Level.debug,
       `Transaction block executed. Created: ${JSON.stringify(
@@ -444,15 +450,15 @@ export class Pool {
     // (4). Update the pool's objects and coins
     logger.log(Level.debug, 'Updating pool...', this.id);
 
-    this.updatePool(created);
-    this.updatePool(unwrapped);
-    this.updatePool(mutated);
+    this.updateObjects(created);
+    this.updateObjects(unwrapped);
+    this.updateObjects(mutated);
 
     this.removeFromPool(wrapped);
     this.removeFromPool(deleted);
 
     if (mutated) {
-      await this.updateCoins(mutated, input.client);
+      await this.updateCoins(mutated, client);
     }
 
     logger.log(
@@ -460,7 +466,6 @@ export class Pool {
       `Pool updated. Current pool has ${this._objects.size} objects.`,
       this.id,
     );
-    return res;
   }
 
   /**
@@ -468,7 +473,7 @@ export class Pool {
    * if the owner of the reference is the same as the signer address.
    * @param newRefs An array of OwnedObjectRef objects representing the new references to add to the pool.
    */
-  private updatePool(newRefs: OwnedObjectRef[] | undefined) {
+  private updateObjects(newRefs: OwnedObjectRef[] | undefined) {
     const signerAddress = this._keypair.getPublicKey().toSuiAddress();
     if (!newRefs) return;
     for (const ref in newRefs) {
