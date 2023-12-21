@@ -13,7 +13,7 @@ import type {
   SuiTransactionBlockResponseOptions,
   TransactionEffects,
 } from '@mysten/sui.js/client';
-import type { Keypair } from '@mysten/sui.js/cryptography';
+import type { Keypair, SignatureWithBytes } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
 import crypto from 'crypto';
 
@@ -54,6 +54,8 @@ export class Pool {
     this.id = Pool.generateShortGUID();
   }
   public static generateShortGUID() {
+    // TODO: Using a crypto function is computationally expensive.
+    //  Find an alternative to this function.
     // Create a random value and hash it
     const randomValue = crypto.randomBytes(8).toString('hex');
     const hash = crypto.createHash('md5').update(randomValue).digest('hex');
@@ -226,16 +228,13 @@ export class Pool {
     if (newPool.objects.size === 0) {
       logger.log(
         Level.warn,
-        `Pool (id: ${this.id}): Failed to split. newPool does not contain any objects.`,
+        `Pool (id: ${this.id}): newPool does not contain any objects.`,
       );
     }
     if (newPool.gasCoins.size === 0) {
       logger.log(
         Level.warn,
-        `Pool (id: ${this.id}): Failed to split. newPool does not contain any gas coins.`,
-      );
-      throw new Error(
-        `Pool (id: ${this.id}): Failed to split. newPool does not contain any gas coins.`,
+        `Pool (id: ${this.id}): newPool does not contain any gas coins.`,
       );
     }
     logger.log(
@@ -344,6 +343,9 @@ export class Pool {
     transactionBlockLambda: TransactionBlockWithLambda;
     options?: SuiTransactionBlockResponseOptions;
     requestType?: ExecuteTransactionRequestType;
+    sponsorLambda?: (
+      txb: TransactionBlock,
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes]>;
   }): Promise<SuiTransactionBlockResponse> {
     logger.log(
       Level.debug,
@@ -381,23 +383,50 @@ export class Pool {
       );
     }
 
-    /*
-    (2). Select Gas: Use all the coins in the pool as gas payment.
-    When each pool uses only its own coins, transaction blocks can be executed
-    without interfering with one another, avoiding equivocation.
-    */
-    const coinsArray = Array.from(this._gasCoins.values());
-    const NoSuiCoinFound = coinsArray.length === 0;
-    logger.log(
-      Level.debug,
-      `Coins used as gas payment: ${JSON.stringify(coinsArray)}`,
-      this.id,
-    );
-    if (NoSuiCoinFound) {
-      throw new Error('No SUI coins in the pool to use as gas payment.');
-    }
     // Finally, set the gas payment to be done by the selected coins
-    transactionBlockComplete.setGasPayment(coinsArray);
+    if (!input.sponsorLambda) {
+      /*
+      (2). Select Gas: Use all the coins in the pool as gas payment.
+      When each pool uses only its own coins, transaction blocks can be executed
+      without interfering with one another, avoiding equivocation.
+      */
+      const coinsArray = Array.from(this._gasCoins.values());
+      const NoSuiCoinFound = coinsArray.length === 0;
+      logger.log(
+        Level.debug,
+        `Coins used as gas payment: ${JSON.stringify(coinsArray)}`,
+        this.id,
+      );
+      if (NoSuiCoinFound) {
+        throw new Error('No SUI coins in the pool to use as gas payment.');
+      }
+      transactionBlockComplete.setGasPayment(coinsArray);
+    } else {
+      // If it's a sponsored transaction, the sponsor will pay the gas, so we don't
+      // need to set the gas payment.
+      const [signedTX, sponsoredTx] = await input.sponsorLambda(
+        transactionBlockComplete,
+      );
+      try {
+        const res = await input.client.executeTransactionBlock({
+          transactionBlock: signedTX.bytes,
+          signature: [signedTX.signature, sponsoredTx.signature],
+          requestType: 'WaitForLocalExecution',
+          options: {
+            showEvents: true,
+            showEffects: true,
+            showObjectChanges: true,
+            showBalanceChanges: true,
+            showInput: true,
+          },
+        });
+        await this.updatePool(res.effects, input.client);
+        return res;
+      } catch (e) {
+        logger.log(Level.error, `${e}`, this.id);
+        throw e;
+      }
+    }
 
     /*
     (2.5). Dry run the transaction block to ensure that Pool has enough

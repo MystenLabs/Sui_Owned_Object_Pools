@@ -3,13 +3,16 @@
 import type { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { SuiClient } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-
+import type { SignatureWithBytes } from '@mysten/sui.js/cryptography';
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import { Pool } from '../../src/pool';
 import { getKeyPair, mintNFTTxb, sleep } from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
-import { IncludeAdminCapStrategy } from '../../src/splitStrategies';
+import {
+  IncludeAdminCapStrategy,
+  SponsoredAdminCapStrategy,
+} from '../../src/splitStrategies';
 import { TransactionBlockWithLambda } from '../../src/transactions';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
@@ -108,6 +111,64 @@ describe('Execute multiple transactions with ExecutorServiceHandler', () => {
         ),
       );
     }
+
+    const results = await Promise.allSettled(promises);
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        console.error(result.reason);
+      }
+      expect(result.status).toEqual('fulfilled');
+    });
+  });
+
+  it('sponsors one transaction - case 3', async () => {
+    /*
+    Create a transaction that transfers MIST from the admin to a user address.
+    The test user sponsors the transaction (i.e., pays the gas for it).
+     */
+    const eshandler = await ExecutorServiceHandler.initialize(
+      adminKeypair,
+      client,
+      env.GET_WORKER_TIMEOUT_MS,
+    );
+
+    const sponsorLambda = async (
+      txb: TransactionBlock,
+    ): Promise<[SignatureWithBytes, SignatureWithBytes]> => {
+      const kindBytes = await txb.build({
+        client: client,
+        onlyTransactionKind: true,
+      });
+      const tx = TransactionBlock.fromKind(kindBytes);
+      tx.setSender(env.ADMIN_ADDRESS);
+      tx.setGasOwner(env.TEST_USER_ADDRESS);
+      let sponsorKeypair = getKeyPair(env.TEST_USER_SECRET);
+      let sponsoredTx = await sponsorKeypair.signTransactionBlock(
+        await tx.build({ client: client }),
+      );
+      const senderKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
+      let signedTX = await senderKeypair.signTransactionBlock(
+        await TransactionBlock.from(sponsoredTx.bytes).build({
+          client: client,
+        }),
+      );
+      return [signedTX, sponsoredTx];
+    };
+
+    const promises: Promise<SuiTransactionBlockResponse>[] = [];
+    let txb: TransactionBlockWithLambda;
+
+    txb = mintNFTTxb(env, adminKeypair);
+    promises.push(
+      eshandler.execute(
+        txb,
+        client,
+        new SponsoredAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+        undefined,
+        undefined,
+        sponsorLambda,
+      ),
+    );
 
     const results = await Promise.allSettled(promises);
     results.forEach((result) => {

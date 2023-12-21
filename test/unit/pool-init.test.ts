@@ -47,47 +47,41 @@ describe('✂️ Pool splitting', () => {
   });
 
   it('should throw error: splits a pool not moving anything to new pool using always-false predicate', async () => {
-    const toFail = async () => {
-      const initial_pool: Pool = await Pool.full({
-        keypair: adminKeypair,
-        client: client,
-      });
-      const num_objects_before_split = initial_pool.objects.size;
-      const splitStrategy: SplitStrategy = {
-        // eslint-disable-next-line no-unused-vars
-        pred: (_: SuiObjectRef | undefined) => false,
-        succeeded: () => true,
-      };
-      const new_pool: Pool = await initial_pool.split(client, splitStrategy);
-      const num_objects_new_pool = new_pool.objects.size;
-
-      const num_objects_after_split = initial_pool.objects.size;
-      expect(num_objects_new_pool).toEqual(0);
-      expect(num_objects_before_split).toEqual(num_objects_after_split);
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const num_objects_before_split = initial_pool.objects.size;
+    const splitStrategy: SplitStrategy = {
+      // eslint-disable-next-line no-unused-vars
+      pred: (_: SuiObjectRef | undefined) => false,
+      succeeded: () => true,
     };
-    await expect(toFail).rejects.toThrowError();
+    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
+    const num_objects_new_pool = new_pool.objects.size;
+
+    const num_objects_after_split = initial_pool.objects.size;
+    expect(num_objects_new_pool).toEqual(0);
+    expect(num_objects_before_split).toEqual(num_objects_after_split);
   });
 
   it('should throw error: splits a pool not moving anything to the new pool by using always-null predicate', async () => {
-    const toFail = async () => {
-      const initial_pool: Pool = await Pool.full({
-        keypair: adminKeypair,
-        client: client,
-      });
-      const num_objects_before_split = initial_pool.objects.size;
-      const splitStrategy: SplitStrategy = {
-        // eslint-disable-next-line no-unused-vars
-        pred: (_: SuiObjectRef | undefined) => null,
-        succeeded: () => true,
-      };
-      const new_pool: Pool = await initial_pool.split(client, splitStrategy);
-      const num_objects_new_pool = new_pool.objects.size;
-      const num_objects_after_split = initial_pool.objects.size;
-
-      expect(num_objects_new_pool).toEqual(0);
-      expect(num_objects_before_split).toEqual(num_objects_after_split);
+    const initial_pool: Pool = await Pool.full({
+      keypair: adminKeypair,
+      client: client,
+    });
+    const num_objects_before_split = initial_pool.objects.size;
+    const splitStrategy: SplitStrategy = {
+      // eslint-disable-next-line no-unused-vars
+      pred: (_: SuiObjectRef | undefined) => null,
+      succeeded: () => true,
     };
-    await expect(toFail).rejects.toThrowError();
+    const new_pool: Pool = await initial_pool.split(client, splitStrategy);
+    const num_objects_new_pool = new_pool.objects.size;
+    const num_objects_after_split = initial_pool.objects.size;
+
+    expect(num_objects_new_pool).toEqual(0);
+    expect(num_objects_before_split).toEqual(num_objects_after_split);
   });
 
   it('splits a pool using the default predicate', async () => {
