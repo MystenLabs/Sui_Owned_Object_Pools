@@ -135,6 +135,8 @@ export class ExecutorServiceHandler {
    * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
    * @param requestType (Optional) The ExecuteTransactionRequestType to use for executing the transaction block.
    * @param splitStrategy (Optional) The SplitStrategy to use for splitting the main pool and getting a new worker pool.
+   * @param sponsorLambda (Optional) A function that acts upon the transaction block just before execution.
+   * Use it to generate a sender and sponsor signature for the transaction block.
    * @returns A Promise that resolves to the SuiTransactionBlockResponse object returned by executing the transaction block.
    */
   private async executeFlow(
