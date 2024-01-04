@@ -60,13 +60,14 @@ export function totalBalance(pool: Pool) {
 export function mintNFTTxb(
   env: EnvironmentVariables,
   adminKeypair: Ed25519Keypair,
+  name: string = 'Zed',
 ): TransactionBlockWithLambda {
   const txbLambda = (adminCapId: string) => {
     const txb = new TransactionBlock();
     const hero = txb.moveCall({
       arguments: [
         txb.object(adminCapId),
-        txb.pure('zed'),
+        txb.pure(name),
         txb.pure('gold'),
         txb.pure(3),
         txb.pure('ipfs://example.com/'),
@@ -82,4 +83,21 @@ export function mintNFTTxb(
     return txb;
   };
   return new TransactionBlockWithLambda(txbLambda, ['AdminCap']);
+}
+
+const names = [
+  'Vyx',
+  'Wally',
+  'Percy',
+  'Cyrus',
+  'Zed',
+  'Sravan',
+  'Trevor',
+  'Yoan',
+  'Mason',
+  'Felix',
+];
+
+export function getRandomItem(items: any[] = names) {
+  return items[Math.floor(Math.random() * items.length)];
 }

@@ -5,9 +5,9 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ['main']
   pull_request:
-    branches: [ "main" ]
+    branches: ['main']
 
 jobs:
   print-environment-variables:
@@ -23,13 +23,13 @@ jobs:
           NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
           SUI_NODE: ${{ vars.SUI_NODE }}
           GET_WORKER_TIMEOUT_MS: ${{ vars.GET_WORKER_TIMEOUT_MS }}
+          SHINAMI_GAS_STATION_KEY: ${{ secrets.SHINAMI_GAS_STATION_KEY }}
         run: echo "SUI_NODE=$SUI_NODE | GET_WORKER_TIMEOUT_MS=$GET_WORKER_TIMEOUT_MS | NFT_APP_PACKAGE_ID=$NFT_APP_PACKAGE_ID | NFT_APP_ADMIN_CAP=$NFT_APP_ADMIN_CAP | TEST_USER_ADDRESS=$TEST_USER_ADDRESS |  ADMIN_ADDRESS=$ADMIN_ADDRESS "
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
   build:
-
     runs-on: ubuntu-latest
 
     strategy:
@@ -38,25 +38,26 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - uses: pnpm/action-setup@v2
-      with:
-         version: 8
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm run lint
-    - run: npm run test
-      env:
-        ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
-        ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
-        TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
-        TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
-        NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
-        NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
-        SUI_NODE: ${{ vars.SUI_NODE }}
-        GET_WORKER_TIMEOUT_MS: ${{ vars.GET_WORKER_TIMEOUT_MS }}
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm run lint
+      - run: npm run test
+        env:
+          ADMIN_ADDRESS: ${{vars.ADMIN_ADDRESS}}
+          ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
+          TEST_USER_SECRET: ${{ secrets.TEST_USER_SECRET }}
+          TEST_USER_ADDRESS: ${{ vars.TEST_USER_ADDRESS }}
+          NFT_APP_PACKAGE_ID: ${{ vars.NFT_APP_PACKAGE_ID }}
+          NFT_APP_ADMIN_CAP: ${{ vars.NFT_APP_ADMIN_CAP }}
+          SUI_NODE: ${{ vars.SUI_NODE }}
+          GET_WORKER_TIMEOUT_MS: ${{ vars.GET_WORKER_TIMEOUT_MS }}
+          SHINAMI_GAS_STATION_KEY: ${{ secrets.SHINAMI_GAS_STATION_KEY }}

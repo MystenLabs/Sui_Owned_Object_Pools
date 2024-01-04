@@ -6,7 +6,12 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import type { SignatureWithBytes } from '@mysten/sui.js/cryptography';
 import { ExecutorServiceHandler } from '../../src/executorServiceHandler';
 import { Pool } from '../../src/pool';
-import { getKeyPair, mintNFTTxb, sleep } from '../helpers/helpers';
+import {
+  getKeyPair,
+  getRandomItem,
+  mintNFTTxb,
+  sleep,
+} from '../helpers/helpers';
 import { getEnvironmentVariables } from '../helpers/setupEnvironmentVariables';
 import { SetupTestsHelper } from '../helpers/setupTestsHelper';
 import {
@@ -14,6 +19,11 @@ import {
   SponsoredAdminCapStrategy,
 } from '../../src/splitStrategies';
 import { TransactionBlockWithLambda } from '../../src/transactions';
+import { Signature } from '../../src/types';
+import {
+  GasStationClient,
+  buildGaslessTransactionBytes,
+} from '@shinami/clients';
 
 const env = getEnvironmentVariables('../test/.test.env', true);
 const adminKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
@@ -178,4 +188,76 @@ describe('Execute multiple transactions with ExecutorServiceHandler', () => {
       expect(result.status).toEqual('fulfilled');
     });
   });
+
+  // it('sponsors one transaction via Shinami - case 4', async () => {
+  //   const eshandler = await ExecutorServiceHandler.initialize(
+  //     adminKeypair,
+  //     client,
+  //     env.GET_WORKER_TIMEOUT_MS,
+  //   );
+
+  //   const sponsorLambda = async (
+  //     txb: TransactionBlock,
+  //   ): Promise<[SignatureWithBytes, Signature]> => {
+  //     const gasStationClient = new GasStationClient(
+  //       env.SHINAMI_GAS_STATION_KEY,
+  //     );
+
+  //     const signer = getKeyPair(env.ADMIN_SECRET_KEY);
+
+  //     let gaslessPayloadBase64 = await buildGaslessTransactionBytes({
+  //       sui: client,
+  //       txb,
+  //     });
+
+  //     let sponsoredResponse = await gasStationClient.sponsorTransactionBlock(
+  //       gaslessPayloadBase64,
+  //       env.ADMIN_ADDRESS,
+  //     );
+
+  //     console.log('Sponsored Response:', sponsoredResponse);
+
+  //     let sponsoredStatus =
+  //       await gasStationClient.getSponsoredTransactionBlockStatus(
+  //         sponsoredResponse.txDigest,
+  //       );
+  //     console.log('Transaction Digest:', sponsoredResponse.txDigest);
+  //     console.log('Sponsorship Status:', sponsoredStatus);
+
+  //     let signedTX = await signer.signTransactionBlock(
+  //       await TransactionBlock.from(sponsoredResponse.txBytes).build({
+  //         client,
+  //       }),
+  //     );
+
+  //     return [signedTX, sponsoredResponse.signature];
+  //   };
+
+  //   const promises: Promise<SuiTransactionBlockResponse>[] = [];
+  //   let txb: TransactionBlockWithLambda;
+
+  //   // Number of caps minted during genesis contract initialization
+  //   const numOfCaps = 20;
+  //   for (let i = 0; i < numOfCaps; i++) {
+  //     txb = mintNFTTxb(env, adminKeypair, getRandomItem());
+  //     promises.push(
+  //       eshandler.execute(
+  //         txb,
+  //         client,
+  //         new SponsoredAdminCapStrategy(env.NFT_APP_PACKAGE_ID),
+  //         undefined,
+  //         undefined,
+  //         sponsorLambda,
+  //       ),
+  //     );
+  //   }
+
+  //   const results = await Promise.allSettled(promises);
+  //   results.forEach((result) => {
+  //     if (result.status === 'rejected') {
+  //       console.error(result.reason);
+  //     }
+  //     expect(result.status).toEqual('fulfilled');
+  //   });
+  // });
 });
