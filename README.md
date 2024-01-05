@@ -467,10 +467,6 @@ NFT_APP_ADMIN_CAP=
 SUI_NODE=
 
 GET_WORKER_TIMEOUT_MS=1000
-
-# This is the secret key that can be obtained by registering on the Shinami website: https://app.shinami.com/signup.
-# Make sure the shinami key network and the SUI_NODE network match.
-SHINAMI_GAS_STATION_KEY=
 ```
 
 _Tip: You can see your addresses' secret keys by running `cat ~/.sui/sui_config/sui.keystore`. Each

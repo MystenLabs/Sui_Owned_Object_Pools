@@ -15,7 +15,6 @@ export type EnvironmentVariables = {
   TEST_USER_ADDRESS: string;
   TEST_USER_SECRET: string;
   GET_WORKER_TIMEOUT_MS: number;
-  SHINAMI_GAS_STATION_KEY: string;
 };
 
 /**
@@ -42,7 +41,6 @@ export function getEnvironmentVariables(pathToEnv = '../.env', isTest = false) {
     GET_WORKER_TIMEOUT_MS: parseInt(
       process.env.GET_WORKER_TIMEOUT_MS ?? '10000',
     ),
-    SHINAMI_GAS_STATION_KEY: process.env.SHINAMI_GAS_STATION_KEY ?? '',
   } as EnvironmentVariables;
 
   if (isTest) {
