@@ -12,3 +12,8 @@ export type PoolObject = {
  * A map of pool objects, where the keys are object IDs and the values are pool objects.
  */
 export type PoolObjectsMap = Map<string, PoolObject>; // Map<objectId, object>
+
+/**
+ * An alias type for a string that's representing a signature.
+ */
+export type Signature = string;

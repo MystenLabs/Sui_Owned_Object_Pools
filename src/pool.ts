@@ -17,11 +17,11 @@ import type { Keypair, SignatureWithBytes } from '@mysten/sui.js/cryptography';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
 import crypto from 'crypto';
 
-import { isCoin, isImmutable } from './helpers';
+import { isCoin, isImmutable, isSignature } from './helpers';
 import { Level, logger } from './logger';
 import type { SplitStrategy } from './splitStrategies';
 import { DefaultSplitStrategy } from './splitStrategies';
-import type { PoolObject, PoolObjectsMap } from './types';
+import type { PoolObject, PoolObjectsMap, Signature } from './types';
 import type { TransactionBlockWithLambda } from './transactions';
 
 /**
@@ -345,7 +345,7 @@ export class Pool {
     requestType?: ExecuteTransactionRequestType;
     sponsorLambda?: (
       txb: TransactionBlock,
-    ) => Promise<[SignatureWithBytes, SignatureWithBytes]>;
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes | Signature]>;
   }): Promise<SuiTransactionBlockResponse> {
     logger.log(
       Level.debug,
@@ -410,7 +410,10 @@ export class Pool {
       try {
         const res = await input.client.executeTransactionBlock({
           transactionBlock: signedTX.bytes,
-          signature: [signedTX.signature, sponsoredTx.signature],
+          signature: [
+            signedTX.signature,
+            isSignature(sponsoredTx) ? sponsoredTx : sponsoredTx.signature,
+          ],
           requestType: 'WaitForLocalExecution',
           options: {
             showEvents: true,

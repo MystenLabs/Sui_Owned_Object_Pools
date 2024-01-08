@@ -12,3 +12,4 @@ coverage/
 move_examples/setup/.publish.res.json
 .idea/
 tsconfig.tsbuildinfo
+.publish.res.json

@@ -14,6 +14,7 @@ import { Pool } from './pool';
 import type { SplitStrategy } from './splitStrategies';
 import type { TransactionBlockWithLambda } from './transactions';
 import type { TransactionBlock } from '@mysten/sui.js/transactions';
+import type { Signature } from './types';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.
@@ -76,7 +77,7 @@ export class ExecutorServiceHandler {
     requestType?: ExecuteTransactionRequestType,
     sponsorLambda?: (
       txb: TransactionBlock,
-    ) => Promise<[SignatureWithBytes, SignatureWithBytes]>,
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes | Signature]>,
     retries = 3,
   ) {
     let res;
@@ -148,7 +149,7 @@ export class ExecutorServiceHandler {
     requestType?: ExecuteTransactionRequestType,
     sponsorLambda?: (
       txb: TransactionBlock,
-    ) => Promise<[SignatureWithBytes, SignatureWithBytes]>,
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes | Signature]>,
   ) {
     let worker: Pool | undefined;
     try {
