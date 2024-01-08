@@ -1,5 +1,9 @@
 # Change Log
 
+
+## 2.3.0
+* Add support for sponsored transactions
+
 ## 2.2.0
 * Fix race condition when modifying mainpool (e6a5b6a)
 
