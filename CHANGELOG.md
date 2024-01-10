@@ -1,7 +1,7 @@
 # Change Log
 
 
-## 2.3.0
+## 2.3.1
 * Add support for sponsored transactions
 
 ## 2.2.0
