@@ -7,12 +7,14 @@ import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js/client';
-import type { Keypair } from '@mysten/sui.js/cryptography';
+import type { Keypair, SignatureWithBytes } from '@mysten/sui.js/cryptography';
 
 import { Level, logger } from './logger';
 import { Pool } from './pool';
 import type { SplitStrategy } from './splitStrategies';
 import type { TransactionBlockWithLambda } from './transactions';
+import type { TransactionBlock } from '@mysten/sui.js/transactions';
+import type { Signature } from './types';
 
 /**
  * A class that orchestrates the execution of transaction blocks using multiple worker pools.
@@ -62,6 +64,8 @@ export class ExecutorServiceHandler {
    * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
    * @param requestType (Optional) The ExecuteTransactionRequestType to use for executing the transaction block.
    * @param retries The maximum number of retries in case of errors (default: 3).
+   * @param sponsorLambda (Optional) A function that acts upon the transaction block before execution.
+   * Useful for sponsoring transactions.
    * @returns A Promise that resolves to the result of the transaction block execution.
    * @throws An error if all retries fail.
    */
@@ -71,6 +75,9 @@ export class ExecutorServiceHandler {
     splitStrategy?: SplitStrategy,
     options?: SuiTransactionBlockResponseOptions,
     requestType?: ExecuteTransactionRequestType,
+    sponsorLambda?: (
+      txb: TransactionBlock,
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes | Signature]>,
     retries = 3,
   ) {
     let res;
@@ -84,6 +91,7 @@ export class ExecutorServiceHandler {
           splitStrategy,
           options,
           requestType,
+          sponsorLambda,
         );
       } catch (e) {
         logger.log(
@@ -128,6 +136,8 @@ export class ExecutorServiceHandler {
    * @param options (Optional) The SuiTransactionBlockResponseOptions to use for executing the transaction block.
    * @param requestType (Optional) The ExecuteTransactionRequestType to use for executing the transaction block.
    * @param splitStrategy (Optional) The SplitStrategy to use for splitting the main pool and getting a new worker pool.
+   * @param sponsorLambda (Optional) A function that acts upon the transaction block just before execution.
+   * Use it to generate a sender and sponsor signature for the transaction block.
    * @returns A Promise that resolves to the SuiTransactionBlockResponse object returned by executing the transaction block.
    */
   private async executeFlow(
@@ -137,6 +147,9 @@ export class ExecutorServiceHandler {
     splitStrategy?: SplitStrategy,
     options?: SuiTransactionBlockResponseOptions,
     requestType?: ExecuteTransactionRequestType,
+    sponsorLambda?: (
+      txb: TransactionBlock,
+    ) => Promise<[SignatureWithBytes, SignatureWithBytes | Signature]>,
   ) {
     let worker: Pool | undefined;
     try {
@@ -166,6 +179,7 @@ export class ExecutorServiceHandler {
           client: client,
           options,
           requestType,
+          sponsorLambda,
         });
       } catch (e) {
         logger.log(

@@ -6,19 +6,22 @@ transactions on the Sui network to help avoid object equivocation and locking.
 ## Quickstart
 
 ### Installation
+
 ```bash
 npm i suioop
 ```
 
 ### High-level usage
-**Note**: _This is not a working example - it just shows a high-level overview of how 
+
+**Note**: _This is not a working example - it just shows a high-level overview of how
 the library is used.
 You can find a more detailed example in the [section below](#Example-code)._
+
 ```typescript
 // Initialize the ExecutorServiceHandler.
 const eshandler = await ExecutorServiceHandler.initialize(
-adminKeypair,
-suiClient,
+  adminKeypair,
+  suiClient,
 );
 
 /// An then for each incoming request...
@@ -33,23 +36,23 @@ const promise = eshandler.execute(myTransactionBlock, suiClient, splitStrategy);
 
 **Equivocation** is a common pitfall for builders using owned objects:
 Implementing horizontal scaling or concurrency for a service that executes
-transactions on Sui in the natural way results in an architecture that issues 
+transactions on Sui in the natural way results in an architecture that issues
 multiple transactions in parallel from the same account.
 
-The community largely avoids using owned objects as a result, which also means 
-they don’t benefit from their lower latency, which is a **unique selling point** 
-for Sui. On top of that, they are impossible to completely avoid, because the 
+The community largely avoids using owned objects as a result, which also means
+they don’t benefit from their lower latency, which is a **unique selling point**
+for Sui. On top of that, they are impossible to completely avoid, because the
 transaction’s gas coin must be owned.
 
 Finally, the situation is exacerbated by **gas smashing** (which combines automatically
 all transaction’s gas coins into one) and our SDK’s default **coin selection** logic
-which uses all the `0x2::coin::Coin<0x2::sui::SUI>`s owned by an address for every transaction’s 
-gas payment. These defaults make sending transactions from an individual’s wallet 
-simple (doing so automatically cleans up coin dust), but mean that developers 
-writing services need to work against the defaults to maintain distinct gas 
+which uses all the `0x2::coin::Coin<0x2::sui::SUI>`s owned by an address for every transaction’s
+gas payment. These defaults make sending transactions from an individual’s wallet
+simple (doing so automatically cleans up coin dust), but mean that developers
+writing services need to work against the defaults to maintain distinct gas
 coins to run transactions in parallel.
 
-**This library is a solution to the above, simplifying access to owned objects from 
+**This library is a solution to the above, simplifying access to owned objects from
 back-end services that also need to take advantage of concurrency,
 without equivocating their objects.**
 
@@ -58,44 +61,43 @@ without equivocating their objects.**
 The main modules of the library are `executorServiceHandler.ts` and `pool.ts`.
 
 - `executorServiceHandler.ts` contains the logic of the executor service - meaning
-that it acts like a load balancer, distributing the transactions to the worker pools.
+  that it acts like a load balancer, distributing the transactions to the worker pools.
 - `pool.ts` contains the logic of the worker pools.
-
 
 As a user of the library you will only need to use the `executorServiceHandler.ts` module.
 
 The basic idea of our solution is the `ExecutorServiceHandler` to use multiple **worker pools**
-contained in a `workersQueue` where each one of them will execute one of the transactions 
-provided by the user when calling the `execute(...)` function. 
+contained in a `workersQueue` where each one of them will execute one of the transactions
+provided by the user when calling the `execute(...)` function.
 
 The flow goes as follows:
 
 1. First we initialize the `ExecutorServiceHandler` containing only one `mainPool`.
-Then whenever a transaction is submitted to the `ExecutorServiceHandler`, it will
-try to find if there is an available **worker pool** to sign and execute the transaction. 
->**Note** that the **main pool** is not a **worker pool**, meaning that it does not
-> execute transactions. It is only used to store the objects and coins of the account,
-> and to provide them to the worker pools when needed.
+   Then whenever a transaction is submitted to the `ExecutorServiceHandler`, it will
+   try to find if there is an available **worker pool** to sign and execute the transaction.
+
+   > **Note** that the **main pool** is not a **worker pool**, meaning that it does not
+   > execute transactions. It is only used to store the objects and coins of the account,
+   > and to provide them to the worker pools when needed.
 
 2. If a worker pool is not found, _the executor handler will create one by splitting
-the mainPool_ - i.e. taking a part of the **mainPool**'s objects and coins and creating a new worker pool.  
-This is how the executor handler scales up. You can define the split logic by providing
-a `SplitStrategy` object to the `ExecutorServiceHandler` on initialization. If you don't provide a splitStrategy,
-the `DefaultSplitStrategy` will be used.
+   the mainPool_ - i.e. taking a part of the **mainPool**'s objects and coins and creating a new worker pool.  
+   This is how the executor handler scales up. You can define the split logic by providing
+   a `SplitStrategy` object to the `ExecutorServiceHandler` on initialization. If you don't provide a splitStrategy,
+   the `DefaultSplitStrategy` will be used.
 
 ### Example code
 
 Let's define an example to make things clearer: Assume that we need to execute 10 transactions that transfer 100 MIST each to a fixed recipient.
 
 Prerequisites for the code of this section to run:
+
 - You need to already have **at least** one coin of type `0x2::coin::Coin<0x2::sui::SUI>` in your wallet **for each**
-transaction that you need to execute in parallel (in our case 10 coins).
+  transaction that you need to execute in parallel (in our case 10 coins).
 - Each `Coin<SUI>` should have enough balance to execute each transaction.
 
 ```typescript
-import { 
-  SuiClient,
-} from '@mysten/sui.js/client';
+import { SuiClient } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
 import { fromB64 } from '@mysten/sui.js/utils';
@@ -105,14 +107,14 @@ import { fromB64 } from '@mysten/sui.js/utils';
 function createPaymentTxb(recipient: string): TransactionBlock {
   const txb = new TransactionBlock();
   const [coin] = txb.splitCoins(
-    txb.gas, 
-    [txb.pure(1000000)] // Amount to be transferred to the recipient
+    txb.gas,
+    [txb.pure(1000000)], // Amount to be transferred to the recipient
   );
   txb.transferObjects([coin], txb.pure(recipient));
   return txb;
 }
 // Define your admin keypair and client
-const ADMIN_SECRET_KEY: string = "<your-address-secret-key>";
+const ADMIN_SECRET_KEY: string = '<your-address-secret-key>';
 const adminPrivateKeyArray = Uint8Array.from(
   Array.from(fromB64(ADMIN_SECRET_KEY)),
 );
@@ -123,26 +125,22 @@ const adminKeypair = Ed25519Keypair.fromSecretKey(
 const client = new SuiClient({
   url: process.env.SUI_NODE!,
 });
-
 ```
 
 Now we set up the service handler and to execute the transactions we
- defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
+defined above, we will use the `execute` method of the `ExecutorServiceHandler` class.
 
 ```typescript
 import { ExecutorServiceHandler } from 'suioop';
 
 // Setup the executor service
-const eshandler = await ExecutorServiceHandler.initialize(
-  adminKeypair,
-  client,
-);
+const eshandler = await ExecutorServiceHandler.initialize(adminKeypair, client);
 // Define the number of transactions to execute
 const promises = [];
 let txb: TransactionBlockWithLambda;
 for (let i = 0; i < 10; i++) {
   txb = new TransactionBlockWithLambda(() =>
-    ceatePaymentTxb("<recipient-address>"),
+    ceatePaymentTxb('<recipient-address>'),
   );
   promises.push(eshandler.execute(txb, client));
 }
@@ -152,34 +150,35 @@ const results = await Promise.allSettled(promises);
 ```
 
 > Notice that we are using a `TransactionBlockWithLambda()` and not `TransactionBlock()`.
-`TransactionBlockWithLambda` is a more flexible way of defining transaction blocks.
-What differs is that the transaction block will be created later, 
-just before the transaction execution is done by a worker pool. 
+> `TransactionBlockWithLambda` is a more flexible way of defining transaction blocks.
+> What differs is that the transaction block will be created later,
+> just before the transaction execution is done by a worker pool.
 
 It's that simple! 🚀
 
 ### Defining a custom SplitStrategy
 
 In the above example, given that we have not defined a split strategy explicitly, we have
-used the `DefaultSplitStrategy`. 
+used the `DefaultSplitStrategy`.
 
-This default split strategy only picks enough gas coins (i.e., coins of type `0x2::coin::Coin<0x2::sui::SUI>`) 
+This default split strategy only picks enough gas coins (i.e., coins of type `0x2::coin::Coin<0x2::sui::SUI>`)
 from the `mainPool` that their sum of balances surpasses a minimum threshold, and creates a new
 worker pool only containing these gas coins.
 
-It fulfils the minimum requirement needed for a transaction block to be executed: _the client 
+It fulfils the minimum requirement needed for a transaction block to be executed: _the client
 should always need to be able to pay for the gas of the transaction_.
 
 However, in more complex scenarios, you might want to define your own split strategy.
 
-Let's assume that you would like to execute multiple transactions that transfer an object 
-of type `CapyNFT` each to a different recipient. 
+Let's assume that you would like to execute multiple transactions that transfer an object
+of type `CapyNFT` each to a different recipient.
 
-In order for this to work, the `ExecutorServiceHandler` would need to split 
+In order for this to work, the `ExecutorServiceHandler` would need to split
 the `mainPool` in a way such that every worker:
+
 1. Contains at least one `CapyNFT` object
 2. Contains at least a coin (or set of coins) with a total balance enough to pay
-for the gas of the transaction.
+   for the gas of the transaction.
 
 To do this, you have to implement the `SplitStrategy` interface. In detail:
 
@@ -188,12 +187,13 @@ class MyCustomSplitStrategy implements SplitStrategy {
   private capyIncluded = false;
   private balanceSoFar = 0;
   private readonly minimumBalance;
-  
+
   public pred(obj: PoolObject | undefined) {
     if (!obj) throw new Error('No object found!.');
     // If we have fulfilled each requirement then terminate the split by returning null
     // This will stop the split process and the worker pool will be created
-    const terminateWhen = this.balanceSoFar >= this.minimumBalance && this.capyIncluded;
+    const terminateWhen =
+      this.balanceSoFar >= this.minimumBalance && this.capyIncluded;
     if (terminateWhen) {
       return null;
     }
@@ -223,13 +223,14 @@ in the `splitStrategies.ts` file.
 ## Tying it all together: end-to-end examples
 
 ### Use case 1: Parallel coin transfers service—Multiple Coins
+
 Assume that we have a service that needs to do payments of size `50000000` MIST to multiple recipients in parallel.
 
 Before creating an `ExecutorServiceHandler` instance that will execute each incoming transaction,
 we first need to have a set of coins that will be used to do the coin transferring and pay for the gas of each transaction.
 
 > **Note**: `ExecutorServiceHandler` creates worker pools that handle the execution of the transactions.
-> The maximum number of worker pools that can be created is tightly coupled with the number 
+> The maximum number of worker pools that can be created is tightly coupled with the number
 > of your account's coins.
 
 Here is the code that creates the coins by splitting a single coin 20
@@ -241,11 +242,11 @@ import { SuiClient } from '@mysten/sui.js/client/';
 import type { SuiObjectRef, SuiObjectResponse } from '@mysten/sui.js/client/';
 
 const client = new SuiClient({
-      url: 'https://fullnode.testnet.sui.io:443',
-    });
+  url: 'https://fullnode.testnet.sui.io:443',
+});
 
-const objectId: string = "<your-coin-object-id>"; // A 
-const yourAddressSecretKey: string = "<your-address-secret-key>";
+const objectId: string = '<your-coin-object-id>'; // A
+const yourAddressSecretKey: string = '<your-address-secret-key>';
 
 const numberOfCoinsToCreate = 5;
 /// Splits a specific coin and then transfer the new coins to the same address.
@@ -299,34 +300,35 @@ Now that we have the coins, we can create the `ExecutorServiceHandler` instance 
 
 Note that we provide the `DefaultSplitStrategy` as a parameter to the `ExecutorServiceHandler` constructor
 setting the `minimumBalance` equal to `300000000`, meaning that the worker pool that will be created will need
-to have a set of coins that the sum of their balances is greater or equal to this. 
+to have a set of coins that the sum of their balances is greater or equal to this.
+
 ```typescript
 import { ExecutorServiceHandler } from 'suioop';
 import { DefaultSplitStrategy } from 'suioop';
 
 // Setup the executor service
-const eshandler = await ExecutorServiceHandler.initialize(
-  adminKeypair,
-  client,
-);
+const eshandler = await ExecutorServiceHandler.initialize(adminKeypair, client);
 // Define the number of transactions to execute
 const promises = [];
 let txb: TransactionBlockWithLambda;
 for (let i = 0; i < 10; i++) {
   txb = new TransactionBlockWithLambda(
-    () => createPaymentTxb("<recipient-address>") // Use a test user address to receive the txbs
-  );  
+    () => createPaymentTxb('<recipient-address>'), // Use a test user address to receive the txbs
+  );
   promises.push(
     eshandler.execute(
-      txb, client, new DefaultSplitStrategy(300000000) // Each pool will contain coins with a total balance of 300000000 MIST
-    ));
+      txb,
+      client,
+      new DefaultSplitStrategy(300000000), // Each pool will contain coins with a total balance of 300000000 MIST
+    ),
+  );
 }
 
 // Collect the promise results
 const results = await Promise.allSettled(promises);
 ```
 
-> **Note**: Providing a `SplitStrategy` is optional. 
+> **Note**: Providing a `SplitStrategy` is optional.
 > If you don't provide one, the `DefaultSplitStrategy` will be used, which also has a default minimum balance.
 > But for demonstration purposes, we provide here a minimum pool balance of 300000000.
 
@@ -337,13 +339,14 @@ Similar to the previous example,
 we first need to have a set of coins that will be used to pay for the gas of each transaction.
 In addition, we need to have a set of admin caps that will be used to mint the NFTs.
 
-Apart from the coin creation that we did earlier, 
+Apart from the coin creation that we did earlier,
 you need to create multiple admin caps for your account.
 
-To do this, you can either use the `createAdminCap` function in your 
+To do this, you can either use the `createAdminCap` function in your
 smart contract, or generate multiple admin caps on package publishing.
 You can test this by using the `move_examples/nft_app` example.
 Notice how we create multiple admin caps in `genesis.move`:
+
 ```move
 // ...
 // Generate 20 Admin Caps, for parallelization of transactions
@@ -359,35 +362,35 @@ i = i + 1;
 ```
 
 Now that we have the coins and the admin caps, we can define the
-`mintNFTTxb` function that will create and return the transaction block 
+`mintNFTTxb` function that will create and return the transaction block
 of type `TransactionBlockWithLambda`.
 
 ```typescript
 function mintNFTTxb(
-        env: EnvironmentVariables,
-        adminKeypair: Ed25519Keypair,
+  env: EnvironmentVariables,
+  adminKeypair: Ed25519Keypair,
 ): TransactionBlockWithLambda {
- const txbLambda = (adminCapId: string) => {
-  const txb = new TransactionBlock();
-  const hero = txb.moveCall({
-   arguments: [
-    txb.object(adminCapId),
-    txb.pure('zed'),
-    txb.pure('gold'),
-    txb.pure(3),
-    txb.pure('ipfs://example.com/'),
-   ],
-   target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
-  });
+  const txbLambda = (adminCapId: string) => {
+    const txb = new TransactionBlock();
+    const hero = txb.moveCall({
+      arguments: [
+        txb.object(adminCapId),
+        txb.pure('zed'),
+        txb.pure('gold'),
+        txb.pure(3),
+        txb.pure('ipfs://example.com/'),
+      ],
+      target: `${env.NFT_APP_PACKAGE_ID}::hero_nft::mint_hero`,
+    });
 
-  txb.transferObjects(
-          [hero],
-          txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
-  );
-  txb.setGasBudget(10000000);
-  return txb;
- };
- return new TransactionBlockWithLambda(txbLambda, ['AdminCap']);
+    txb.transferObjects(
+      [hero],
+      txb.pure(adminKeypair.getPublicKey().toSuiAddress()),
+    );
+    txb.setGasBudget(10000000);
+    return txb;
+  };
+  return new TransactionBlockWithLambda(txbLambda, ['AdminCap']);
 }
 ```
 
@@ -395,32 +398,30 @@ Having done the preparatory steps above, it's time to create the
 `ExecutorServiceHandler` instance and execute the transactions.
 
 ```typescript
-const eshandler = await ExecutorServiceHandler.initialize(
-        adminKeypair,
-        client,
-);
+const eshandler = await ExecutorServiceHandler.initialize(adminKeypair, client);
 const promises: Promise<SuiTransactionBlockResponse>[] = [];
 let txb: TransactionBlockWithLambda;
 for (let i = 0; i < NUMBER_OF_TRANSACTION_TO_EXECUTE; i++) {
- txb = mintNFTTxb(env, adminKeypair);
- promises.push(
-         eshandler.execute(
-                 txb,
-                 client,
-                 new IncludeAdminCapStrategy("<your-nft-package-id>"),
-         ),
- );
+  txb = mintNFTTxb(env, adminKeypair);
+  promises.push(
+    eshandler.execute(
+      txb,
+      client,
+      new IncludeAdminCapStrategy('<your-nft-package-id>'),
+    ),
+  );
 }
 
 const results = await Promise.allSettled(promises);
 results.forEach((result) => {
- if (result.status === 'rejected') {
-  console.error(result.reason);
- }
+  if (result.status === 'rejected') {
+    console.error(result.reason);
+  }
 });
 ```
 
 ## Processing Flow
+
 The overall processing flow is depicted in the following flowchart:
 
 ![](https://github.com/MystenLabs/sui_execution_handler/blob/main/sui-exec-handler-flowchart.png)
@@ -432,6 +433,7 @@ The overall processing flow is depicted in the following flowchart:
 Install dependencies with `npm install`
 
 ### Code consistency
+
 Before committing your changes, run `npm run lint` to check for code style consistency.
 
 ### Testing
@@ -439,7 +441,7 @@ Before committing your changes, run `npm run lint` to check for code style consi
 Tests are a great way to get familiar with the library.
 For each test scenario, there is a small description of the test's purpose and the library's commands to achieve that.
 
-To **set up** the tests environment use `./test/initial_setup.sh`
+To **set up** the tests environment navigate to the test folder and run `./initial_setup.sh <network>` where network can be `testnet`, `mainnet` or `devnet`. Omit the network param for `localnet`.
 
 The script will create a `.test.env` file in the test folder.
 When the script is complete you only need to add a `ADMIN_SECRET_KEY` and a `TEST_USER_SECRET` to the `.env`.

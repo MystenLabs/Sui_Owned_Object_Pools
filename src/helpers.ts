@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 import type { SuiClient } from '@mysten/sui.js/client';
+import type { Signature } from './types';
 
 /**
  * Checks if an object is "Immutable" by looking up its data on the blockchain.
@@ -35,4 +36,13 @@ export function isCoin(
   ofType = '0x2::coin::Coin<0x2::sui::SUI>',
 ) {
   return objectType === ofType;
+}
+
+/**
+ * Checks if the given input is of Signature type or not.
+ * @param signature The input to check.
+ * @returns True if the input is of Signature type, false otherwise.
+ */
+export function isSignature(signature: any): signature is Signature {
+  return typeof signature === 'string';
 }

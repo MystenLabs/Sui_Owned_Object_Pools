@@ -119,3 +119,41 @@ export class IncludeAdminCapStrategy implements SplitStrategy {
     return this.balanceSoFar >= this.minimumBalance && this.adminCapIncluded;
   }
 }
+
+/**
+ * Similar to IncludeAdminCapStrategy but without containing gas coin objects
+ * since this will be used for sponsored transactions.
+ */
+export class SponsoredAdminCapStrategy implements SplitStrategy {
+  private readonly adminCapIdentifier: string;
+  private readonly packageId: string;
+
+  private adminCapIncluded = false;
+
+  /**
+   * Creates a new instance of the Pool class.
+   * @param packageId - The ID of the package containing the AdminCap.
+   * @param adminCapIdentifier - A name used to identify the AdminCap object.
+   */
+  constructor(packageId: string, adminCapIdentifier = 'AdminCap') {
+    this.packageId = packageId;
+    this.adminCapIdentifier = adminCapIdentifier;
+  }
+  public pred(obj: PoolObject | undefined) {
+    if (!obj) throw new Error('No object found!.');
+    if (this.adminCapIncluded) {
+      return null;
+    }
+    if (
+      obj.type.includes(this.adminCapIdentifier) &&
+      obj.type.includes(this.packageId)
+    ) {
+      this.adminCapIncluded = true;
+      return true;
+    }
+    return false;
+  }
+  public succeeded() {
+    return this.adminCapIncluded;
+  }
+}
