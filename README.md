@@ -222,6 +222,8 @@ in the `splitStrategies.ts` file.
 
 ## Tying it all together: end-to-end examples
 
+> **Tip**: You can find the code and run each use case in the [test/unit/executorServiceHandler.test.ts](https://github.com/MystenLabs/Sui_Owned_Object_Pools/blob/3d5c984d9754b9da0f0081964ac4ca590c6e2e95/src/executorServiceHandler.ts) file.
+
 ### Use case 1: Parallel coin transfers service—Multiple Coins
 
 Assume that we have a service that needs to do payments of size `50000000` MIST to multiple recipients in parallel.
@@ -419,6 +421,61 @@ results.forEach((result) => {
   }
 });
 ```
+
+### Use case 3: Sponsor the mints of NFTs concurrently using multiple Admin Caps
+
+This time we need to do the same thing as in case 2, but instead of paying for the gas of the mint transactions,
+another entity will sponsor the transaction block.
+That entity can be either an account or another service.
+
+We will still use the `mintNFTTxb` function that we defined in the previous example, to build 
+our transaction block. 
+However, this time we no longer need the worker to have coins to pay for the gas,
+and therefore we need a different split strategy: [SponsoredAdminCapStrategy](https://github.com/MystenLabs/Sui_Owned_Object_Pools/blob/3d5c984d9754b9da0f0081964ac4ca590c6e2e95/src/splitStrategies.ts#L127).
+This strategy includes admin caps in the worker pool, and will not include any coins.
+
+What we also need to do is to provide the `sponsorLambda` with the address of the sponsor account.
+This function is a callback, similar to the `TransactionBlockLambda` that we defined in the previous example,
+but it is executed from inside the worker pool *just before the sign and execution of the transaction block*,
+meaning that we can use it
+to add the **sponsor logic** to our transaction block that is built using `TransactionBlockLambda`.
+
+To clarify, those are the steps that the worker pool will follow:
+1. Build the transaction block using the `TransactionBlockLambda` of the `TransactionBlockWithLambda` object.
+2. Apply the `sponsorLambda` callback to the transaction block.
+3. Sign and execute the transaction block.
+
+To make this more concrete, let's see the code of the sponsor lambda:
+```typescript
+// (...) 
+
+const sponsorLambda = async (
+        txb: TransactionBlock,
+): Promise<[SignatureWithBytes, SignatureWithBytes]> => {
+   const kindBytes = await txb.build({
+      client: client,
+      onlyTransactionKind: true,
+   });
+   const tx = TransactionBlock.fromKind(kindBytes);
+   tx.setSender(env.ADMIN_ADDRESS); // Sender is the one that signs the txb ADMIN_ADDRESS
+   tx.setGasOwner(env.TEST_USER_ADDRESS); // Set as sponsor (gas owner) the TEST_USER_ADDRESS
+   let sponsorKeypair = getKeyPair(env.TEST_USER_SECRET);
+   let sponsoredTx = await sponsorKeypair.signTransactionBlock(
+           await tx.build({ client: client }),
+   );
+   const senderKeypair = getKeyPair(env.ADMIN_SECRET_KEY);
+   let signedTX = await senderKeypair.signTransactionBlock(
+           await TransactionBlock.from(sponsoredTx.bytes).build({
+              client: client,
+           }),
+   );
+   return [signedTX, sponsoredTx];
+};
+
+// (...)
+```
+
+You can find the full code of this example [here](https://github.com/MystenLabs/Sui_Owned_Object_Pools/blob/3d5c984d9754b9da0f0081964ac4ca590c6e2e95/test/unit/executorServiceHandler.test.ts#L124).
 
 ## Processing Flow
 
