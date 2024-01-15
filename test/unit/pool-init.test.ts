@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 import { SuiClient } from '@mysten/sui.js/client';
-import type { SuiObjectRef } from '@mysten/sui.js/src/types/objects';
 
 import { Pool } from '../../src/pool';
 import type { SplitStrategy } from '../../src/splitStrategies';
@@ -54,7 +53,7 @@ describe('✂️ Pool splitting', () => {
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       // eslint-disable-next-line no-unused-vars
-      pred: (_: SuiObjectRef | undefined) => false,
+      pred: (_: any | undefined) => false,
       succeeded: () => true,
     };
     const new_pool: Pool = await initial_pool.split(client, splitStrategy);
@@ -73,7 +72,7 @@ describe('✂️ Pool splitting', () => {
     const num_objects_before_split = initial_pool.objects.size;
     const splitStrategy: SplitStrategy = {
       // eslint-disable-next-line no-unused-vars
-      pred: (_: SuiObjectRef | undefined) => null,
+      pred: (_: any | undefined) => null,
       succeeded: () => true,
     };
     const new_pool: Pool = await initial_pool.split(client, splitStrategy);
