@@ -54,6 +54,7 @@
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",
     "@babel/preset-typescript": "^7.23.2",
+    "@types/jest": "^29.5.11",
     "@types/node": "^20.8.5",
     "@types/redis": "^4.0.11",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
