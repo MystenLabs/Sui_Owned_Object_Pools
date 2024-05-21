@@ -26,6 +26,11 @@ describe('🌊 Basic flow of sign & execute tx block', () => {
     jest.clearAllMocks();
     const helper = new SetupTestsHelper();
     await helper.setupAdmin(2, 5);
+
+    console.log("Admin Address: ", env.ADMIN_ADDRESS);
+    console.log("Test User Address: ", env.TEST_USER_ADDRESS);
+    console.log("NFT_APP_PACKAGE_ID: ", env.NFT_APP_PACKAGE_ID);
+    console.log("NFT_APP_ADMIN_CAP: ", env.NFT_APP_ADMIN_CAP);
     await sleep(5000);
   });
 

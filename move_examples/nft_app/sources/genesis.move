@@ -4,21 +4,19 @@
 module cms::genesis {
 
   // Sui imports.
-  use sui::transfer;
   use sui::package::{Self};
-  use sui::object::{Self, UID};
-  use sui::tx_context::{sender, TxContext};
+  use sui::tx_context::{sender};
 
   // Manager capability assigned to whoever deploys the contract
   // AdminCap is transferrable in case the owner needs to change addresses.
-  struct AdminCap has key, store { 
+  public struct AdminCap has key, store { 
     id: UID 
   }
 
   // OTW to create the publisher
-  struct GENESIS has drop {}
+  public struct GENESIS has drop {}
 
-  struct SharedItem has key { 
+  public struct SharedItem has key { 
     id: UID
     }
 
@@ -36,7 +34,7 @@ module cms::genesis {
     });
 
     // Generate 20 Admin Caps, for parallelization of transactions
-    let i = 0;
+    let mut i = 0;
     while (i <= 20) {
       // Transfer Admin Cap to sender
       transfer::public_transfer(AdminCap {
