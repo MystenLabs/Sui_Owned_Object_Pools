@@ -3,16 +3,12 @@ module cms::hero_nft {
     // Std library imports
     use std::string::{String};
 
-    // Sui imports
-    use sui::tx_context::{TxContext};
-    use sui::object::{Self, UID};
 
     // Module dependency
     use cms::genesis::{AdminCap, SharedItem};
-    use sui::transfer;
 
     /// The Hero NFT struct
-    struct Hero has key, store 
+    public struct Hero has key, store 
     {
         id: UID,
         name: String,       
