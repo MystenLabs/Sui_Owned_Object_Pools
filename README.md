@@ -3,6 +3,14 @@
 A library that provides a set of tools for managing multiple concurrent
 transactions on the Sui network to help avoid object equivocation and locking.
 
+# ⚠️ Warning: Deprecated Library
+
+**Sui_Owned_Object_Pools is no longer maintained.** For a more reliable and efficient alternative, please use the `ParallelTransactionExecutor` available in Sui's TypeScript SDK.
+
+The new implementation offers better performance and more robust functionality. We highly recommend transitioning to `ParallelTransactionExecutor` to ensure the best experience and support.
+
+For more information about `ParallelTransactionExecutor`, please refer to the [Sui TypeScript SDK documentation](https://sdk.mystenlabs.com/typescript/executors#paralleltransactionexecutor).
+
 ## Quickstart
 
 ### Installation
